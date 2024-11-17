@@ -20,7 +20,7 @@
 <h3 align="center">GENG5511 Research Project</h3>
 
   <p align="center">
-    project_description
+    Equation of State for Solid Argon Valid for Temperatures up to 760 K and Pressures up to 6300 MPa
     <br />
     <a href="https://github.com/Iash5225/GENG5511_Thesis"><strong>Explore the docs »</strong></a>
     <br />
@@ -65,6 +65,12 @@
 
 <!-- ABOUT THE PROJECT -->
 ## About The Project
+This repository provides a comprehensive thermodynamic model for solid argon, covering temperatures up to 760 K and pressures up to 6300 MPa. Based on the Helmholtz energy framework, the model predicts thermodynamic properties such as cell volume, heat capacity, thermal expansivity, and bulk moduli with high accuracy. The model integrates experimental data, including new cell volume measurements, and employs advanced optimization techniques to ensure reliable and physically consistent behaviour across the specified range.
+
+## Key Features
+- Validated predictions for solid argon properties under extreme conditions.
+- Auxiliary functions for sublimation and melting pressure calculations.
+- Applications in cryogenic system design and thermodynamic research.
 
 
 
@@ -75,6 +81,8 @@
 ### Built With
 
 [![Python][python-shield]](https://www.python.org)
+[![MATLAB][matlab-shield]](https://www.mathworks.com/)
+
 
 
 
@@ -216,3 +224,4 @@ Project Link: [https://github.com/Iash5225/GENG5511_Thesis](https://github.com/I
 [linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
 [linkedin-url]: https://linkedin.com/in/iashbashir
 [python-shield]: https://img.shields.io/badge/Python-3.9%2B-blue.svg?style=for-the-badge&logo=python&logoColor=white
+[matlab-shield]: https://img.shields.io/badge/MATLAB-R2023a-orange.svg?style=for-the-badge&logo=mathworks&logoColor=white
