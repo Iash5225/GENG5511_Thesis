@@ -7,6 +7,7 @@ R = 8.31451
 ZERO = 0.0
 HALF = 0.5
 ONE = 1.0
+TWO = 2.0
 THREE = 3.0
 FOUR = 4.0
 EIGHT = 8.0

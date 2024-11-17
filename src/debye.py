@@ -24,8 +24,4 @@ def Debye(X):
     return Debye
 
 
-# Example usage
-if __name__ == "__main__":
-    Xvalue = 3.0  # Example input value
-    result = Debye(Xvalue)
-    print(f"Debye({Xvalue}) = {result}")
+

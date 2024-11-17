@@ -1,3 +1,5 @@
+from constants import ZERO, HALF,TWO
+
 def Cheval(N: int, a: list, T:float):
     """
     This function evaluates a Chebyshev series using the Clenshaw method
@@ -12,17 +14,14 @@ def Cheval(N: int, a: list, T:float):
         float: The evaluated Chebyshev series at T.
     """    
 
-    ZERO = 0.0
-    HALF = 0.5
     TEST = 0.6
-    TWO = 2.0
 
     U1 = ZERO  # Initialize variables
 
     if abs(T) < TEST:
         # Standard Clenshaw method
         U0 = ZERO
-        Tt = 2.0 * T
+        Tt = TWO * T
         for i in range(N - 1, -1, -1):  # Loop from N-1 to 0
             U2 = U1
             U1 = U0
@@ -34,7 +33,7 @@ def Cheval(N: int, a: list, T:float):
 
         if T > ZERO:
             # T >= 0.6 code
-            Tt = 2.0 * (T - HALF)
+            Tt = TWO * (T - HALF)
             for i in range(N - 1, -1, -1):
                 d2 = d1
                 U2 = U1
@@ -43,7 +42,7 @@ def Cheval(N: int, a: list, T:float):
             Cheval = (d1 + d2) / TWO
         else:
             # T <= -0.6 code
-            Tt = 2.0 * (T + HALF)
+            Tt = TWO * (T + HALF)
             for i in range(N - 1, -1, -1):
                 d2 = d1
                 U2 = U1

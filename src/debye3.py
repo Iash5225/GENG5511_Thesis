@@ -1,6 +1,6 @@
 import numpy as np
 from constants import ADEB3, ZERO, HALF, ONE, THREE, FOUR, EIGHT, TWENTY, PT375, DEBINF
-
+from cheval import Cheval
 
 def Debye3(Xvalue):
     """
