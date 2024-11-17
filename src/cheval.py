@@ -1,6 +1,6 @@
-def Cheval(N, a, T):
+def Cheval(N: int, a: list, T:float):
     """
-    Cheval This function evaluates a Chebyshev series using the Clenshaw method
+    This function evaluates a Chebyshev series using the Clenshaw method
     with the Reinsch modification for numerical stability.
 
     Args:
