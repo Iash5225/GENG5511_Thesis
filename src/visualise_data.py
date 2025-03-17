@@ -114,7 +114,7 @@ def plot_melting_gas_data(data, gas_name):
 
     plt.title(f'Melting Temperature for {gas_name}', fontsize=14)
 
-    output_filepath = f"{OUTPUT_FILEPATH}{gas_name}_melting_temperatures_plot.png"
+    output_filepath = f"{OUTPUT_FILEPATH}\{gas_name}_melting_temperatures_plot.png"
     plt.savefig(output_filepath, dpi=300, bbox_inches='tight')
     plt.show()
 
@@ -216,7 +216,7 @@ def plot_thermal_coefficient_gas_data(data, gas_name):
     # Adjust layout to make space for the legend
     plt.tight_layout(rect=[0, 0, 0.85, 1])
 
-    output_filepath = f"{OUTPUT_FILEPATH}{gas_name}_thermal_coefficient_plot.png"
+    output_filepath = f"{OUTPUT_FILEPATH}\{gas_name}_thermal_coefficient_plot.png"
     plt.savefig(output_filepath, dpi=300, bbox_inches='tight')
     plt.show()
 
