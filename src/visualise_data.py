@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from pint import UnitRegistry
 from constants import *
 import numpy as np
+from scipy.optimize import curve_fit
 ureg = UnitRegistry()
 
 
@@ -22,6 +23,12 @@ def atm_to_mpa(pressure_atm):
     pressure = pressure_atm * ureg.atm
     # Convert to MPa
     return pressure.to(ureg.megapascal).magnitude
+
+def melting_auxillary_function(T):
+    """
+    Compute the melting pressure using the given equation.
+    """
+    return P_t * (1 + E_4 * (T / T_t - 1) ** E_5 + E_6 * (T / T_t - 1) ** E_7)
 
 
 def bar_to_mpa(pressure_bar):
@@ -73,6 +80,12 @@ def plot_melting_gas_data(data, gas_name):
             alpha=0.8,  # Slight transparency for overlapping markers
             facecolors='none',  # Open symbols
         )
+    P_melt = melting_auxillary_function(gas_data['Temperature_Kelvin'])
+    
+    # plt.scatter(gas_data['Temperature_Kelvin'], P_melt, color='black',
+    #          linestyle='-', linewidth=2, label='Calculated Melting Pressure')
+    plt.plot(np.sort(gas_data['Temperature_Kelvin']),
+             np.sort(P_melt), color='black')
 
     # Set labels with italicized text to match LaTeX style in the image
     plt.xlabel(r'$T \,/\, K$', fontsize=14, fontstyle='italic')
@@ -104,6 +117,65 @@ def plot_melting_gas_data(data, gas_name):
     output_filepath = f"{OUTPUT_FILEPATH}{gas_name}_melting_temperatures_plot.png"
     plt.savefig(output_filepath, dpi=300, bbox_inches='tight')
     plt.show()
+
+
+def melting_pressure_equation(T, e_4, e_5, e_6, e_7):
+    """
+    Equation for melting pressure with safe power handling.
+    """
+    term1 = np.where(T / T_t - 1 >= 0, (T / T_t - 1) ** e_5, 0)
+    term2 = np.where(T / T_t - 1 >= 0, (T / T_t - 1) ** e_7, 0)
+
+    return P_t * (1 + e_4 * term1 + e_6 * term2)
+
+
+
+def fit_melting_pressure(data):
+    """
+    Fit the melting pressure equation to experimental data to find e_4, e_5, e_6, and e_7.
+    Returns a dictionary with gas names as keys and optimized parameters as values.
+    """
+    gas_coefficients = {}
+    for gas in data['gas'].unique():
+        gas_data = data[data['gas'] == gas].copy()
+
+        # Ensure numerical data types
+        gas_data['Temperature_Kelvin'] = pd.to_numeric(
+            gas_data['Temperature_Kelvin'], errors='coerce')
+        gas_data['Pressure_Mpa'] = pd.to_numeric(
+            gas_data['Pressure_Mpa'], errors='coerce')
+
+        # Drop NaN and infinite values
+        gas_data = gas_data.dropna(
+            subset=['Temperature_Kelvin', 'Pressure_Mpa'])
+        gas_data = gas_data[(np.isfinite(gas_data['Temperature_Kelvin'].values)) & (
+            np.isfinite(gas_data['Pressure_Mpa'].values))]
+
+        # Extract cleaned arrays
+        T_data = gas_data['Temperature_Kelvin'].values
+        P_data = gas_data['Pressure_Mpa'].values
+
+        # print(T_data)
+        # print(P_data)
+
+        # Ensure enough valid data points
+        if len(T_data) < 4:
+            print(f"Not enough valid data to fit for {gas}. Skipping.")
+            gas_coefficients[gas] = None
+            continue
+
+        # Initial guesses for e_4, e_5, e_6, e_7
+        initial_guess = [1500, 1.7, 4600, 0.98]
+
+        try:
+            popt, _ = curve_fit(melting_pressure_equation,
+                                T_data, P_data, p0=initial_guess)
+            gas_coefficients[gas] = popt
+        except RuntimeError:
+            print(f"Could not fit curve for {gas}")
+            gas_coefficients[gas] = None
+
+    return gas_coefficients
 
 
 def plot_thermal_coefficient_gas_data(data, gas_name):
@@ -172,19 +244,29 @@ if __name__ == "__main__":
     melting_data = convert_pressure(melting_data)
 
     # Filter data by gas type
-    krypton_data = melting_data[melting_data['gas'] == 'krypton']
-    xenon_data = melting_data[melting_data['gas'] == 'xenon']
-    neon_data = melting_data[melting_data['gas'] == 'neon']
+    # krypton_data = melting_data[melting_data['gas'] == 'krypton']
+    # xenon_data = melting_data[melting_data['gas'] == 'xenon']
+    # neon_data = melting_data[melting_data['gas'] == 'neon']
 
-    krypton_data_thermal_coefficient = thermalcoefficient_data[
-        thermalcoefficient_data['gas'] == 'krypton']
-    xenon_data_thermal_coefficient = thermalcoefficient_data[thermalcoefficient_data['gas'] == 'xenon']
-    neon_data_thermal_coefficient = thermalcoefficient_data[thermalcoefficient_data['gas'] == 'neon']
+    # krypton_data_thermal_coefficient = thermalcoefficient_data[
+    #     thermalcoefficient_data['gas'] == 'krypton']
+    # xenon_data_thermal_coefficient = thermalcoefficient_data[thermalcoefficient_data['gas'] == 'xenon']
+    # neon_data_thermal_coefficient = thermalcoefficient_data[thermalcoefficient_data['gas'] == 'neon']
+
+    # Fit constants to the data per gas
+    gas_coefficients = fit_melting_pressure(melting_data)
+    for gas, params in gas_coefficients.items():
+        if params is not None:
+            print(
+                f"Optimized Constants for {gas}: e_4={params[0]:.2f}, e_5={params[1]:.3f}, e_6={params[2]:.2f}, e_7={params[3]:.5f}")
 
     # Individual plots for each gas
     plot_melting_gas_data(melting_data, 'krypton')
     plot_melting_gas_data(melting_data, 'xenon')
     plot_melting_gas_data(melting_data, 'neon')
+
+    # Fit constants to the data
+
 
     # Individual plots for each gas
     plot_thermal_coefficient_gas_data(thermalcoefficient_data, 'krypton')

@@ -32,12 +32,18 @@ ADEB3 = [
 ]
 
 # Constants for melting pressure equation
-E_4 = 1506.54
-E_5 = 1.731
-E_6 = 4677.16
-E_7 = 0.98493
-P_t = 1  # Reference pressure, adjust as needed
-T_t = 273.15  # Reference temperature, adjust as needed
+# E_4 = 1506.54
+# E_5 = 1.731
+# E_6 = 4677.16
+# E_7 = 0.98493
+
+# krypton
+E_4 = 1411.48
+E_5 = 1.851
+E_6 = 5233.98
+E_7 = 0.99137
+P_t = 0.072954  # Reference pressure, adjust as needed
+T_t = 115.8  # Reference temperature, adjust as needed
 
 FILEPATH = r"C:\Users\iashb\OneDrive - The University of Western Australia\UWA\05. Year 5\Semester 1\GENG5511 MPE Engineering Research Project\Project\Research_Project\GENG5511_Thesis\data\literature_data.xlsx"
 OUTPUT_FILEPATH = r"C:\Users\iashb\OneDrive - The University of Western Australia\UWA\05. Year 5\Semester 1\GENG5511 MPE Engineering Research Project\Project\Research_Project\GENG5511_Thesis\img\output"
