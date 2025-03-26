@@ -38,6 +38,9 @@ def bar_to_mpa(pressure_bar):
     return pressure.to(ureg.megapascal).magnitude
 
 
+def cal_to_joules(heat_capacity_cal):
+    return heat_capacity_cal*4.184
+
 def convert_pressure(data):
     data['Pressure_MPa_from_atm'] = data['Pressure_atm'].apply(
         lambda x: atm_to_mpa(x) if pd.notnull(x) else None)
@@ -50,6 +53,19 @@ def convert_pressure(data):
         data['Pressure_MPa_from_bar']).combine_first(data['Pressure_MPa_from_kbar'])
 
     return data.drop(columns=['Pressure_MPa_from_atm', 'Pressure_MPa_from_bar', 'Pressure_MPa_from_kbar'])
+
+
+def convert_heat_capacity(data):
+    data['cal_to_joules'] = data['cp_cal/mol/deg'].apply(
+        lambda x: cal_to_joules(x) if pd.notnull(x) else None)
+    data['millijoules_to_joules'] = data['cp_mJ/mol/K'].apply(
+        lambda x: x * 1000 if pd.notnull(x) else None)
+
+    data['cp_J/mol/K'] = data['cp_J/mol/K'].combine_first(
+        data['cal_to_joules']).combine_first(data['millijoules_to_joules'])
+    return data
+    
+
 def plot_melting_gas_data(data, gas_name):
     gas_data = data[data['gas'] == gas_name]
     grouped = gas_data.groupby(['year', 'author'])
@@ -61,7 +77,7 @@ def plot_melting_gas_data(data, gas_name):
     for i, ((year, author), group) in enumerate(grouped):
         plt.scatter(
             group['Temperature_Kelvin'], group['Pressure_Mpa'],
-            s=100,  # Smaller marker size
+            s=50,  # Smaller marker size
             label=f"{year}, {author}",
             # Assigning custom color
             edgecolor=CUSTOMCOLORS[i % len(CUSTOMCOLORS)],
@@ -106,8 +122,8 @@ def plot_melting_gas_data(data, gas_name):
              np.sort(P_melt), color='black')
 
     # Set labels with italicized text to match LaTeX style in the image
-    plt.xlabel(r'$T \,/\, K$', fontsize=14, fontstyle='italic')
-    plt.ylabel(r'$p \,/\, MPa$', fontsize=14, fontstyle='italic')
+    plt.xlabel(r'$\mathit{T}$ / K', fontsize=14)
+    plt.ylabel(r'$\mathit{p}$ / MPa', fontsize=14)
 
     # Set a logarithmic scale for the y-axis
     plt.yscale('log')
@@ -217,7 +233,7 @@ def plot_thermal_coefficient_gas_data(data, gas_name):
         plt.scatter(
             group['Temperature_Kelvin'], group['Alpha_Kelvin^-1'],
             label=f"{year}, {author}",
-            s=100,  # Marker size
+            s=MARKERSIZE,  # Marker size
             # Assigning custom color
             edgecolor=CUSTOMCOLORS[i % len(CUSTOMCOLORS)],
             # Assigning custom marker
@@ -226,9 +242,9 @@ def plot_thermal_coefficient_gas_data(data, gas_name):
             facecolors='none',  # Open symbols
         )
 
-    plt.xlabel('Temperature (Kelvin)', fontsize=12)
-    plt.ylabel('Alpha (K^-1)', fontsize=12)
-    plt.title(f'Thermal Coefficient for {gas_name}', fontsize=14)
+    plt.xlabel(r'$\mathit{T}$ / K', fontsize=AXIS_FONT_SIZE)
+    plt.ylabel(r'$\mathit{\alpha}$ / $K^{-1}$', fontsize=AXIS_FONT_SIZE)
+    plt.title(f'Thermal Coefficient for {gas_name}', fontsize=AXIS_FONT_SIZE)
 
     # Set a logarithmic scale for the y-axis
     plt.yscale('log')
@@ -249,6 +265,49 @@ def plot_thermal_coefficient_gas_data(data, gas_name):
     plt.show()
 
 
+def plot_heat_capacity_gas_data(data, gas_name):
+    gas_data = data[data['gas'] == gas_name]
+    grouped = gas_data.groupby(['year', 'author'])
+
+    # Define markers and colors
+
+    plt.figure(figsize=(10, 6))
+    for i, ((year, author), group) in enumerate(grouped):
+        plt.scatter(
+            group['Temperature_Kelvin'], group['cp_J/mol/K'],
+            label=f"{year}, {author}",
+            s=MARKERSIZE,  # Marker size
+            # Assigning custom color
+            edgecolor=CUSTOMCOLORS[i % len(CUSTOMCOLORS)],
+            # Assigning custom marker
+            marker=CUSTOMMARKERS[i % len(CUSTOMMARKERS)],
+            # marker=markers[i % len(markers)],  # Marker style
+            facecolors='none',  # Open symbols
+        )
+
+    plt.xlabel(r'$\mathit{T}$ / K', fontsize=AXIS_FONT_SIZE)
+    plt.ylabel(r'$\mathit{c_p}$ / $Jmol^{-1}K^{-1}$', fontsize=AXIS_FONT_SIZE)
+    plt.title(f'Heat Capacity for {gas_name}', fontsize=AXIS_FONT_SIZE)
+
+    # Set a logarithmic scale for the y-axis
+    plt.yscale('log')
+
+    # Place the legend outside the plot
+    plt.legend(
+        loc='upper left',
+        bbox_to_anchor=(1.05, 1),  # Position the legend outside the plot
+        fontsize=8,
+        ncol=1  # Adjust the number of columns in the legend
+    )
+    plt.grid(True, linestyle='--', alpha=0.6)
+    # Adjust layout to make space for the legend
+    plt.tight_layout(rect=[0, 0, 0.85, 1])
+
+    output_filepath = f"{OUTPUT_FILEPATH}\{gas_name}_heat_capacity_plot.png"
+    plt.savefig(output_filepath, dpi=300, bbox_inches='tight')
+    plt.show()
+
+
 # Main Execution
 if __name__ == "__main__":
     
@@ -257,6 +316,13 @@ if __name__ == "__main__":
     melting_data = pd.read_excel(FILEPATH, sheet_name=MELTING_SHEETNAME, header=1)
     thermalcoefficient_data = pd.read_excel(
         FILEPATH, sheet_name=THERMAL_COEFFICIENT_SHEETNAME, header=1)
+    
+    heat_capacity_data = pd.read_excel(
+        FILEPATH, sheet_name=HEAT_CAPACITY_SHEETNAME, header=1)
+    
+    
+    
+
     melting_data = melting_data.drop(melting_data.columns[0], axis=1)
     # data = data.dropna()  # Drop rows with missing values
     melting_data['Temperature_Kelvin'] = pd.to_numeric(
@@ -265,9 +331,13 @@ if __name__ == "__main__":
         melting_data['Pressure_atm'], errors='coerce')
     thermalcoefficient_data = thermalcoefficient_data.drop(
         thermalcoefficient_data.columns[0], axis=1)
+    heat_capacity_data = heat_capacity_data.drop(
+        heat_capacity_data.columns[0], axis=1)
 
     # Convert Pressures
     melting_data = convert_pressure(melting_data)
+
+    heat_capacity_data = convert_heat_capacity(heat_capacity_data)
 
     # Fit constants to the data per gas
     gas_coefficients = fit_melting_pressure(melting_data, gas_params)
@@ -275,6 +345,9 @@ if __name__ == "__main__":
         if params is not None:
             print(f"Optimized Constants for {gas}: e_4={params[0]:.2f}, e_5={params[1]:.3f}, e_6={params[2]:.2f}, e_7={params[3]:.5f}")
 
+    plot_heat_capacity_gas_data(heat_capacity_data, 'krypton')
+    plot_heat_capacity_gas_data(heat_capacity_data, 'xenon')
+    plot_heat_capacity_gas_data(heat_capacity_data, 'neon')
     # Individual plots for each gas
     plot_melting_gas_data(melting_data, 'krypton')
     plot_melting_gas_data(melting_data, 'xenon')
@@ -284,4 +357,7 @@ if __name__ == "__main__":
     plot_thermal_coefficient_gas_data(thermalcoefficient_data, 'krypton')
     plot_thermal_coefficient_gas_data(thermalcoefficient_data, 'xenon')
     plot_thermal_coefficient_gas_data(thermalcoefficient_data, 'neon')
+
+    
+    
 

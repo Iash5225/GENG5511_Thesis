@@ -67,6 +67,7 @@ OUTPUT_FILEPATH = r"C:\Users\iashb\OneDrive - The University of Western Australi
 MELTING_SHEETNAME = "melting"
 # Replace with the actual sheet name
 THERMAL_COEFFICIENT_SHEETNAME = "thermal expansion coefficient"
+HEAT_CAPACITY_SHEETNAME = "heat capacity"
 
 
 # Define custom colors (normalized, excluding white)
@@ -108,4 +109,7 @@ MELTING_XENON_X_MIN = 150
 MELTING_XENON_X_MAX = 300
 MELTING_XENON_Y_MIN = 1
 MELTING_XENON_Y_MAX = 10**3
+
+MARKERSIZE=50
+AXIS_FONT_SIZE=14
 
