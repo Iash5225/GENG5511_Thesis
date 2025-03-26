@@ -32,18 +32,34 @@ ADEB3 = [
 ]
 
 # Constants for melting pressure equation
-# E_4 = 1506.54
-# E_5 = 1.731
-# E_6 = 4677.16
-# E_7 = 0.98493
 
 # krypton
-E_4 = 1411.48
-E_5 = 1.851
-E_6 = 5233.98
-E_7 = 0.99137
-P_t = 0.072954  # Reference pressure, adjust as needed
-T_t = 115.8  # Reference temperature, adjust as needed
+KRYPTON_E_4 = 1411.48
+KRYPTON_E_5 = 1.851
+KRYPTON_E_6 = 5233.98
+KRYPTON_E_7 = 0.99137
+KRYPTON_P_t = 0.072954  
+KRYPTON_T_t = 115.8
+
+XENON_E_4 = 2125.98
+XENON_E_5 = 1.674
+XENON_E_6 = 4332.03
+XENON_E_7 = 0.95133
+XENON_P_t = 0.08177
+XENON_T_t = 161.405
+
+NEON_E_4 = 4268.49
+NEON_E_5 = 1.345
+NEON_E_6 = 436.71
+NEON_E_7 = -0.23241
+NEON_P_t = 0.043332
+NEON_T_t = 24.5561
+
+gas_params = {
+    'krypton': (KRYPTON_T_t, KRYPTON_P_t),
+    'xenon': (XENON_T_t, XENON_P_t),
+    'neon': (NEON_T_t, NEON_P_t)
+}
 
 FILEPATH = r"C:\Users\iashb\OneDrive - The University of Western Australia\UWA\05. Year 5\Semester 1\GENG5511 MPE Engineering Research Project\Project\Research_Project\GENG5511_Thesis\data\literature_data.xlsx"
 OUTPUT_FILEPATH = r"C:\Users\iashb\OneDrive - The University of Western Australia\UWA\05. Year 5\Semester 1\GENG5511 MPE Engineering Research Project\Project\Research_Project\GENG5511_Thesis\img\output"
@@ -75,3 +91,21 @@ CUSTOMCOLORS = np.array([
 
 # Define only filled markers
 CUSTOMMARKERS = ['o', 's', 'D', '^', 'v', '>', '<', 'p', 'h', '*']
+
+# Axis Limits
+MELTING_KRYPTON_X_MIN=100
+MELTING_KRYPTON_X_MAX=300
+MELTING_KRYPTON_Y_MIN=1
+MELTING_KRYPTON_Y_MAX = 10**3
+
+MELTING_NEON_X_MIN = 0
+MELTING_NEON_X_MAX = 350
+MELTING_NEON_Y_MIN = 10**1
+MELTING_NEON_Y_MAX = 10**4
+
+
+MELTING_XENON_X_MIN = 150
+MELTING_XENON_X_MAX = 300
+MELTING_XENON_Y_MIN = 1
+MELTING_XENON_Y_MAX = 10**3
+
