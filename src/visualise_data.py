@@ -59,10 +59,10 @@ def convert_heat_capacity(data):
     data['cal_to_joules'] = data['cp_cal/mol/deg'].apply(
         lambda x: cal_to_joules(x) if pd.notnull(x) else None)
     data['millijoules_to_joules'] = data['cp_mJ/mol/K'].apply(
-        lambda x: x * 1000 if pd.notnull(x) else None)
+        lambda x: x / 1000 if pd.notnull(x) else None)
 
     data['cp_J/mol/K'] = data['cp_J/mol/K'].combine_first(
-        data['cal_to_joules']).combine_first(data['millijoules_to_joules'])
+        data['cal_to_joules']).combine_first(data['millijoules_to_joules'].combine_first(data['cp_Ws/mol/deg']))
     return data
     
 
@@ -265,6 +265,70 @@ def plot_thermal_coefficient_gas_data(data, gas_name):
     plt.show()
 
 
+def plot_melting_pressure_deviation(data, gas_name):
+    """
+    Plot the percentage deviation of calculated melting pressure from experimental data
+    for a given gas.
+    """
+    gas_data = data[data['gas'] == gas_name].copy()
+
+    # Clean and filter numeric data
+    # Select constants for the gas
+    if gas_name == 'krypton':
+        e_4, e_5, e_6, e_7 = KRYPTON_E_4, KRYPTON_E_5, KRYPTON_E_6, KRYPTON_E_7
+        T_t, P_t = KRYPTON_T_t, KRYPTON_P_t
+        X_MIN = MELTING_KRYPTON_X_MIN
+        X_MAX = MELTING_KRYPTON_X_MAX
+    elif gas_name == 'xenon':
+        e_4, e_5, e_6, e_7 = XENON_E_4, XENON_E_5, XENON_E_6, XENON_E_7
+        T_t, P_t = XENON_T_t, XENON_P_t
+        X_MIN = MELTING_XENON_X_MIN
+        X_MAX = MELTING_XENON_X_MAX
+    else:
+        e_4, e_5, e_6, e_7 = NEON_E_4, NEON_E_5, NEON_E_6, NEON_E_7
+        T_t, P_t = NEON_T_t, NEON_P_t
+        X_MIN = MELTING_NEON_X_MIN
+        X_MAX = MELTING_NEON_X_MAX
+
+    # Calculate theoretical melting pressure
+    gas_data['P_calc'] = melting_pressure_equation(
+        gas_data['Temperature_Kelvin'], e_4, e_5, e_6, e_7, T_t, P_t)
+    
+    print(gas_data['P_calc'])
+
+    # Calculate % deviation
+    gas_data['Deviation_percent'] = 100 * \
+        (gas_data['Pressure_Mpa'] - gas_data['P_calc']) / \
+        gas_data['Pressure_Mpa']
+
+    # Plot grouped by year-author
+    grouped = gas_data.groupby(['year', 'author'])
+
+    plt.figure(figsize=(10, 6))
+    for i, ((year, author), group) in enumerate(grouped):
+        plt.plot(group['Temperature_Kelvin'], group['Deviation_percent'],
+                 marker=CUSTOMMARKERS[i % len(CUSTOMMARKERS)],
+                 linestyle='None',
+                 markersize=10,
+                 label=f"{year}, {author}",
+                 color=CUSTOMCOLORS[i % len(CUSTOMCOLORS)])
+
+    plt.axhline(0, color='black', linewidth=1)
+    plt.xlabel(r'$\mathit{T}$ / K', fontsize=14)
+    plt.ylabel(
+        r'$100 \cdot (\mathit{p}_{\mathrm{exp}} - \mathit{p}_{\mathrm{calc}})/\mathit{p}_{\mathrm{exp}}$', fontsize=14)
+    plt.title(f'Melting Pressure Deviation for {gas_name}', fontsize=14)
+    plt.xlim(X_MIN, X_MAX)
+    plt.ylim(-10, 20)
+    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8)
+    plt.tight_layout(rect=[0, 0, 0.85, 1])
+
+    output_filepath = f"{OUTPUT_FILEPATH}\\{gas_name}_melting_pressure_deviation.png"
+    plt.savefig(output_filepath, dpi=300)
+    plt.show()
+
+
 def plot_heat_capacity_gas_data(data, gas_name):
     gas_data = data[data['gas'] == gas_name]
     grouped = gas_data.groupby(['year', 'author'])
@@ -352,6 +416,10 @@ if __name__ == "__main__":
     plot_melting_gas_data(melting_data, 'krypton')
     plot_melting_gas_data(melting_data, 'xenon')
     plot_melting_gas_data(melting_data, 'neon')
+
+    plot_melting_pressure_deviation(melting_data, 'krypton')
+    plot_melting_pressure_deviation(melting_data, 'xenon')
+    plot_melting_pressure_deviation(melting_data, 'neon')
 
     # Individual plots for each gas
     plot_thermal_coefficient_gas_data(thermalcoefficient_data, 'krypton')
