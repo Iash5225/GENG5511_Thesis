@@ -294,8 +294,6 @@ def plot_melting_pressure_deviation(data, gas_name):
     gas_data['P_calc'] = melting_pressure_equation(
         gas_data['Temperature_Kelvin'], e_4, e_5, e_6, e_7, T_t, P_t)
     
-    print(gas_data['P_calc'])
-
     # Calculate % deviation
     gas_data['Deviation_percent'] = 100 * \
         (gas_data['Pressure_Mpa'] - gas_data['P_calc']) / \
@@ -306,12 +304,28 @@ def plot_melting_pressure_deviation(data, gas_name):
 
     plt.figure(figsize=(10, 6))
     for i, ((year, author), group) in enumerate(grouped):
-        plt.plot(group['Temperature_Kelvin'], group['Deviation_percent'],
-                 marker=CUSTOMMARKERS[i % len(CUSTOMMARKERS)],
-                 linestyle='None',
-                 markersize=10,
-                 label=f"{year}, {author}",
-                 color=CUSTOMCOLORS[i % len(CUSTOMCOLORS)])
+        plt.scatter(
+            group['Temperature_Kelvin'], group['Deviation_percent'],
+            label=f"{year}, {author}",
+            s=MARKERSIZE,  # Marker size
+            # Assigning custom color
+            edgecolor=CUSTOMCOLORS[i % len(CUSTOMCOLORS)],
+            # Assigning custom marker
+            marker=CUSTOMMARKERS[i % len(CUSTOMMARKERS)],
+            # marker=markers[i % len(markers)],  # Marker style
+            facecolors='none',  # Open symbols
+        )
+
+
+    # plt.figure(figsize=(10, 6))
+    # for i, ((year, author), group) in enumerate(grouped):
+    #     plt.scatter(group['Temperature_Kelvin'], group['Deviation_percent'],
+    #              marker=CUSTOMMARKERS[i % len(CUSTOMMARKERS)],
+    #              linestyle='None',
+    #              facecolors='none',
+    #              markersize=10,
+    #              label=f"{year}, {author}",
+    #              color=CUSTOMCOLORS[i % len(CUSTOMCOLORS)])
 
     plt.axhline(0, color='black', linewidth=1)
     plt.xlabel(r'$\mathit{T}$ / K', fontsize=14)
