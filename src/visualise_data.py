@@ -146,7 +146,7 @@ def plot_melting_gas_data(data, gas_name):
     # Adjust layout to make space for the legend
     plt.tight_layout(rect=[0, 0, 0.85, 1])
 
-    plt.title(f'Melting Temperature for {gas_name}', fontsize=14)
+    plt.title(f'Melting Pressure for {gas_name}', fontsize=14)
 
     output_filepath = f"{OUTPUT_FILEPATH}\{gas_name}_melting_temperatures_plot.png"
     plt.savefig(output_filepath, dpi=300, bbox_inches='tight')
@@ -315,31 +315,19 @@ def plot_melting_pressure_deviation(data, gas_name):
             # marker=markers[i % len(markers)],  # Marker style
             facecolors='none',  # Open symbols
         )
-
-
-    # plt.figure(figsize=(10, 6))
-    # for i, ((year, author), group) in enumerate(grouped):
-    #     plt.scatter(group['Temperature_Kelvin'], group['Deviation_percent'],
-    #              marker=CUSTOMMARKERS[i % len(CUSTOMMARKERS)],
-    #              linestyle='None',
-    #              facecolors='none',
-    #              markersize=10,
-    #              label=f"{year}, {author}",
-    #              color=CUSTOMCOLORS[i % len(CUSTOMCOLORS)])
-
     plt.axhline(0, color='black', linewidth=1)
     plt.xlabel(r'$\mathit{T}$ / K', fontsize=14)
     plt.ylabel(
         r'$100 \cdot (\mathit{p}_{\mathrm{exp}} - \mathit{p}_{\mathrm{calc}})/\mathit{p}_{\mathrm{exp}}$', fontsize=14)
     plt.title(f'Melting Pressure Deviation for {gas_name}', fontsize=14)
     plt.xlim(X_MIN, X_MAX)
-    plt.ylim(-10, 20)
+    plt.ylim(MELTING_DEVIATION_Y_MIN, MELTING_DEVIATION_Y_MAX)
     plt.grid(True, linestyle='--', alpha=0.5)
     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8)
     plt.tight_layout(rect=[0, 0, 0.85, 1])
 
     output_filepath = f"{OUTPUT_FILEPATH}\\{gas_name}_melting_pressure_deviation.png"
-    plt.savefig(output_filepath, dpi=300)
+    plt.savefig(output_filepath, dpi=300, bbox_inches='tight')
     plt.show()
 
 
