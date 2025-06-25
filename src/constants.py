@@ -41,12 +41,18 @@ KRYPTON_E_7 = 0.98822
 KRYPTON_P_t = 0.072954  
 KRYPTON_T_t = 115.8
 
-XENON_E_4 = 4053.39
-XENON_E_5 = 1.291
-XENON_E_6 = 2231.27
-XENON_E_7 = 0.84562
+# XENON_E_4 = 4053.39
+# XENON_E_5 = 1.291
+# XENON_E_6 = 2231.27
+# XENON_E_7 = 0.84562
 XENON_P_t = 0.08177
 XENON_T_t = 161.405
+
+XENON_E_4 = 4136.681829018883
+XENON_E_5 = 1.280037747122412
+XENON_E_6 = 2209.571430062904
+XENON_E_7 = 0.8558320170107692
+
 
 NEON_E_4 = 4151.27
 NEON_E_5 = 1.355
@@ -63,7 +69,7 @@ gas_params = {
 
 FILEPATH = r"C:\Users\iashb\OneDrive - The University of Western Australia\UWA\05. Year 5\Semester 1\GENG5511 MPE Engineering Research Project\Project\Research_Project\GENG5511_Thesis\data\literature_data.xlsx"
 OUTPUT_FILEPATH = r"C:\Users\iashb\OneDrive - The University of Western Australia\UWA\05. Year 5\Semester 1\GENG5511 MPE Engineering Research Project\Project\Research_Project\GENG5511_Thesis\img\output"
-XE_DATA_FILEPATH = r"C:\Users\iashb\OneDrive - UWA\UWA\05. Year 5\Semester 1\GENG5511 MPE Engineering Research Project\Project\Research_Project\GENG5511_Thesis\data\MASTER Krypton Literature Review.xlsx"
+XE_DATA_FILEPATH = r"C:\Users\iashb\OneDrive - UWA\UWA\05. Year 5\Semester 1\GENG5511 MPE Engineering Research Project\Project\Research_Project\GENG5511_Thesis\data\MASTER Xenon Literature Review.xlsx"
 
 
 MELTING_SHEETNAME = "Melting"
