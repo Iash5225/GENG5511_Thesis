@@ -173,7 +173,128 @@ def plot_melting_gas_data(data, gas_name: str):
     output_filepath = f"{OUTPUT_FILEPATH}\{gas_name}_melting_temperatures_plot.png"
     plt.savefig(output_filepath, dpi=300, bbox_inches='tight')
     plt.show()
+    
+    
+def plot_gas_data(data, gas_name: str,y_axis:str,filename:str = None,y_var: str = 'Pressure',y_units: str = 'MPa'):
+    """
+    plot_gas_data Plot Gas Data for any variable without fitting a model.
 
+    Args:
+        data (_type_):   DataFrame containing gas data.
+        gas_name (str):  Gas name to plot (e.g., 'xenon', 'krypton', 'neon').
+        y_axis (str):  Variable to plot on the y-axis (e.g., 'Pressure', 'Density', etc.)
+    """
+    grouped = data.groupby(['Year', 'Author'])
+
+    # Define markers and colors
+
+    plt.figure(figsize=(10, 6))
+
+    for i, ((year, author), group) in enumerate(grouped):
+        plt.scatter(
+            # Convert pressure to MPa
+            group['Temperature'], group[y_axis],
+            s=50,
+            label=f"{year}, {author}",
+            edgecolors=CUSTOMCOLORS[i % len(CUSTOMCOLORS)],
+            facecolors='none',
+            linewidths=1.5,
+            marker=CUSTOMMARKERS[i % len(CUSTOMMARKERS)],
+        )
+
+    # Set labels with italicized text to match LaTeX style in the image
+    plt.xlabel(r'$\mathit{T}$ / K', fontsize=14)
+    plt.ylabel(f'$\\mathit{{{y_var}}}$ / {y_units}', fontsize=14)
+
+
+    # Set a logarithmic scale for the y-axis
+    plt.yscale('log')
+
+    # Set x-axis limits similar to the uploaded image
+    # plt.xlim(X_MIN, X_MAX)
+    # plt.ylim(Y_MIN, Y_MAX)
+
+    # Place the legend outside the plot
+    plt.legend(
+        loc='upper left',
+        bbox_to_anchor=(1.05, 1),  # Position the legend outside the plot
+        fontsize=8,
+        ncol=1  # Adjust the number of columns in the legend
+    )
+    # Adjust layout to make space for the legend
+    plt.tight_layout(rect=[0, 0, 0.85, 1])
+    plt.title(f'{filename} for {gas_name}', fontsize=14)
+
+    output_filepath = f"{OUTPUT_FILEPATH}\{gas_name}_{filename}_plot.png"
+    plt.savefig(output_filepath, dpi=300, bbox_inches='tight')
+    plt.show()
+
+
+def plot_melting_pressure_deviation(data, gas_name):
+    """
+    Plot the percentage deviation of calculated melting pressure from experimental data
+    for a given gas.
+    """
+    data['Pressure'] = pd.to_numeric(data['Pressure']/1e6, errors='coerce')
+
+    # Clean and filter numeric data
+    # Select constants for the gas
+    if gas_name == 'krypton':
+        e_4, e_5, e_6, e_7 = KRYPTON_E_4, KRYPTON_E_5, KRYPTON_E_6, KRYPTON_E_7
+        T_t, P_t = KRYPTON_T_t, KRYPTON_P_t
+        X_MIN = MELTING_KRYPTON_X_MIN
+        X_MAX = MELTING_KRYPTON_X_MAX
+    elif gas_name == 'xenon':
+        e_4, e_5, e_6, e_7 = XENON_E_4, XENON_E_5, XENON_E_6, XENON_E_7
+        T_t, P_t = XENON_T_t, XENON_P_t
+        X_MIN = MELTING_XENON_X_MIN
+        X_MAX = MELTING_XENON_X_MAX
+    else:
+        e_4, e_5, e_6, e_7 = NEON_E_4, NEON_E_5, NEON_E_6, NEON_E_7
+        T_t, P_t = NEON_T_t, NEON_P_t
+        X_MIN = MELTING_NEON_X_MIN
+        X_MAX = MELTING_NEON_X_MAX
+
+    # Calculate theoretical melting pressure
+    data['P_calc'] = melting_pressure_equation(
+        data['Temperature'], e_4, e_5, e_6, e_7, T_t, P_t)
+
+    # Calculate % deviation
+    data['Deviation_percent'] = 100 * \
+        (data['Pressure'] - data['P_calc']) / \
+        data['Pressure']
+
+    # Plot grouped by year-author
+    grouped = data.groupby(['Year', 'Author'])
+
+    plt.figure(figsize=(10, 6))
+    plt.tick_params(direction='in', top=True, right=True)
+    for i, ((year, author), group) in enumerate(grouped):
+        plt.scatter(
+            group['Temperature'], group['Deviation_percent'],
+            label=f"{year}, {author}",
+            s=MARKERSIZE,  # Marker size
+            # Assigning custom color
+            edgecolor=CUSTOMCOLORS[i % len(CUSTOMCOLORS)],
+            # Assigning custom marker
+            marker=CUSTOMMARKERS[i % len(CUSTOMMARKERS)],
+            # marker=markers[i % len(markers)],  # Marker style
+            facecolors='none',  # Open symbols
+        )
+    plt.axhline(0, color='black', linewidth=1)
+    plt.xlabel(r'$\mathit{T}$ / K', fontsize=14)
+    plt.ylabel(
+        r'$100 \cdot (\mathit{p}_{\mathrm{exp}} - \mathit{p}_{\mathrm{calc}})/\mathit{p}_{\mathrm{exp}}$', fontsize=14)
+    plt.title(f'Melting Pressure Deviation for {gas_name}', fontsize=14)
+    plt.xlim(X_MIN, X_MAX)
+    plt.ylim(MELTING_DEVIATION_Y_MIN, MELTING_DEVIATION_Y_MAX)
+    # plt.grid(True, linestyle='--', alpha=0.5)
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8)
+    plt.tight_layout(rect=[0, 0, 0.85, 1])
+
+    output_filepath = f"{OUTPUT_FILEPATH}\\{gas_name}_melting_pressure_deviation.png"
+    plt.savefig(output_filepath, dpi=300, bbox_inches='tight')
+    plt.show()
 
 def read_melting_data(filepath, sheet_name):
     """
@@ -191,4 +312,34 @@ def read_melting_data(filepath, sheet_name):
     df = df.drop([0, 1], axis=0).reset_index(drop=True)
     df['Temperature'] = pd.to_numeric(df['Temperature'], errors='coerce')
     df['Pressure'] = pd.to_numeric(df['Pressure'], errors='coerce')
+    return df
+
+
+def read_fusion_data(filepath, sheet_name):
+    """
+    Reads and cleans melting temperature and pressure data from an Excel file.
+
+    Parameters:
+    - filepath: Path to the Excel file
+    - sheet_name: Sheet name containing the melting data
+
+    Returns:
+    - Cleaned Pandas DataFrame with columns: ['Year', 'Author', 'Temperature', 'Pressure']
+    """
+    df = pd.read_excel(filepath, sheet_name=sheet_name, header=2)
+    df = df.filter(
+        items=['Year', 'Author', 'Temperature', 'Change in Enthalpy'])
+    df = df.drop([0, 1], axis=0).reset_index(drop=True)
+    df['Temperature'] = pd.to_numeric(df['Temperature'], errors='coerce')
+    df['Change in Enthalpy'] = pd.to_numeric(df['Change in Enthalpy'], errors='coerce')
+    return df
+
+def read_thermal_coeff_data(filepath, sheet_name):
+    df = pd.read_excel(filepath, sheet_name=sheet_name, header=3)
+    df = df.filter(
+        items=['Year', 'Author', 'Temperature', 'Thermal Expansion Coefficient'])
+    df = df.drop([0, 1], axis=0).reset_index(drop=True)
+    df['Temperature'] = pd.to_numeric(df['Temperature'], errors='coerce')
+    df['Thermal Expansion Coefficient'] = pd.to_numeric(
+        df['Thermal Expansion Coefficient'], errors='coerce')
     return df

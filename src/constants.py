@@ -14,6 +14,11 @@ EIGHT = 8.0
 TWENTY = 20.0
 PT375 = 0.375
 
+READ_FROM_EXCEL = False  # Flag to read data from Excel files
+READ_FROM_TXT = True  # Flag to read data from text files
+DISPLAY_PLOTS = True  # Flag to display plots
+
+
 # Machine-dependent constants
 SMALLEST_POSITIVE = 2.2251E-308  # Smallest positive number
 SMALLEST_SPACING = 1.11E-16  # Smallest relative spacing
@@ -72,6 +77,8 @@ OUTPUT_FILEPATH = r"C:\Users\iashb\OneDrive - UWA\UWA\05. Year 5\Semester 1\GENG
 XE_DATA_FILEPATH = r"C:\Users\iashb\OneDrive - UWA\UWA\05. Year 5\Semester 1\GENG5511 MPE Engineering Research Project\Project\Research_Project\GENG5511_Thesis\data\MASTER Xenon Literature Review.xlsx"
 KR_DATA_FILEPATH = r"C:\Users\iashb\OneDrive - UWA\UWA\05. Year 5\Semester 1\GENG5511 MPE Engineering Research Project\Project\Research_Project\GENG5511_Thesis\data\MASTER Krypton Literature Review.xlsx"
 NE_DATA_FILEPATH = r"C:\Users\iashb\OneDrive - UWA\UWA\05. Year 5\Semester 1\GENG5511 MPE Engineering Research Project\Project\Research_Project\GENG5511_Thesis\data\MASTER Neon Literature Review.xlsx"
+TXT_DATA_FILEPATH = r"C:\Users\iashb\OneDrive - UWA\UWA\05. Year 5\Semester 1\GENG5511 MPE Engineering Research Project\Project\Research_Project\GENG5511_Thesis\data\txt"
+
 
 MELTING_SHEETNAME = "Melting"
 # Replace with the actual sheet name
