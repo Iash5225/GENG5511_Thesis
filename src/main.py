@@ -35,12 +35,19 @@ if __name__ == "__main__":
         # kr_heatsub_data = read_fusion_data(
         #     KR_DATA_FILEPATH, HEAT_OF_SUBLIMATION_SHEETNAME)
         
-        ne_thermal_coeff_data = read_thermal_coeff_data(
-            NE_DATA_FILEPATH, THERMAL_COEFFICIENT_SHEETNAME)
-        xe_thermal_coeff_data = read_thermal_coeff_data(
-            XE_DATA_FILEPATH, THERMAL_COEFFICIENT_SHEETNAME)
-        kr_thermal_coeff_data = read_thermal_coeff_data(
-            KR_DATA_FILEPATH, THERMAL_COEFFICIENT_SHEETNAME)
+        # ne_thermal_coeff_data = read_thermal_coeff_data(
+        #     NE_DATA_FILEPATH, THERMAL_COEFFICIENT_SHEETNAME)
+        # xe_thermal_coeff_data = read_thermal_coeff_data(
+        #     XE_DATA_FILEPATH, THERMAL_COEFFICIENT_SHEETNAME)
+        # kr_thermal_coeff_data = read_thermal_coeff_data(
+        #     KR_DATA_FILEPATH, THERMAL_COEFFICIENT_SHEETNAME)
+        
+        ne_heat_capacity_data = read_data(
+            NE_DATA_FILEPATH, HEAT_CAPACITY_SHEETNAME, "Heat Capacity", 2)
+        xe_heat_capacity_data = read_data(
+            XE_DATA_FILEPATH, HEAT_CAPACITY_SHEETNAME, "Heat Capacity", 2)
+        kr_heat_capacity_data = read_data(
+            KR_DATA_FILEPATH, HEAT_CAPACITY_SHEETNAME, "Heat Capacity", 2)
     
     else:
         # Read the txt files into DataFrames
@@ -58,13 +65,21 @@ if __name__ == "__main__":
         # kr_sublimation_data = pd.read_csv(
         #     f"{TXT_DATA_FILEPATH}\\krypton_sublimation_data.txt", sep='\t')
         
-        # Thermak Coefficients
-        ne_thermal_coeff_data = pd.read_csv(
-            f"{TXT_DATA_FILEPATH}\\neon_thermal_coeff_data.txt", sep='\t')
-        xe_thermal_coeff_data = pd.read_csv(
-            f"{TXT_DATA_FILEPATH}\\xenon_thermal_coeff_data.txt", sep='\t')
-        kr_thermal_coeff_data = pd.read_csv(
-            f"{TXT_DATA_FILEPATH}\\krypton_thermal_coeff_data.txt", sep='\t')
+        # Thermal Coefficients
+        # ne_thermal_coeff_data = pd.read_csv(
+        #     f"{TXT_DATA_FILEPATH}\\neon_thermal_coeff_data.txt", sep='\t')
+        # xe_thermal_coeff_data = pd.read_csv(
+        #     f"{TXT_DATA_FILEPATH}\\xenon_thermal_coeff_data.txt", sep='\t')
+        # kr_thermal_coeff_data = pd.read_csv(
+        #     f"{TXT_DATA_FILEPATH}\\krypton_thermal_coeff_data.txt", sep='\t')
+        
+        # Heat Capacity
+        ne_heat_capacity_data = pd.read_csv(
+            f"{TXT_DATA_FILEPATH}\\neon_heat_capacity_data.txt", sep='\t')
+        xe_heat_capacity_data = pd.read_csv(
+            f"{TXT_DATA_FILEPATH}\\xenon_heat_capacity_data.txt", sep='\t')
+        kr_heat_capacity_data = pd.read_csv(
+            f"{TXT_DATA_FILEPATH}\\krypton_heat_capacity_data.txt", sep='\t')
         
     # Save to txt files 
     
@@ -108,6 +123,13 @@ if __name__ == "__main__":
     # kr_thermal_coeff_data.to_csv(
     #     f"{TXT_DATA_FILEPATH}\\krypton_thermal_coeff_data.txt", sep='\t', index=False)
     
+    # Heat Capacity Data
+    ne_heat_capacity_data.to_csv(
+        f"{TXT_DATA_FILEPATH}\\neon_heat_capacity_data.txt", sep='\t', index=False)
+    xe_heat_capacity_data.to_csv(
+        f"{TXT_DATA_FILEPATH}\\xenon_heat_capacity_data.txt", sep='\t', index=False)
+    kr_heat_capacity_data.to_csv(
+        f"{TXT_DATA_FILEPATH}\\krypton_heat_capacity_data.txt", sep='\t', index=False)
 
     # Fit constants to the data per gas
     # gas_coefficients = fit_melting_pressure_single_gas(
@@ -149,9 +171,18 @@ if __name__ == "__main__":
         #             'Change in Enthalpy', 'Heat_of_Sublimation', '\Delta H', 'kJ/mol')
         
         # Thermal Expansion Coefficient
-        plot_gas_data(ne_thermal_coeff_data, 'neon','Thermal Expansion Coefficient',
-                      'Thermal Expansion Coefficient', 'alpha', '1/K')
-        plot_gas_data(xe_thermal_coeff_data, 'xenon','Thermal Expansion Coefficient',
-                      'Thermal Expansion Coefficient', 'alpha ', '1/K')
-        plot_gas_data(kr_thermal_coeff_data, 'krypton','Thermal Expansion Coefficient',
-                      'Thermal Expansion Coefficient', 'alpha', '1/K')
+        # plot_gas_data(ne_thermal_coeff_data, 'neon','Thermal Expansion Coefficient',
+        #               'Thermal Expansion Coefficient', 'alpha', '1/K')
+        # plot_gas_data(xe_thermal_coeff_data, 'xenon','Thermal Expansion Coefficient',
+        #               'Thermal Expansion Coefficient', 'alpha ', '1/K')
+        # plot_gas_data(kr_thermal_coeff_data, 'krypton','Thermal Expansion Coefficient',
+        #               'Thermal Expansion Coefficient', 'alpha', '1/K')
+        
+        # Heat Capacity
+        plot_gas_data(ne_heat_capacity_data, 'neon', 'Heat Capacity',
+                      'Heat Capacity', 'C_p', 'J/(mol*K)')
+        plot_gas_data(xe_heat_capacity_data, 'xenon', 'Heat Capacity',
+                      'Heat Capacity', 'C_p', 'J/(mol*K)')
+        plot_gas_data(kr_heat_capacity_data, 'krypton', 'Heat Capacity',
+                      'Heat Capacity', 'C_p', 'J/(mol*K)')
+        

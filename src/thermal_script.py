@@ -343,3 +343,14 @@ def read_thermal_coeff_data(filepath, sheet_name):
     df['Thermal Expansion Coefficient'] = pd.to_numeric(
         df['Thermal Expansion Coefficient'], errors='coerce')
     return df
+
+
+def read_data(filepath:str, sheet_name:str, variable:str,header_row=2):
+    df = pd.read_excel(filepath, sheet_name=sheet_name, header=header_row)
+    df = df.filter(
+        items=['Year', 'Author', 'Temperature', variable])
+    df = df.drop([0, 1], axis=0).reset_index(drop=True)
+    df['Temperature'] = pd.to_numeric(df['Temperature'], errors='coerce')
+    df[variable] = pd.to_numeric(
+        df[variable], errors='coerce')
+    return df
