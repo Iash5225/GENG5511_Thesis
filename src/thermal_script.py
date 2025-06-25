@@ -459,9 +459,9 @@ def fit_sublimation_pressure_single_gas(data, gas_name: str, gas_params: dict):
         print(e)
         return None
     # # Clean data
-    data['Temperature'] = pd.to_numeric(data['Temperature'], errors='coerce')
-    data['Pressure'] = pd.to_numeric(data['Pressure'], errors='coerce')
-    data = data.dropna(subset=['Temperature', 'Pressure'])
+    # data['Temperature'] = pd.to_numeric(data['Temperature'], errors='coerce')
+    # data['Pressure'] = pd.to_numeric(data['Pressure'], errors='coerce')
+    # data = data.dropna(subset=['Temperature', 'Pressure'])
     
     # Remove data where T >= T_t to ensure theta is positive
     data = data[data['Temperature'] < T_t]
@@ -479,7 +479,8 @@ def fit_sublimation_pressure_single_gas(data, gas_name: str, gas_params: dict):
 
 
     # Initial guess for [e1, e2, e3]
-    initial_guess = [10.763, -1.526, -0.425]
+    initial_guess = [-10.716997700852485, -
+                     2.343359989805985, 40.34512606102953]
 
     try:
         popt, _ = curve_fit(

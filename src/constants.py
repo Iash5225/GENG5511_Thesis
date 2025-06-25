@@ -16,7 +16,7 @@ PT375 = 0.375
 
 READ_FROM_EXCEL = False  # Flag to read data from Excel files
 READ_FROM_TXT = True  # Flag to read data from text files
-DISPLAY_PLOTS = False  # Flag to display plots
+DISPLAY_PLOTS = True  # Flag to display plots
 
 
 # Machine-dependent constants

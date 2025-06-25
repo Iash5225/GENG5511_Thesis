@@ -141,9 +141,9 @@ if __name__ == "__main__":
     # gas_coefficients = fit_sublimation_pressure_single_gas(
     #     ne_sublimation_data, 'neon', gas_params)
     # print(gas_coefficients)
-    # gas_coefficients = fit_sublimation_pressure_single_gas(
-    #     xe_sublimation_data, 'xenon', gas_params)
-    # print(gas_coefficients)
+    gas_coefficients = fit_sublimation_pressure_single_gas(
+        xe_sublimation_data, 'xenon', gas_params)
+    print(gas_coefficients)
     # gas_coefficients = fit_sublimation_pressure_single_gas(
     #     kr_sublimation_data, 'krypton', gas_params)
     # print(gas_coefficients)
@@ -169,6 +169,7 @@ if __name__ == "__main__":
         #             'Change in Enthalpy', 'Heat_of_Sublimation', '\Delta H', 'kJ/mol')
     
         # Sublimation Pressure
+        print("Plotting sublimation pressure data...")
         plot_sublimation_gas_data(ne_sublimation_data, 'neon')
         plot_sublimation_gas_data(xe_sublimation_data, 'xenon')
         plot_sublimation_gas_data(kr_sublimation_data, 'krypton')
