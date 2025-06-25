@@ -170,6 +170,25 @@ def plot_melting_gas_data(data, gas_name: str):
     plt.tight_layout(rect=[0, 0, 0.85, 1])
     plt.title(f'Melting Pressure for {gas_name}', fontsize=14)
 
-    # output_filepath = f"{OUTPUT_FILEPATH}\{gas_name}_melting_temperatures_plot.png"
-    # plt.savefig(output_filepath, dpi=300, bbox_inches='tight')
+    output_filepath = f"{OUTPUT_FILEPATH}\{gas_name}_melting_temperatures_plot.png"
+    plt.savefig(output_filepath, dpi=300, bbox_inches='tight')
     plt.show()
+
+
+def read_melting_data(filepath, sheet_name):
+    """
+    Reads and cleans melting temperature and pressure data from an Excel file.
+
+    Parameters:
+    - filepath: Path to the Excel file
+    - sheet_name: Sheet name containing the melting data
+
+    Returns:
+    - Cleaned Pandas DataFrame with columns: ['Year', 'Author', 'Temperature', 'Pressure']
+    """
+    df = pd.read_excel(filepath, sheet_name=sheet_name, header=2)
+    df = df.filter(items=['Year', 'Author', 'Temperature', 'Pressure'])
+    df = df.drop([0, 1], axis=0).reset_index(drop=True)
+    df['Temperature'] = pd.to_numeric(df['Temperature'], errors='coerce')
+    df['Pressure'] = pd.to_numeric(df['Pressure'], errors='coerce')
+    return df

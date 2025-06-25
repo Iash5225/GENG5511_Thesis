@@ -207,7 +207,7 @@ def fit_melting_pressure(data, gas_params):
         T_t, P_t = gas_params[gas]
 
         # Initial guesses for e_4, e_5, e_6, e_7
-        initial_guess = [1500, 1.7, 4600, 0.98]
+        initial_guess = [4053.39, 1.291, 2231.27, 0.84562]
 
         try:
             popt, _ = curve_fit(lambda T, e_4, e_5, e_6, e_7:
