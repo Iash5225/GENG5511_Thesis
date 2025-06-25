@@ -14,9 +14,9 @@ EIGHT = 8.0
 TWENTY = 20.0
 PT375 = 0.375
 
-READ_FROM_EXCEL = True  # Flag to read data from Excel files
-READ_FROM_TXT = False  # Flag to read data from text files
-DISPLAY_PLOTS = True  # Flag to display plots
+READ_FROM_EXCEL = False  # Flag to read data from Excel files
+READ_FROM_TXT = True  # Flag to read data from text files
+DISPLAY_PLOTS = False  # Flag to display plots
 
 
 # Machine-dependent constants
@@ -65,6 +65,19 @@ NEON_E_6 = 558.60
 NEON_E_7 = 0.16851
 NEON_P_t = 0.043332
 NEON_T_t = 24.5561
+
+# Sublimation pressure constants
+KRYPTON_E_1_SUB = -11.282244204117394
+KRYPTON_E_2_SUB = -0.7093001930612682
+KRYPTON_E_3_SUB = 33.25759584323366
+
+XENON_E_1_SUB = -10.716997700852485
+XENON_E_2_SUB = -2.343359989805985
+XENON_E_3_SUB = 40.34512606102953
+
+NEON_E_1_SUB = -11.599350113036117
+NEON_E_2_SUB = 3.3460287269468196
+NEON_E_3_SUB = -215.74347571753444
 
 gas_params = {
     'krypton': (KRYPTON_T_t, KRYPTON_P_t),

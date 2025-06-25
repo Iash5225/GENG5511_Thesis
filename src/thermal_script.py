@@ -175,6 +175,73 @@ def plot_melting_gas_data(data, gas_name: str):
     plt.show()
     
     
+def plot_sublimation_gas_data(data, gas_name: str):
+    """
+    plot_sublimation_gas_data Plotting Sublimation Pressure Data for a Gas
+
+    Args:
+        data (dataframe): DataFrame containing sublimation pressure data for a specific gas.
+        gas_name (str): String representing the name of the gas (e.g., 'xenon', 'krypton', 'neon').
+    """
+    grouped = data.groupby(['Year', 'Author'])
+
+    # Define markers and colors
+
+    plt.figure(figsize=(10, 6))
+
+    for i, ((year, author), group) in enumerate(grouped):
+        plt.scatter(
+            # Convert pressure to MPa
+            group['Temperature'], group['Pressure'] / 1e6,
+            s=50,
+            label=f"{year}, {author}",
+            edgecolors=CUSTOMCOLORS[i % len(CUSTOMCOLORS)],
+            facecolors='none',
+            linewidths=1.5,
+            marker=CUSTOMMARKERS[i % len(CUSTOMMARKERS)],
+        )
+
+    if gas_name == 'krypton':
+        P_sub = sublimation_pressure_equation(
+            data['Temperature'], KRYPTON_E_1_SUB, KRYPTON_E_2_SUB, KRYPTON_E_3_SUB, KRYPTON_T_t, KRYPTON_P_t)
+    elif gas_name == "xenon":
+        P_sub = sublimation_pressure_equation(
+            data['Temperature'], XENON_E_1_SUB, XENON_E_2_SUB, XENON_E_3_SUB, XENON_T_t, XENON_P_t)
+    else:
+        P_sub = sublimation_pressure_equation(
+            data['Temperature'], NEON_E_1_SUB, NEON_E_2_SUB, NEON_E_3_SUB,NEON_T_t, NEON_P_t)
+
+    # plt.scatter(data['Temperature'], P_melt, color='black',
+    #          linestyle='-', linewidth=2, label='Calculated Melting Pressure')
+
+    plt.plot(np.sort(data['Temperature']), np.sort(P_sub), color='black')
+
+    # Set labels with italicized text to match LaTeX style in the image
+    plt.xlabel(r'$\mathit{T}$ / K', fontsize=14)
+    plt.ylabel(r'$\mathit{p}$ / MPa', fontsize=14)
+
+    # Set a logarithmic scale for the y-axis
+    plt.yscale('log')
+
+    # Set x-axis limits similar to the uploaded image
+    # plt.xlim(X_MIN, X_MAX)
+    # plt.ylim(Y_MIN, Y_MAX)
+
+    # Place the legend outside the plot
+    plt.legend(
+        loc='upper left',
+        bbox_to_anchor=(1.05, 1),  # Position the legend outside the plot
+        fontsize=8,
+        ncol=1  # Adjust the number of columns in the legend
+    )
+    # Adjust layout to make space for the legend
+    plt.tight_layout(rect=[0, 0, 0.85, 1])
+    plt.title(f'Sublimation Pressure for {gas_name}', fontsize=14)
+
+    output_filepath = f"{OUTPUT_FILEPATH}\{gas_name}_sublimation_plot.png"
+    plt.savefig(output_filepath, dpi=300, bbox_inches='tight')
+    plt.show()
+    
 def plot_gas_data(data, gas_name: str,y_axis:str,filename:str = None,y_var: str = 'Pressure',y_units: str = 'MPa'):
     """
     plot_gas_data Plot Gas Data for any variable without fitting a model.
@@ -354,3 +421,80 @@ def read_data(filepath:str, sheet_name:str, variable:str,header_row=2):
     df[variable] = pd.to_numeric(
         df[variable], errors='coerce')
     return df
+
+
+def sublimation_pressure_equation(T, e1, e2, e3, T_t, P_t):
+    """
+    Equation for sublimation pressure.
+
+    Parameters:
+    - T: Temperature in Kelvin (array-like)
+    - e1, e2, e3: Empirical constants
+    - T_t: Triple point temperature (K)
+    - P_t: Triple point pressure (MPa)
+
+    Returns:
+    - Sublimation pressure (MPa)
+    """
+    theta = 1 - (T / T_t)
+    exponent = (T_t / T) * (e1 * theta + e2 * theta ** (3/2) + e3 * theta ** 5)
+    return P_t * np.exp(exponent)
+
+
+def fit_sublimation_pressure_single_gas(data, gas_name: str, gas_params: dict):
+    """
+    Fit sublimation pressure data using the sublimation pressure equation.
+
+    Parameters:
+    - data: Pandas DataFrame with 'Temperature' and 'Pressure' columns
+    - gas_name (str): Name of the gas
+    - gas_params (dict): Dictionary mapping gas names to (T_t, P_t)
+
+    Returns:
+    - Dictionary of optimized parameters [e1, e2, e3]
+    """
+    try:
+        T_t, P_t = get_triple_point(gas_name, gas_params)
+    except KeyError as e:
+        print(e)
+        return None
+    # # Clean data
+    data['Temperature'] = pd.to_numeric(data['Temperature'], errors='coerce')
+    data['Pressure'] = pd.to_numeric(data['Pressure'], errors='coerce')
+    data = data.dropna(subset=['Temperature', 'Pressure'])
+    
+    # Remove data where T >= T_t to ensure theta is positive
+    data = data[data['Temperature'] < T_t]
+
+    T_data = data['Temperature'].values
+    P_data = data['Pressure'].values / 1e6  # Convert from Pa to MPa
+    
+    print(f"Fitting sublimation pressure for {gas_name} with {len(T_data)} data points.")
+    
+
+    if len(T_data) < 6:
+        print("Not enough data points to fit.")
+        return None
+
+
+
+    # Initial guess for [e1, e2, e3]
+    initial_guess = [10.763, -1.526, -0.425]
+
+    try:
+        popt, _ = curve_fit(
+            lambda T, e1, e2, e3: sublimation_pressure_equation(
+                T, e1, e2, e3, T_t, P_t),
+            T_data, P_data,
+            p0=initial_guess
+        )
+        return {
+            'e1': popt[0],
+            'e2': popt[1],
+            'e3': popt[2],
+            'T_t': T_t,
+            'P_t': P_t
+        }
+    except RuntimeError:
+        print("Sublimation curve fitting failed.")
+        return None

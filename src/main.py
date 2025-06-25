@@ -58,12 +58,12 @@ if __name__ == "__main__":
         # kr_melting_data = pd.read_csv(
         #     f"{TXT_DATA_FILEPATH}\\krypton_melting_data.txt", sep='\t')
         
-        # ne_sublimation_data = pd.read_csv(
-        #     f"{TXT_DATA_FILEPATH}\\neon_sublimation_data.txt", sep='\t')
-        # xe_sublimation_data = pd.read_csv(
-        #     f"{TXT_DATA_FILEPATH}\\xenon_sublimation_data.txt", sep='\t')
-        # kr_sublimation_data = pd.read_csv(
-        #     f"{TXT_DATA_FILEPATH}\\krypton_sublimation_data.txt", sep='\t')
+        ne_sublimation_data = pd.read_csv(
+            f"{TXT_DATA_FILEPATH}\\neon_sublimation_data.txt", sep='\t')
+        xe_sublimation_data = pd.read_csv(
+            f"{TXT_DATA_FILEPATH}\\xenon_sublimation_data.txt", sep='\t')
+        kr_sublimation_data = pd.read_csv(
+            f"{TXT_DATA_FILEPATH}\\krypton_sublimation_data.txt", sep='\t')
         
         # Thermal Coefficients
         # ne_thermal_coeff_data = pd.read_csv(
@@ -74,12 +74,12 @@ if __name__ == "__main__":
         #     f"{TXT_DATA_FILEPATH}\\krypton_thermal_coeff_data.txt", sep='\t')
         
         # Heat Capacity
-        ne_heat_capacity_data = pd.read_csv(
-            f"{TXT_DATA_FILEPATH}\\neon_heat_capacity_data.txt", sep='\t')
-        xe_heat_capacity_data = pd.read_csv(
-            f"{TXT_DATA_FILEPATH}\\xenon_heat_capacity_data.txt", sep='\t')
-        kr_heat_capacity_data = pd.read_csv(
-            f"{TXT_DATA_FILEPATH}\\krypton_heat_capacity_data.txt", sep='\t')
+        # ne_heat_capacity_data = pd.read_csv(
+        #     f"{TXT_DATA_FILEPATH}\\neon_heat_capacity_data.txt", sep='\t')
+        # xe_heat_capacity_data = pd.read_csv(
+        #     f"{TXT_DATA_FILEPATH}\\xenon_heat_capacity_data.txt", sep='\t')
+        # kr_heat_capacity_data = pd.read_csv(
+        #     f"{TXT_DATA_FILEPATH}\\krypton_heat_capacity_data.txt", sep='\t')
         
     # Save to txt files 
     
@@ -124,17 +124,28 @@ if __name__ == "__main__":
     #     f"{TXT_DATA_FILEPATH}\\krypton_thermal_coeff_data.txt", sep='\t', index=False)
     
     # Heat Capacity Data
-    ne_heat_capacity_data.to_csv(
-        f"{TXT_DATA_FILEPATH}\\neon_heat_capacity_data.txt", sep='\t', index=False)
-    xe_heat_capacity_data.to_csv(
-        f"{TXT_DATA_FILEPATH}\\xenon_heat_capacity_data.txt", sep='\t', index=False)
-    kr_heat_capacity_data.to_csv(
-        f"{TXT_DATA_FILEPATH}\\krypton_heat_capacity_data.txt", sep='\t', index=False)
+    # ne_heat_capacity_data.to_csv(
+    #     f"{TXT_DATA_FILEPATH}\\neon_heat_capacity_data.txt", sep='\t', index=False)
+    # xe_heat_capacity_data.to_csv(
+    #     f"{TXT_DATA_FILEPATH}\\xenon_heat_capacity_data.txt", sep='\t', index=False)
+    # kr_heat_capacity_data.to_csv(
+    #     f"{TXT_DATA_FILEPATH}\\krypton_heat_capacity_data.txt", sep='\t', index=False)
 
     # Fit constants to the data per gas
     # gas_coefficients = fit_melting_pressure_single_gas(
     #     ne_melting_data, 'neon', gas_params)
     # print("Fitted Constants for neon:")
+    # print(gas_coefficients)
+    
+    # Fit constants for sublimation pressure
+    # gas_coefficients = fit_sublimation_pressure_single_gas(
+    #     ne_sublimation_data, 'neon', gas_params)
+    # print(gas_coefficients)
+    # gas_coefficients = fit_sublimation_pressure_single_gas(
+    #     xe_sublimation_data, 'xenon', gas_params)
+    # print(gas_coefficients)
+    # gas_coefficients = fit_sublimation_pressure_single_gas(
+    #     kr_sublimation_data, 'krypton', gas_params)
     # print(gas_coefficients)
     
     if DISPLAY_PLOTS:
@@ -157,12 +168,10 @@ if __name__ == "__main__":
         # plot_gas_data(kr_heatsub_data, 'krypton',
         #             'Change in Enthalpy', 'Heat_of_Sublimation', '\Delta H', 'kJ/mol')
     
-        #Enthalpy of Sublimation 
-        # plot_gas_data(xe_heatsub_data, 'xenon',
-        #             'Change in Enthalpy', 'Heat_of_Sublimation', '\Delta H', 'kJ/mol')
-        # plot_gas_data(ne_sublimation_data, 'neon',
-        #             'Pressure', 'Sublimation Pressure', 'P', 'MPa')
         # Sublimation Pressure
+        plot_sublimation_gas_data(ne_sublimation_data, 'neon')
+        plot_sublimation_gas_data(xe_sublimation_data, 'xenon')
+        plot_sublimation_gas_data(kr_sublimation_data, 'krypton')
         # plot_gas_data(xe_sublimation_data, 'xenon',
         #             'Pressure', 'Sublimation Pressure', 'P', 'MPa')
         # plot_gas_data(kr_sublimation_data, 'krypton',
@@ -179,10 +188,10 @@ if __name__ == "__main__":
         #               'Thermal Expansion Coefficient', 'alpha', '1/K')
         
         # Heat Capacity
-        plot_gas_data(ne_heat_capacity_data, 'neon', 'Heat Capacity',
-                      'Heat Capacity', 'C_p', 'J/(mol*K)')
-        plot_gas_data(xe_heat_capacity_data, 'xenon', 'Heat Capacity',
-                      'Heat Capacity', 'C_p', 'J/(mol*K)')
-        plot_gas_data(kr_heat_capacity_data, 'krypton', 'Heat Capacity',
-                      'Heat Capacity', 'C_p', 'J/(mol*K)')
+        # plot_gas_data(ne_heat_capacity_data, 'neon', 'Heat Capacity',
+        #               'Heat Capacity', 'C_p', 'J/(mol*K)')
+        # plot_gas_data(xe_heat_capacity_data, 'xenon', 'Heat Capacity',
+        #               'Heat Capacity', 'C_p', 'J/(mol*K)')
+        # plot_gas_data(kr_heat_capacity_data, 'krypton', 'Heat Capacity',
+        #               'Heat Capacity', 'C_p', 'J/(mol*K)')
         
