@@ -133,7 +133,7 @@ def plot_melting_gas_data(data, gas_name):
     plt.ylim(Y_MIN, Y_MAX)
 
     # Use minimal grid style
-    plt.grid(True, which="both", linestyle='--', alpha=0.3)
+    # plt.grid(True, which="both", linestyle='--', alpha=0.3)
 
     # Place the legend outside the plot
     plt.legend(
@@ -142,7 +142,7 @@ def plot_melting_gas_data(data, gas_name):
         fontsize=8,
         ncol=1  # Adjust the number of columns in the legend
     )
-    plt.grid(True, linestyle='--', alpha=0.6)
+    # plt.grid(True, linestyle='--', alpha=0.6)
     # Adjust layout to make space for the legend
     plt.tight_layout(rect=[0, 0, 0.85, 1])
 
@@ -229,6 +229,7 @@ def plot_thermal_coefficient_gas_data(data, gas_name):
     # Define markers and colors
 
     plt.figure(figsize=(10, 6))
+    plt.tick_params(direction='in', top=True, right=True)
     for i, ((year, author), group) in enumerate(grouped):
         plt.scatter(
             group['Temperature_Kelvin'], group['Alpha_Kelvin^-1'],
@@ -256,7 +257,7 @@ def plot_thermal_coefficient_gas_data(data, gas_name):
         fontsize=8,
         ncol=1  # Adjust the number of columns in the legend
     )
-    plt.grid(True, linestyle='--', alpha=0.6)
+    # plt.grid(True, linestyle='--', alpha=0.6)
     # Adjust layout to make space for the legend
     plt.tight_layout(rect=[0, 0, 0.85, 1])
 
@@ -303,6 +304,7 @@ def plot_melting_pressure_deviation(data, gas_name):
     grouped = gas_data.groupby(['year', 'author'])
 
     plt.figure(figsize=(10, 6))
+    plt.tick_params(direction='in', top=True, right=True)
     for i, ((year, author), group) in enumerate(grouped):
         plt.scatter(
             group['Temperature_Kelvin'], group['Deviation_percent'],
@@ -322,7 +324,7 @@ def plot_melting_pressure_deviation(data, gas_name):
     plt.title(f'Melting Pressure Deviation for {gas_name}', fontsize=14)
     plt.xlim(X_MIN, X_MAX)
     plt.ylim(MELTING_DEVIATION_Y_MIN, MELTING_DEVIATION_Y_MAX)
-    plt.grid(True, linestyle='--', alpha=0.5)
+    # plt.grid(True, linestyle='--', alpha=0.5)
     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8)
     plt.tight_layout(rect=[0, 0, 0.85, 1])
 
@@ -338,6 +340,8 @@ def plot_heat_capacity_gas_data(data, gas_name):
     # Define markers and colors
 
     plt.figure(figsize=(10, 6))
+    # Add this
+    plt.tick_params(direction='in', top=True, right=True)
     for i, ((year, author), group) in enumerate(grouped):
         plt.scatter(
             group['Temperature_Kelvin'], group['cp_J/mol/K'],
@@ -365,7 +369,7 @@ def plot_heat_capacity_gas_data(data, gas_name):
         fontsize=8,
         ncol=1  # Adjust the number of columns in the legend
     )
-    plt.grid(True, linestyle='--', alpha=0.6)
+    # plt.grid(True, linestyle='--', alpha=0.6)
     # Adjust layout to make space for the legend
     plt.tight_layout(rect=[0, 0, 0.85, 1])
 
