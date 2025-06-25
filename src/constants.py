@@ -80,6 +80,8 @@ HEAT_CAPACITY_SHEETNAME = "Heat Capacity"
 CELL_VOLUME_SHEETNAME = "Cell Volume"
 BULK_MODULUS_SHEETNAME = "Compressibility Bulk Modulus"
 SUBLIMATION_SHEETNAME = "Sublimation"
+FUSION_SHEETNAME = "Heat of Fusion"
+HEAT_OF_SUBLIMATION_SHEETNAME = "Heat of Sublimation"
 
 
 
