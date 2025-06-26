@@ -1,0 +1,38 @@
+Year	Author	Temperature	Heat Capacity
+1966.0	Fenichel	1.0	
+1966.0	Fenichel	2.0	
+1966.0	Fenichel	3.0	
+1966.0	Fenichel	4.0	
+1966.0	Fenichel	5.0	
+1966.0	Fenichel	6.0	
+1966.0	Fenichel	7.0	
+1966.0	Fenichel	8.0	
+1966.0	Fenichel	9.0	
+1966.0	Fenichel	10.0	
+1966.0	Fenichel	11.0	
+1966.0	Fenichel	12.0	
+1966.0	Fenichel	13.0	9.74
+1966.0	Fenichel	14.0	11.09
+1966.0	Fenichel	15.0	12.42
+1966.0	Fenichel	16.0	13.71
+1966.0	Fenichel	17.0	15.01
+1966.0	Fenichel	18.0	16.35
+1966.0	Fenichel	19.0	17.73
+1966.0	Fenichel	20.0	19.14
+1966.0	Fenichel	21.0	20.84
+1966.0	Fenichel	22.0	22.72
+1966.0	Fenichel	23.0	24.63
+1966.0	Fenichel	24.0	26.48
+1936.0	Clusius	12.3	8.702720000000001
+1936.0	Clusius	13.1	9.74872
+1936.0	Clusius	14.71	11.67336
+1936.0	Clusius	16.63	14.0164
+1936.0	Clusius	18.54	16.06656
+1936.0	Clusius	18.85	16.610480000000003
+1936.0	Clusius	20.0	17.865679999999998
+1936.0	Clusius	20.85	19.20456
+1936.0	Clusius	20.9	19.20456
+1936.0	Clusius	22.1	21.045520000000003
+1936.0	Clusius	22.7	22.1752
+1936.0	Clusius	22.85	22.635440000000003
+1936.0	Clusius	23.5	24.350880000000004

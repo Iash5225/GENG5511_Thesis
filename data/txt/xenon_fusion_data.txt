@@ -1,0 +1,13 @@
+Year	Author	Temperature	Change in Enthalpy
+1962.0	Lahr	161.5	2.523
+1962.0	Lahr	198.0	2.77
+1962.0	Lahr	231.0	2.887
+1962.0	Lahr	262.0	2.891
+1962.0	Lahr	292.0	2.946
+1962.0	Lahr	322.0	2.782
+1962.0	Lahr	351.0	2.741
+1962.0	Lahr	379.0	2.77
+1962.0	Lahr	406.0	2.866
+2008.0	Ferreira	115.772	1.783
+2008.0	Ferreira	170.6	2.37
+1977.0	Pollack	161.391	2.295

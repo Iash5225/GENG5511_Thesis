@@ -1,0 +1,2 @@
+Year	Author	Temperature	Change in Enthalpy
+1977.0	Pollack	24.55	0.3351384
