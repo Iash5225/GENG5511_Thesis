@@ -42,12 +42,20 @@ if __name__ == "__main__":
         # kr_thermal_coeff_data = read_thermal_coeff_data(
         #     KR_DATA_FILEPATH, THERMAL_COEFFICIENT_SHEETNAME)
         
-        ne_heat_capacity_data = read_data(
-            NE_DATA_FILEPATH, HEAT_CAPACITY_SHEETNAME, "Heat Capacity", 2)
-        xe_heat_capacity_data = read_data(
-            XE_DATA_FILEPATH, HEAT_CAPACITY_SHEETNAME, "Heat Capacity", 2)
-        kr_heat_capacity_data = read_data(
-            KR_DATA_FILEPATH, HEAT_CAPACITY_SHEETNAME, "Heat Capacity", 2)
+        # ne_heat_capacity_data = read_data(
+        #     NE_DATA_FILEPATH, HEAT_CAPACITY_SHEETNAME, "Heat Capacity", 2)
+        # xe_heat_capacity_data = read_data(
+        #     XE_DATA_FILEPATH, HEAT_CAPACITY_SHEETNAME, "Heat Capacity", 2)
+        # kr_heat_capacity_data = read_data(
+        #     KR_DATA_FILEPATH, HEAT_CAPACITY_SHEETNAME, "Heat Capacity", 2)
+        
+        # Bulk Modulus
+        ne_bulk_t_data, ne_bulk_s_data = read_bulk_modulus_data(
+            NE_DATA_FILEPATH, BULK_MODULUS_SHEETNAME)
+        xe_bulk_t_data, xe_bulk_s_data = read_bulk_modulus_data(
+            XE_DATA_FILEPATH, BULK_MODULUS_SHEETNAME)
+        kr_bulk_t_data, kr_bulk_s_data = read_bulk_modulus_data(
+            KR_DATA_FILEPATH, BULK_MODULUS_SHEETNAME)
     
     else:
         # Read the txt files into DataFrames
@@ -62,8 +70,8 @@ if __name__ == "__main__":
         #     f"{TXT_DATA_FILEPATH}\\neon_sublimation_data.txt", sep='\t')
         # xe_sublimation_data = pd.read_csv(
         #     f"{TXT_DATA_FILEPATH}\\xenon_sublimation_data.txt", sep='\t')
-        kr_sublimation_data = pd.read_csv(
-            f"{TXT_DATA_FILEPATH}\\krypton_sublimation_data.txt", sep='\t')
+        # kr_sublimation_data = pd.read_csv(
+        #     f"{TXT_DATA_FILEPATH}\\krypton_sublimation_data.txt", sep='\t')
         
         # Thermal Coefficients
         # ne_thermal_coeff_data = pd.read_csv(
@@ -80,6 +88,20 @@ if __name__ == "__main__":
         #     f"{TXT_DATA_FILEPATH}\\xenon_heat_capacity_data.txt", sep='\t')
         # kr_heat_capacity_data = pd.read_csv(
         #     f"{TXT_DATA_FILEPATH}\\krypton_heat_capacity_data.txt", sep='\t')
+        
+        # Bulk Modulus
+        ne_bulk_s_data = pd.read_csv(
+            f"{TXT_DATA_FILEPATH}\\neon_bulk_modulus_s.txt", sep='\t')
+        ne_bulk_t_data = pd.read_csv(
+            f"{TXT_DATA_FILEPATH}\\neon_bulk_modulus_t.txt", sep='\t')
+        xe_bulk_s_data = pd.read_csv(
+            f"{TXT_DATA_FILEPATH}\\xenon_bulk_modulus_s.txt", sep='\t')
+        xe_bulk_t_data = pd.read_csv(
+            f"{TXT_DATA_FILEPATH}\\xenon_bulk_modulus_t.txt", sep='\t')
+        kr_bulk_s_data = pd.read_csv(
+            f"{TXT_DATA_FILEPATH}\\krypton_bulk_modulus_s.txt", sep='\t')
+        kr_bulk_t_data = pd.read_csv(
+            f"{TXT_DATA_FILEPATH}\\krypton_bulk_modulus_t.txt", sep='\t')
         
     # Save to txt files 
     
@@ -191,3 +213,16 @@ if __name__ == "__main__":
         # plot_gas_data(kr_heat_capacity_data, 'krypton', 'Heat Capacity',
         #               'Heat Capacity', 'C_p', 'J/(mol*K)')
         
+        # Bulk Modulus
+        plot_gas_data(ne_bulk_s_data, 'neon', 'Beta S',
+                      'Bulk Modulus', 'K_s', 'GPa')
+        plot_gas_data(ne_bulk_t_data, 'neon', 'Beta T',
+                      'Bulk Modulus', 'K_g', 'GPa')
+        plot_gas_data(xe_bulk_s_data, 'xenon', 'Beta S',
+                      'Bulk Modulus', 'K_s', 'GPa')
+        plot_gas_data(xe_bulk_t_data, 'xenon', 'Beta T',
+                      'Bulk Modulus', 'K_g', 'GPa')
+        plot_gas_data(kr_bulk_s_data, 'krypton', 'Beta S',
+                      'Bulk Modulus', 'K_s', 'GPa')
+        plot_gas_data(kr_bulk_t_data, 'krypton', 'Beta T',
+                      'Bulk Modulus', 'K_g', 'GPa')

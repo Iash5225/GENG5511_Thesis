@@ -564,3 +564,41 @@ def fit_log_sublimation_pressure_single_gas(data, gas_name: str, gas_params: dic
     except RuntimeError:
         print("Log-sublimation curve fitting failed.")
         return None
+
+def read_bulk_modulus_data(filepath, sheet_name):
+    """
+    Reads and cleans bulk modulus data from an Excel file.
+
+    Parameters:
+    - filepath: Path to the Excel file
+    - sheet_name: Sheet name containing the bulk modulus data
+
+    Returns:
+    - Cleaned Pandas DataFrame with columns: ['Year', 'Author', 'Temperature', 'Bulk Modulus']
+    """
+    df = pd.read_excel(filepath, sheet_name=sheet_name, header=2)
+
+    
+        # Split the data into two DataFrames
+    # DataFrame 1: Left table (up to "Pressure")
+    df_left = df.iloc[:, 0:7]  # adjust if more columns needed
+
+    # DataFrame 2: Right table (starts from "Reference" on the right side)
+    df_right = df.iloc[:, 7:]  # assumes right table starts from column 8
+    
+    df_left = df.filter(items=['Year', 'Author', 'Temperature', 'Beta T '])
+    df_left = df.drop([0, 1], axis=0).reset_index(drop=True)
+    df_left['Temperature'] = pd.to_numeric(df['Temperature'], errors='coerce')
+    df_left['Beta T '] = pd.to_numeric(
+        df['Beta T '], errors='coerce')
+    
+    df_right = df.filter(items=['Year', 'Author', 'Temperature', 'Beta T '])
+    df_right = df.drop([0, 1], axis=0).reset_index(drop=True)
+    df_right['Temperature'] = pd.to_numeric(df['Temperature'], errors='coerce')
+    df_right['Beta S '] = pd.to_numeric(
+        df['Beta S '], errors='coerce')
+    
+    #rename Beta T and Beta S to remove white space at the end
+    df_left.rename(columns={'Beta T ': 'Beta T'}, inplace=True)
+    df_right.rename(columns={'Beta S ': 'Beta S'}, inplace=True)
+    return df_left, df_right
