@@ -125,9 +125,13 @@ if __name__ == "__main__":
             f"{TXT_DATA_FILEPATH}\\krypton_cell_volume_sub.txt", sep='\t')
         kr_cell_volume_melt_data = pd.read_csv(
             f"{TXT_DATA_FILEPATH}\\krypton_cell_volume_melt.txt", sep='\t')
-        
-    # Save to txt files 
-    
+
+        ne_cell_volume_data = pd.concat([ne_cell_volume_sub_data, ne_cell_volume_melt_data], ignore_index=True)
+        xe_cell_volume_data = pd.concat([xe_cell_volume_sub_data, xe_cell_volume_melt_data], ignore_index=True)
+        kr_cell_volume_data = pd.concat([kr_cell_volume_sub_data, kr_cell_volume_melt_data], ignore_index=True)
+
+    # Save to txt files
+
     # Bulk Modulus Data
     # ne_bulk_s_data.to_csv(
     #     f"{TXT_DATA_FILEPATH}\\neon_bulk_modulus_s.txt", sep='\t', index=False)
@@ -143,18 +147,18 @@ if __name__ == "__main__":
     #     f"{TXT_DATA_FILEPATH}\\krypton_bulk_modulus_t.txt", sep='\t', index=False)
     
     # Cell Volume Data
-    ne_cell_volume_sub_data.to_csv(
-        f"{TXT_DATA_FILEPATH}\\neon_cell_volume_sub.txt", sep='\t', index=False)
-    ne_cell_volume_melt_data.to_csv(
-        f"{TXT_DATA_FILEPATH}\\neon_cell_volume_melt.txt", sep='\t', index=False)
-    xe_cell_volume_sub_data.to_csv(
-        f"{TXT_DATA_FILEPATH}\\xenon_cell_volume_sub.txt", sep='\t', index=False)
-    xe_cell_volume_melt_data.to_csv(
-        f"{TXT_DATA_FILEPATH}\\xenon_cell_volume_melt.txt", sep='\t', index=False)
-    kr_cell_volume_sub_data.to_csv(
-        f"{TXT_DATA_FILEPATH}\\krypton_cell_volume_sub.txt", sep='\t', index=False)
-    kr_cell_volume_melt_data.to_csv(
-        f"{TXT_DATA_FILEPATH}\\krypton_cell_volume_melt.txt", sep='\t', index=False)
+    # ne_cell_volume_sub_data.to_csv(
+    #     f"{TXT_DATA_FILEPATH}\\neon_cell_volume_sub.txt", sep='\t', index=False)
+    # ne_cell_volume_melt_data.to_csv(
+    #     f"{TXT_DATA_FILEPATH}\\neon_cell_volume_melt.txt", sep='\t', index=False)
+    # xe_cell_volume_sub_data.to_csv(
+    #     f"{TXT_DATA_FILEPATH}\\xenon_cell_volume_sub.txt", sep='\t', index=False)
+    # xe_cell_volume_melt_data.to_csv(
+    #     f"{TXT_DATA_FILEPATH}\\xenon_cell_volume_melt.txt", sep='\t', index=False)
+    # kr_cell_volume_sub_data.to_csv(
+    #     f"{TXT_DATA_FILEPATH}\\krypton_cell_volume_sub.txt", sep='\t', index=False)
+    # kr_cell_volume_melt_data.to_csv(
+    #     f"{TXT_DATA_FILEPATH}\\krypton_cell_volume_melt.txt", sep='\t', index=False)
 
     # Melting Data
     # ne_melting_data.to_csv(
@@ -279,16 +283,23 @@ if __name__ == "__main__":
         #               'Bulk Modulus T', 'B_t', '1/MPa')
         
         # Cell Volume
-        plot_gas_data(ne_cell_volume_sub_data, 'neon', 'Cell Volume',
-                              'Sublimation Curve', 'V_cell', 'cm^3/mol')
-        plot_gas_data(xe_cell_volume_sub_data, 'xenon', 'Cell Volume',
-                              'Sublimation Curve', 'V_cell', 'cm^3/mol')
-        plot_gas_data(kr_cell_volume_sub_data, 'krypton', 'Cell Volume',
-                              'Sublimation Curve', 'V_cell', 'cm^3/mol')
+        # plot_gas_data(ne_cell_volume_sub_data, 'neon', 'Cell Volume',
+        #                       'Sublimation Curve', 'V_cell', 'cm^3/mol')
+        # plot_gas_data(xe_cell_volume_sub_data, 'xenon', 'Cell Volume',
+        #                       'Sublimation Curve', 'V_cell', 'cm^3/mol')
+        # plot_gas_data(kr_cell_volume_sub_data, 'krypton', 'Cell Volume',
+        #                       'Sublimation Curve', 'V_cell', 'cm^3/mol')
 
-        plot_gas_data(ne_cell_volume_melt_data, 'neon', 'Cell Volume',
-                              'Melting Curve', 'V_cell', 'cm^3/mol')
-        plot_gas_data(xe_cell_volume_melt_data, 'xenon', 'Cell Volume',
-                                'Melting Curve', 'V_cell', 'cm^3/mol')
-        plot_gas_data(kr_cell_volume_melt_data, 'krypton', 'Cell Volume',
-                                'Melting Curve', 'V_cell', 'cm^3/mol')
+        # plot_gas_data(ne_cell_volume_melt_data, 'neon', 'Cell Volume',
+        #                       'Melting Curve', 'V_cell', 'cm^3/mol')
+        # plot_gas_data(xe_cell_volume_melt_data, 'xenon', 'Cell Volume',
+        #                         'Melting Curve', 'V_cell', 'cm^3/mol')
+        # plot_gas_data(kr_cell_volume_melt_data, 'krypton', 'Cell Volume',
+        #                         'Melting Curve', 'V_cell', 'cm^3/mol')
+        
+        plot_gas_data(kr_cell_volume_data, 'krypton', 'Cell Volume',
+                      'Melting and Sublimation Curve', 'V', 'cm^3/mol')
+        plot_gas_data(xe_cell_volume_data, 'xenon', 'Cell Volume',
+                      'Melting and Sublimation Curve', 'V', 'cm^3/mol')
+        plot_gas_data(ne_cell_volume_data, 'neon', 'Cell Volume',
+                      'Melting and Sublimation Curve', 'V', 'cm^3/mol')

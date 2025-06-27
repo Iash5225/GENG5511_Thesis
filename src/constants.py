@@ -14,7 +14,7 @@ EIGHT = 8.0
 TWENTY = 20.0
 PT375 = 0.375
 
-READ_FROM_EXCEL = True  # Flag to read data from Excel files
+READ_FROM_EXCEL = False  # Flag to read data from Excel files
 # READ_FROM_TXT = True  # Flag to read data from text files
 DISPLAY_PLOTS = True  # Flag to display plots
 
