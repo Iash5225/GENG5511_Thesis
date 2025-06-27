@@ -443,51 +443,47 @@ def sublimation_pressure_equation(T, e1, e2, e3, T_t, P_t):
 
 def fit_sublimation_pressure_single_gas(data, gas_name: str, gas_params: dict):
     """
-    Fit sublimation pressure data using the sublimation pressure equation.
-
-    Parameters:
-    - data: Pandas DataFrame with 'Temperature' and 'Pressure' columns
-    - gas_name (str): Name of the gas
-    - gas_params (dict): Dictionary mapping gas names to (T_t, P_t)
-
-    Returns:
-    - Dictionary of optimized parameters [e1, e2, e3]
+    Fit sublimation pressure data using the sublimation pressure equation,
+    emphasizing low-pressure and low-temperature data.
     """
     try:
         T_t, P_t = get_triple_point(gas_name, gas_params)
     except KeyError as e:
         print(e)
         return None
-    # # Clean data
-    # data['Temperature'] = pd.to_numeric(data['Temperature'], errors='coerce')
-    # data['Pressure'] = pd.to_numeric(data['Pressure'], errors='coerce')
-    # data = data.dropna(subset=['Temperature', 'Pressure'])
-    
-    # Remove data where T >= T_t to ensure theta is positive
+
+    # Filter data below triple point
     data = data[data['Temperature'] < T_t]
+    data = data.dropna(subset=['Temperature', 'Pressure'])
 
     T_data = data['Temperature'].values
-    P_data = data['Pressure'].values / 1e6  # Convert from Pa to MPa
-    
-    print(f"Fitting sublimation pressure for {gas_name} with {len(T_data)} data points.")
-    
+    P_data = data['Pressure'].values / 1e6  # Pa → MPa
+
+    print(
+        f"Fitting sublimation pressure for {gas_name} with {len(T_data)} data points.")
 
     if len(T_data) < 6:
         print("Not enough data points to fit.")
         return None
 
+    # Custom weighting: emphasize low T and P
+    weights = 1 / (T_data**2 * P_data**2 + 1e-12)  # Avoid div-by-zero
+    
+    # weights = 1 / (P_data + 1e-9)  # simpler and stabler
+    # weights /= np.max(weights)    # normalize for numerical stability
 
-
-    # Initial guess for [e1, e2, e3]
-    initial_guess = [-10.716997700852485, -
-                     2.343359989805985, 40.34512606102953]
+    initial_guess = [-18.910506919795417, 11.285160377819482, -12.280765945817006]
 
     try:
         popt, _ = curve_fit(
             lambda T, e1, e2, e3: sublimation_pressure_equation(
                 T, e1, e2, e3, T_t, P_t),
-            T_data, P_data,
-            p0=initial_guess
+            T_data,
+            P_data,
+            p0=initial_guess,
+            sigma=1/weights,
+            absolute_sigma=False,
+            maxfev=10000
         )
         return {
             'e1': popt[0],
@@ -498,4 +494,73 @@ def fit_sublimation_pressure_single_gas(data, gas_name: str, gas_params: dict):
         }
     except RuntimeError:
         print("Sublimation curve fitting failed.")
+        return None
+
+
+def log_sublimation_pressure_equation(T, e1, e2, e3, T_t, P_t):
+    T = np.asarray(T)
+    theta = 1 - T / T_t
+    safe_theta = np.where(theta >= 0, theta, 0.0)
+    exponent = (T_t / T) * (
+        e1 * safe_theta +
+        e2 * safe_theta ** (3 / 2) +
+        e3 * safe_theta ** 5
+    )
+    return np.log(P_t) + exponent
+
+
+def fit_log_sublimation_pressure_single_gas(data, gas_name: str, gas_params: dict):
+    """
+    Fit log of sublimation pressure data using the log-transformed equation.
+    """
+    try:
+        T_t, P_t = get_triple_point(gas_name, gas_params)
+    except KeyError as e:
+        print(e)
+        return None
+
+    # Filter below triple point and clean
+    data = data[data['Temperature'] < T_t].dropna(
+        subset=['Temperature', 'Pressure'])
+    T_data = data['Temperature'].values
+    P_data = data['Pressure'].values / 1e6  # Convert to MPa
+    log_P_data = np.log(P_data)
+
+    print(
+        f"Log-fitting sublimation pressure for {gas_name} with {len(T_data)} points.")
+
+    if len(T_data) < 6:
+        print("Not enough data.")
+        return None
+
+    # Optional weighting (mild)
+    weights = 1 / (T_data + 1e-3)
+    weights /= np.max(weights)
+
+    initial_guess = [-10.0, -3.0, 40.0]  # Start mild
+    bounds = ([-100, -100, -100], [100, 100, 100])  # Keep reasonable
+
+    try:
+        popt, _ = curve_fit(
+            lambda T, e1, e2, e3: log_sublimation_pressure_equation(
+                T, e1, e2, e3, T_t, P_t),
+            T_data,
+            log_P_data,
+            p0=initial_guess,
+            bounds=bounds,
+            sigma=1 / weights,
+            absolute_sigma=False,
+            maxfev=10000
+        )
+
+        return {
+            'e1': popt[0],
+            'e2': popt[1],
+            'e3': popt[2],
+            'T_t': T_t,
+            'P_t': P_t
+        }
+
+    except RuntimeError:
+        print("Log-sublimation curve fitting failed.")
         return None
