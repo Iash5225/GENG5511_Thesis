@@ -105,6 +105,21 @@ if __name__ == "__main__":
         
     # Save to txt files 
     
+    # Bulk Modulus Data
+    ne_bulk_s_data.to_csv(
+        f"{TXT_DATA_FILEPATH}\\neon_bulk_modulus_s.txt", sep='\t', index=False)
+    ne_bulk_t_data.to_csv(
+        f"{TXT_DATA_FILEPATH}\\neon_bulk_modulus_t.txt", sep='\t', index=False)
+    xe_bulk_s_data.to_csv(
+        f"{TXT_DATA_FILEPATH}\\xenon_bulk_modulus_s.txt", sep='\t', index=False)
+    xe_bulk_t_data.to_csv(
+        f"{TXT_DATA_FILEPATH}\\xenon_bulk_modulus_t.txt", sep='\t', index=False)
+    kr_bulk_s_data.to_csv(
+        f"{TXT_DATA_FILEPATH}\\krypton_bulk_modulus_s.txt", sep='\t', index=False)
+    kr_bulk_t_data.to_csv(
+        f"{TXT_DATA_FILEPATH}\\krypton_bulk_modulus_t.txt", sep='\t', index=False)
+    
+    
     # Melting Data
     # ne_melting_data.to_csv(
     #     f"{TXT_DATA_FILEPATH}\\neon_melting_data.txt", sep='\t', index=False)
@@ -215,14 +230,14 @@ if __name__ == "__main__":
         
         # Bulk Modulus
         plot_gas_data(ne_bulk_s_data, 'neon', 'Beta S',
-                      'Bulk Modulus', 'K_s', 'GPa')
+                      'Bulk Modulus S', 'B_s', '1/MPa')
         plot_gas_data(ne_bulk_t_data, 'neon', 'Beta T',
-                      'Bulk Modulus', 'K_g', 'GPa')
+                      'Bulk Modulus T', 'B_t', '1/MPa')
         plot_gas_data(xe_bulk_s_data, 'xenon', 'Beta S',
-                      'Bulk Modulus', 'K_s', 'GPa')
+                      'Bulk Modulus S', 'B_s', '1/MPa')
         plot_gas_data(xe_bulk_t_data, 'xenon', 'Beta T',
-                      'Bulk Modulus', 'K_g', 'GPa')
+                      'Bulk Modulus T', 'B_t', '1/MPa')
         plot_gas_data(kr_bulk_s_data, 'krypton', 'Beta S',
-                      'Bulk Modulus', 'K_s', 'GPa')
+                      'Bulk Modulus S', 'B_s', '1/MPa')
         plot_gas_data(kr_bulk_t_data, 'krypton', 'Beta T',
-                      'Bulk Modulus', 'K_g', 'GPa')
+                      'Bulk Modulus T', 'B_t', '1/MPa')
