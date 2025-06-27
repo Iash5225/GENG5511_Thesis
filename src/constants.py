@@ -14,7 +14,7 @@ EIGHT = 8.0
 TWENTY = 20.0
 PT375 = 0.375
 
-READ_FROM_EXCEL = False  # Flag to read data from Excel files
+READ_FROM_EXCEL = True  # Flag to read data from Excel files
 # READ_FROM_TXT = True  # Flag to read data from text files
 DISPLAY_PLOTS = True  # Flag to display plots
 
@@ -79,7 +79,7 @@ MELTING_SHEETNAME = "Melting"
 # Replace with the actual sheet name
 THERMAL_COEFFICIENT_SHEETNAME = "Thermal Expansion Coefficient"
 HEAT_CAPACITY_SHEETNAME = "Heat Capacity"
-CELL_VOLUME_SHEETNAME = "Cell Volume"
+CELL_VOLUME_SHEETNAME = "Cell Volume "
 BULK_MODULUS_SHEETNAME = "Compressibility Bulk Modulus"
 SUBLIMATION_SHEETNAME = "Sublimation"
 FUSION_SHEETNAME = "Heat of Fusion"

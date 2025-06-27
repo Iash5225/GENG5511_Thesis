@@ -50,12 +50,20 @@ if __name__ == "__main__":
         #     KR_DATA_FILEPATH, HEAT_CAPACITY_SHEETNAME, "Heat Capacity", 2)
         
         # Bulk Modulus
-        ne_bulk_t_data, ne_bulk_s_data = read_bulk_modulus_data(
-            NE_DATA_FILEPATH, BULK_MODULUS_SHEETNAME)
-        xe_bulk_t_data, xe_bulk_s_data = read_bulk_modulus_data(
-            XE_DATA_FILEPATH, BULK_MODULUS_SHEETNAME)
-        kr_bulk_t_data, kr_bulk_s_data = read_bulk_modulus_data(
-            KR_DATA_FILEPATH, BULK_MODULUS_SHEETNAME)
+        # ne_bulk_t_data, ne_bulk_s_data = read_bulk_modulus_data(
+        #     NE_DATA_FILEPATH, BULK_MODULUS_SHEETNAME)
+        # xe_bulk_t_data, xe_bulk_s_data = read_bulk_modulus_data(
+        #     XE_DATA_FILEPATH, BULK_MODULUS_SHEETNAME)
+        # kr_bulk_t_data, kr_bulk_s_data = read_bulk_modulus_data(
+        #     KR_DATA_FILEPATH, BULK_MODULUS_SHEETNAME)
+        
+        # Cell Volume
+        ne_cell_volume_sub_data, ne_cell_volume_melt_data = read_cell_volume_data(
+            NE_DATA_FILEPATH, CELL_VOLUME_SHEETNAME)
+        xe_cell_volume_sub_data, xe_cell_volume_melt_data = read_cell_volume_data(
+            XE_DATA_FILEPATH, CELL_VOLUME_SHEETNAME)
+        kr_cell_volume_sub_data, kr_cell_volume_melt_data = read_cell_volume_data(
+            KR_DATA_FILEPATH, CELL_VOLUME_SHEETNAME)
     
     else:
         # Read the txt files into DataFrames
@@ -90,36 +98,64 @@ if __name__ == "__main__":
         #     f"{TXT_DATA_FILEPATH}\\krypton_heat_capacity_data.txt", sep='\t')
         
         # Bulk Modulus
-        ne_bulk_s_data = pd.read_csv(
-            f"{TXT_DATA_FILEPATH}\\neon_bulk_modulus_s.txt", sep='\t')
-        ne_bulk_t_data = pd.read_csv(
-            f"{TXT_DATA_FILEPATH}\\neon_bulk_modulus_t.txt", sep='\t')
-        xe_bulk_s_data = pd.read_csv(
-            f"{TXT_DATA_FILEPATH}\\xenon_bulk_modulus_s.txt", sep='\t')
-        xe_bulk_t_data = pd.read_csv(
-            f"{TXT_DATA_FILEPATH}\\xenon_bulk_modulus_t.txt", sep='\t')
-        kr_bulk_s_data = pd.read_csv(
-            f"{TXT_DATA_FILEPATH}\\krypton_bulk_modulus_s.txt", sep='\t')
-        kr_bulk_t_data = pd.read_csv(
-            f"{TXT_DATA_FILEPATH}\\krypton_bulk_modulus_t.txt", sep='\t')
+        # ne_bulk_s_data = pd.read_csv(
+        #     f"{TXT_DATA_FILEPATH}\\neon_bulk_modulus_s.txt", sep='\t')
+        # ne_bulk_t_data = pd.read_csv(
+        #     f"{TXT_DATA_FILEPATH}\\neon_bulk_modulus_t.txt", sep='\t')
+        # xe_bulk_s_data = pd.read_csv(
+        #     f"{TXT_DATA_FILEPATH}\\xenon_bulk_modulus_s.txt", sep='\t')
+        # xe_bulk_t_data = pd.read_csv(
+        #     f"{TXT_DATA_FILEPATH}\\xenon_bulk_modulus_t.txt", sep='\t')
+        # kr_bulk_s_data = pd.read_csv(
+        #     f"{TXT_DATA_FILEPATH}\\krypton_bulk_modulus_s.txt", sep='\t')
+        # kr_bulk_t_data = pd.read_csv(
+        #     f"{TXT_DATA_FILEPATH}\\krypton_bulk_modulus_t.txt", sep='\t')
+        
+        
+        # Cell Volume
+        ne_cell_volume_sub_data = pd.read_csv(
+            f"{TXT_DATA_FILEPATH}\\neon_cell_volume_sub.txt", sep='\t')
+        ne_cell_volume_melt_data = pd.read_csv(
+            f"{TXT_DATA_FILEPATH}\\neon_cell_volume_melt.txt", sep='\t')
+        xe_cell_volume_sub_data = pd.read_csv(
+            f"{TXT_DATA_FILEPATH}\\xenon_cell_volume_sub.txt", sep='\t')
+        xe_cell_volume_melt_data = pd.read_csv(
+            f"{TXT_DATA_FILEPATH}\\xenon_cell_volume_melt.txt", sep='\t')
+        kr_cell_volume_sub_data = pd.read_csv(
+            f"{TXT_DATA_FILEPATH}\\krypton_cell_volume_sub.txt", sep='\t')
+        kr_cell_volume_melt_data = pd.read_csv(
+            f"{TXT_DATA_FILEPATH}\\krypton_cell_volume_melt.txt", sep='\t')
         
     # Save to txt files 
     
     # Bulk Modulus Data
-    ne_bulk_s_data.to_csv(
-        f"{TXT_DATA_FILEPATH}\\neon_bulk_modulus_s.txt", sep='\t', index=False)
-    ne_bulk_t_data.to_csv(
-        f"{TXT_DATA_FILEPATH}\\neon_bulk_modulus_t.txt", sep='\t', index=False)
-    xe_bulk_s_data.to_csv(
-        f"{TXT_DATA_FILEPATH}\\xenon_bulk_modulus_s.txt", sep='\t', index=False)
-    xe_bulk_t_data.to_csv(
-        f"{TXT_DATA_FILEPATH}\\xenon_bulk_modulus_t.txt", sep='\t', index=False)
-    kr_bulk_s_data.to_csv(
-        f"{TXT_DATA_FILEPATH}\\krypton_bulk_modulus_s.txt", sep='\t', index=False)
-    kr_bulk_t_data.to_csv(
-        f"{TXT_DATA_FILEPATH}\\krypton_bulk_modulus_t.txt", sep='\t', index=False)
+    # ne_bulk_s_data.to_csv(
+    #     f"{TXT_DATA_FILEPATH}\\neon_bulk_modulus_s.txt", sep='\t', index=False)
+    # ne_bulk_t_data.to_csv(
+    #     f"{TXT_DATA_FILEPATH}\\neon_bulk_modulus_t.txt", sep='\t', index=False)
+    # xe_bulk_s_data.to_csv(
+    #     f"{TXT_DATA_FILEPATH}\\xenon_bulk_modulus_s.txt", sep='\t', index=False)
+    # xe_bulk_t_data.to_csv(
+    #     f"{TXT_DATA_FILEPATH}\\xenon_bulk_modulus_t.txt", sep='\t', index=False)
+    # kr_bulk_s_data.to_csv(
+    #     f"{TXT_DATA_FILEPATH}\\krypton_bulk_modulus_s.txt", sep='\t', index=False)
+    # kr_bulk_t_data.to_csv(
+    #     f"{TXT_DATA_FILEPATH}\\krypton_bulk_modulus_t.txt", sep='\t', index=False)
     
-    
+    # Cell Volume Data
+    ne_cell_volume_sub_data.to_csv(
+        f"{TXT_DATA_FILEPATH}\\neon_cell_volume_sub.txt", sep='\t', index=False)
+    ne_cell_volume_melt_data.to_csv(
+        f"{TXT_DATA_FILEPATH}\\neon_cell_volume_melt.txt", sep='\t', index=False)
+    xe_cell_volume_sub_data.to_csv(
+        f"{TXT_DATA_FILEPATH}\\xenon_cell_volume_sub.txt", sep='\t', index=False)
+    xe_cell_volume_melt_data.to_csv(
+        f"{TXT_DATA_FILEPATH}\\xenon_cell_volume_melt.txt", sep='\t', index=False)
+    kr_cell_volume_sub_data.to_csv(
+        f"{TXT_DATA_FILEPATH}\\krypton_cell_volume_sub.txt", sep='\t', index=False)
+    kr_cell_volume_melt_data.to_csv(
+        f"{TXT_DATA_FILEPATH}\\krypton_cell_volume_melt.txt", sep='\t', index=False)
+
     # Melting Data
     # ne_melting_data.to_csv(
     #     f"{TXT_DATA_FILEPATH}\\neon_melting_data.txt", sep='\t', index=False)
@@ -229,15 +265,30 @@ if __name__ == "__main__":
         #               'Heat Capacity', 'C_p', 'J/(mol*K)')
         
         # Bulk Modulus
-        plot_gas_data(ne_bulk_s_data, 'neon', 'Beta S',
-                      'Bulk Modulus S', 'B_s', '1/MPa')
-        plot_gas_data(ne_bulk_t_data, 'neon', 'Beta T',
-                      'Bulk Modulus T', 'B_t', '1/MPa')
-        plot_gas_data(xe_bulk_s_data, 'xenon', 'Beta S',
-                      'Bulk Modulus S', 'B_s', '1/MPa')
-        plot_gas_data(xe_bulk_t_data, 'xenon', 'Beta T',
-                      'Bulk Modulus T', 'B_t', '1/MPa')
-        plot_gas_data(kr_bulk_s_data, 'krypton', 'Beta S',
-                      'Bulk Modulus S', 'B_s', '1/MPa')
-        plot_gas_data(kr_bulk_t_data, 'krypton', 'Beta T',
-                      'Bulk Modulus T', 'B_t', '1/MPa')
+        # plot_gas_data(ne_bulk_s_data, 'neon', 'Beta S',
+        #               'Bulk Modulus S', 'B_s', '1/MPa')
+        # plot_gas_data(ne_bulk_t_data, 'neon', 'Beta T',
+        #               'Bulk Modulus T', 'B_t', '1/MPa')
+        # plot_gas_data(xe_bulk_s_data, 'xenon', 'Beta S',
+        #               'Bulk Modulus S', 'B_s', '1/MPa')
+        # plot_gas_data(xe_bulk_t_data, 'xenon', 'Beta T',
+        #               'Bulk Modulus T', 'B_t', '1/MPa')
+        # plot_gas_data(kr_bulk_s_data, 'krypton', 'Beta S',
+        #               'Bulk Modulus S', 'B_s', '1/MPa')
+        # plot_gas_data(kr_bulk_t_data, 'krypton', 'Beta T',
+        #               'Bulk Modulus T', 'B_t', '1/MPa')
+        
+        # Cell Volume
+        plot_gas_data(ne_cell_volume_sub_data, 'neon', 'Cell Volume',
+                              'Sublimation Curve', 'V_cell', 'cm^3/mol')
+        plot_gas_data(xe_cell_volume_sub_data, 'xenon', 'Cell Volume',
+                              'Sublimation Curve', 'V_cell', 'cm^3/mol')
+        plot_gas_data(kr_cell_volume_sub_data, 'krypton', 'Cell Volume',
+                              'Sublimation Curve', 'V_cell', 'cm^3/mol')
+
+        plot_gas_data(ne_cell_volume_melt_data, 'neon', 'Cell Volume',
+                              'Melting Curve', 'V_cell', 'cm^3/mol')
+        plot_gas_data(xe_cell_volume_melt_data, 'xenon', 'Cell Volume',
+                                'Melting Curve', 'V_cell', 'cm^3/mol')
+        plot_gas_data(kr_cell_volume_melt_data, 'krypton', 'Cell Volume',
+                                'Melting Curve', 'V_cell', 'cm^3/mol')

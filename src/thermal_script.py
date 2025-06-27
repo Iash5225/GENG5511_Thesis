@@ -579,26 +579,65 @@ def read_bulk_modulus_data(filepath, sheet_name):
     df = pd.read_excel(filepath, sheet_name=sheet_name, header=2)
 
     
-        # Split the data into two DataFrames
+    # Split the data into two DataFrames
     # DataFrame 1: Left table (up to "Pressure")
     df_left = df.iloc[:, 0:7]  # adjust if more columns needed
 
     # DataFrame 2: Right table (starts from "Reference" on the right side)
     df_right = df.iloc[:, 7:]  # assumes right table starts from column 8
     
-    df_left = df.filter(items=['Year', 'Author', 'Temperature', 'Beta T '])
-    df_left = df.drop([0, 1], axis=0).reset_index(drop=True)
-    df_left['Temperature'] = pd.to_numeric(df['Temperature'], errors='coerce')
+    df_left = df_left.filter(items=['Year', 'Author', 'Temperature', 'Beta T '])
+    df_left = df_left.drop([0, 1], axis=0).reset_index(drop=True)
+    df_left['Temperature'] = pd.to_numeric(
+        df_left['Temperature'], errors='coerce')
     df_left['Beta T '] = pd.to_numeric(
-        df['Beta T '], errors='coerce')
-    
-    df_right = df.filter(items=['Year', 'Author', 'Temperature', 'Beta T '])
-    df_right = df.drop([0, 1], axis=0).reset_index(drop=True)
-    df_right['Temperature'] = pd.to_numeric(df['Temperature'], errors='coerce')
+        df_left['Beta T '], errors='coerce')
+
+    df_right = df_right.filter(items=['Year', 'Author', 'Temperature', 'Beta S '])
+    df_right = df_right.drop([0, 1], axis=0).reset_index(drop=True)
+    df_right['Temperature'] = pd.to_numeric(df_right['Temperature'], errors='coerce')
     df_right['Beta S '] = pd.to_numeric(
-        df['Beta S '], errors='coerce')
-    
+        df_right['Beta S '], errors='coerce')
+
     #rename Beta T and Beta S to remove white space at the end
     df_left.rename(columns={'Beta T ': 'Beta T'}, inplace=True)
     df_right.rename(columns={'Beta S ': 'Beta S'}, inplace=True)
+    return df_left, df_right
+
+def read_cell_volume_data(filepath, sheet_name):  
+    df = pd.read_excel(filepath, sheet_name=sheet_name, header=2)
+    # Split the data into two DataFrames
+    # DataFrame 1: Left table (up to "Pressure")
+    df_left = df.iloc[:, 0:9]  # adjust if more columns needed
+
+    # DataFrame 2: Right table (starts from "Reference" on the right side)
+    df_right = df.iloc[:, 9:]  # assumes right table starts from column 8
+
+    df_left = df_left.filter(
+        items=['Year', 'Author', 'Temperature', 'Cell Volume '])
+    df_left = df_left.drop([0, 1], axis=0).reset_index(drop=True)
+    
+    # print(f"Left DataFrame columns: {df_left.columns}")
+    df_left['Temperature'] = pd.to_numeric(df_left['Temperature'], errors='coerce')
+    df_left['Cell Volume '] = pd.to_numeric(
+        df_left['Cell Volume '], errors='coerce')
+
+    # print(f"Right DataFrame columns: {df_right.columns}")
+    df_right.rename(columns={'Year.1': 'Year'}, inplace=True)
+    df_right = df_right.rename(
+        columns={'Author.1': 'Author', 'Temperature.1': 'Temperature', 'Cell Volume .1': 'Cell Volume '})
+    df_right = df_right.filter(
+        items=['Year', 'Author', 'Temperature', 'Cell Volume '])
+    df_right = df_right.drop([0, 1], axis=0).reset_index(drop=True)
+    
+    df_right['Temperature'] = pd.to_numeric(df_right['Temperature'], errors='coerce')
+    df_right['Cell Volume '] = pd.to_numeric(
+        df_right['Cell Volume '], errors='coerce')
+
+    #rename Cell Volume to remove white space at the end
+    df_left.rename(columns={'Cell Volume ': 'Cell Volume'}, inplace=True)
+    df_right.rename(columns={'Cell Volume ': 'Cell Volume'}, inplace=True)
+    
+    # print(f"Left DataFrame columns: {df_left.columns}"
+    #       f"Right DataFrame columns: {df_right.columns}")
     return df_left, df_right
