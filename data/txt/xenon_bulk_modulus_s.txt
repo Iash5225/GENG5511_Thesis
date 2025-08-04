@@ -1,0 +1,49 @@
+Unnamed: 0	Reference	Year	Author	Temperature	Beta T 	Unnamed: 6	Density	Pressure	Unnamed: 9	Unnamed: 10	Reference.1	Year.1	Author.1	Temperature.1	Beta S	1011 x Beta S	Unnamed: 17
+		1967.0	Urvas		0.000263							1967.0	Manzhelli	0.0			
+		1967.0	Urvas		0.000313							1967.0	Manzhelli	11.0			
+		1967.0	Urvas	20.0	0.000355							1967.0	Manzhelli	15.0	0.000278		
+		1967.0	Urvas	56.0	0.000476							1967.0	Manzhelli	21.5	0.000279		
+		1967.0	Urvas	77.0	0.000556							1967.0	Manzhelli	25.0	0.000279		
+		1967.0	Manzhelli	111.0	0.000278							1967.0	Manzhelli	30.0	0.000281		
+		1967.0	Manzhelli	142.0	0.00028							1967.0	Manzhelli	35.0	0.000282		
+		1967.0	Manzhelli	0.0	0.000282							1967.0	Manzhelli	40.0	0.000284		
+		1967.0	Manzhelli	11.0	0.000286							1967.0	Manzhelli	45.0	0.000286		
+		1967.0	Manzhelli	15.0	0.000288							1967.0	Manzhelli	50.0	0.000289		
+		1967.0	Manzhelli	21.5	0.000292							1967.0	Manzhelli	55.0	0.000292		
+		1967.0	Manzhelli	25.0	0.000297							1967.0	Manzhelli	60.0	0.000296		
+		1967.0	Manzhelli	30.0	0.000303							1967.0	Manzhelli	65.0	0.000301		
+		1967.0	Manzhelli	35.0	0.00031							1967.0	Manzhelli	70.0	0.000304		
+		1967.0	Manzhelli	40.0	0.000318							1967.0	Manzhelli	75.0	0.00031		
+		1967.0	Manzhelli	45.0	0.000326							1967.0	Manzhelli	80.0	0.000316		
+		1967.0	Manzhelli	50.0	0.000335							1967.0	Manzhelli	85.0	0.000323		
+		1967.0	Manzhelli	55.0	0.000344							1967.0	Manzhelli	90.0	0.000328		
+		1967.0	Manzhelli	60.0	0.000355							1967.0	Manzhelli	100.0	0.000335		
+		1967.0	Manzhelli	65.0	0.000367							1967.0	Manzhelli	120.0	0.000344		
+		1967.0	Manzhelli	70.0	0.000378							1967.0	Manzhelli	140.0	0.000361		
+		1967.0	Manzhelli	75.0	0.000391							1974.0	Shirane	10.0	0.000402		
+		1967.0	Manzhelli	80.0	0.000404							1974.0	Shirane	111.0	0.000452		
+		1967.0	Manzhelli	85.0	0.000433							1974.0	Shirane	156.0	0.000275		
+		1967.0	Manzhelli	90.0	0.000503							1974.0	Shirane	159.6	0.000336		
+		1967.0	Manzhelli	100.0	0.000595							1970.0	Gornal	151.0	0.000442		
+		1975.0	Anderson	120.0	0.000275							1970.0	Gornal	156.0	0.000476		
+		1975.0	Anderson	140.0	0.000282							1977.0	Rand	156.0	0.000439		
+		1975.0	Anderson	4.0	0.000303							1977.0	Rand	159.6	0.000442		
+		1975.0	Anderson	20.0	0.000331							1970.0	Klein	0.0	0.000442		
+		1975.0	Anderson	40.0	0.000366							1970.0	Klein	20.0	0.000476		
+		1975.0	Anderson	60.0	0.000369							1970.0	Klein	40.0	0.000275		
+		1975.0	Anderson	77.0	0.000407							1970.0	Klein	80.0	0.000284		
+		1975.0	Anderson	80.0	0.000444							1970.0	Klein	120.0	0.000306		
+		1975.0	Anderson	100.0	0.000521							1970.0	Klein	160.0	0.000377		
+		1975.0	Anderson	120.0	0.000676										0.000478		
+		1974.0	Korpiun	140.0	0.000264										0.000586		
+		1974.0	Korpiun	159.0	0.000338												
+		1974.0	Korpiun	4.0	0.000355												
+		1990.0	Schlosser	65.5	0.000676												
+		1990.0	Schlosser	77.0	0.000681												
+		1963.0	Packard	159.0	0.000278												
+		1963.0	Packard	161.36	0.000286												
+		1963.0	Packard	0.0	0.000313												
+		1963.0	Packard	20.0	0.00037												
+		1963.0	Packard	50.0	0.000435												
+		1963.0	Packard	75.0	0.000526												
+		1963.0	Packard	100.0	0.000667												

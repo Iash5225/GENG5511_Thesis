@@ -1,0 +1,40 @@
+Unnamed: 0	Reference	Year	Author	Temperature	Beta T	Unnamed: 6	Density	Pressure	Unnamed: 9	Unnamed: 10	Reference.1	Year.1	Author.1	Temperature.1	Beta S 	1011 x Beta S	Unnamed: 17
+		1967.0	Batchelder									1971.0	Balzer	0.5	0.000885		
+		1967.0	Batchelder									1971.0	Balzer	1.0	0.000885		
+		1967.0	Batchelder	4.0	0.0009							1971.0	Balzer	1.5	0.000885		
+		1967.0	Batchelder	6.0	0.00091							1971.0	Balzer	2.0	0.000885		
+		1967.0	Batchelder	8.0	0.00092							1971.0	Balzer	2.5	0.000885		
+		1967.0	Batchelder	10.0	0.00094							1971.0	Balzer	3.0	0.000886		
+		1967.0	Batchelder	12.0	0.00096							1971.0	Balzer	3.5	0.000887		
+		1967.0	Batchelder	14.0	0.001							1971.0	Balzer	4.0	0.000887		
+		1967.0	Batchelder	16.0	0.00107							1971.0	Balzer	4.5	0.000888		
+		1970.0	Schoknecht	18.0	0.00124							1971.0	Balzer	5.0	0.000889		
+		1970.0	Schoknecht	20.0	0.00162							1971.0	Balzer	5.5	0.00089		
+		1970.0	Schoknecht	2.0	0.000885							1971.0	Balzer	6.0	0.000891		
+		1970.0	Schoknecht	3.0	0.000886							1971.0	Balzer	6.5	0.000893		
+		1970.0	Schoknecht	4.0	0.000888							1971.0	Balzer	7.0	0.000894		
+		1970.0	Schoknecht	5.0	0.000891							1971.0	Balzer	7.5	0.000898		
+		1970.0	Schoknecht	6.0	0.000896							1971.0	Balzer	8.0	0.0009		
+		1970.0	Schoknecht	7.0	0.000903							1971.0	Balzer	8.5	0.000903		
+		1970.0	Schoknecht	8.0	0.000913							1971.0	Balzer	9.0	0.000907		
+		1970.0	Schoknecht	9.0	0.000926							1971.0	Balzer	9.5	0.000912		
+		1970.0	Schoknecht	10.0	0.000942							1971.0	Balzer	10.0	0.000917		
+		1970.0	Schoknecht	11.0	0.000962							1971.0	Balzer	11.0	0.000928		
+		1970.0	Schoknecht	12.0	0.000987							1971.0	Balzer	12.0	0.000942		
+		1970.0	Schoknecht	13.0	0.00102							1971.0	Balzer	13.0	0.000959		
+		1970.0	Schoknecht	14.0	0.00105							1971.0	Balzer	14.0	0.00098		
+		1970.0	Schoknecht	15.0	0.0011							1971.0	Balzer	15.0	0.001		
+		1970.0	Schoknecht	16.0	0.00115							1971.0	Balzer	16.0	0.00103		
+		1970.0	Schoknecht	17.0	0.0012							1971.0	Balzer	17.0	0.00106		
+		1970.0	Schoknecht	18.0	0.00126							1971.0	Balzer	18.0	0.00109		
+		1970.0	Schoknecht	19.0	0.00132							1971.0	Balzer	19.0	0.00113		
+		1970.0	Schoknecht	20.0	0.00139							1971.0	Balzer	20.0	0.00116		
+		1970.0	Schoknecht	21.0	0.00146							1971.0	Balzer	21.0	0.0012		
+		1970.0	Schoknecht	22.0	0.00154							1971.0	Balzer	22.0	0.00124		
+		1972.0	Anderson	23.0	0.00162							1971.0	Balzer	23.0	0.00128		
+		1972.0	Anderson	24.0	0.00171							1977.0	Rand	23.7	0.00112		
+		1972.0	Anderson	0.0	0.000885							1977.0	Rand	24.3	0.00114		
+		1972.0	Anderson	4.2	0.000911							1975.0	McLaren	5.0	0.00089		
+		1990.0	Schlosser	13.5	0.000974							1975.0	McLaren	24.3	0.00114		
+		1990.0	Schlosser	19.9	0.00121							1972.0	Gewurtz	24.3	0.00113		
+		1969.0	Leake	19.9	0.00123							1972.0	Skalyo	5.0	0.000898		
