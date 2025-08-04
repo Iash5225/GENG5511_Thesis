@@ -228,75 +228,75 @@ if __name__ == "__main__":
     # print(gas_coefficients)
 
     if DISPLAY_PLOTS:
-        #     plot_melting_gas_data(ne_melting_data, 'neon')
-        #     plot_melting_pressure_deviation(kr_melting_data, 'krypton')
+            plot_melting_gas_data(ne_melting_data, 'neon')
+            plot_melting_pressure_deviation(kr_melting_data, 'krypton')
 
         # Enthalpty of Melting (Fusion)
-        # plot_gas_data(xe_fusion_data, 'xenon',
-        #               'Change in Enthalpy', 'Heat_of_Fusion', '\Delta H', 'kJ/mol')
-        # plot_gas_data(ne_fusion_data, 'neon',
-        #               'Change in Enthalpy', 'Heat_of_Fusion', '\Delta H', 'kJ/mol')
-        # plot_gas_data(kr_fusion_data, 'krypton',
-        #               'Change in Enthalpy', 'Heat_of_Fusion', '\Delta H', 'kJ/mol')
+        plot_gas_data(xe_fusion_data, 'xenon',
+                      'Change in Enthalpy', 'Heat_of_Fusion', '\Delta H', 'kJ/mol')
+        plot_gas_data(ne_fusion_data, 'neon',
+                      'Change in Enthalpy', 'Heat_of_Fusion', '\Delta H', 'kJ/mol')
+        plot_gas_data(kr_fusion_data, 'krypton',
+                      'Change in Enthalpy', 'Heat_of_Fusion', '\Delta H', 'kJ/mol')
 
         # Enthalpty of Sublimation (Sublimation)
-        # plot_gas_data(xe_heatsub_data, 'xenon',
-        #             'Change in Enthalpy', 'Heat_of_Sublimation', '\Delta H', 'kJ/mol')
-        # plot_gas_data(ne_heatsub_data, 'neon',
-        #             'Change in Enthalpy', 'Heat_of_Sublimation', '\Delta H', 'kJ/mol')
-        # plot_gas_data(kr_heatsub_data, 'krypton',
-        #             'Change in Enthalpy', 'Heat_of_Sublimation', '\Delta H', 'kJ/mol')
+        plot_gas_data(xe_heatsub_data, 'xenon',
+                    'Change in Enthalpy', 'Heat_of_Sublimation', '\Delta H', 'kJ/mol')
+        plot_gas_data(ne_heatsub_data, 'neon',
+                    'Change in Enthalpy', 'Heat_of_Sublimation', '\Delta H', 'kJ/mol')
+        plot_gas_data(kr_heatsub_data, 'krypton',
+                    'Change in Enthalpy', 'Heat_of_Sublimation', '\Delta H', 'kJ/mol')
 
         # Sublimation Pressure
-        # print("Plotting sublimation pressure data...")
-        # plot_sublimation_gas_data(ne_sublimation_data, 'neon')
-        # plot_sublimation_gas_data(xe_sublimation_data, 'xenon')
-        # plot_sublimation_gas_data(kr_sublimation_data, 'krypton')
+        print("Plotting sublimation pressure data...")
+        plot_sublimation_gas_data(ne_sublimation_data, 'neon')
+        plot_sublimation_gas_data(xe_sublimation_data, 'xenon')
+        plot_sublimation_gas_data(kr_sublimation_data, 'krypton')
 
         # Thermal Expansion Coefficient
-        # plot_gas_data(ne_thermal_coeff_data, 'neon','Thermal Expansion Coefficient',
-        #               'Thermal Expansion Coefficient', 'alpha', '1/K')
-        # plot_gas_data(xe_thermal_coeff_data, 'xenon','Thermal Expansion Coefficient',
-        #               'Thermal Expansion Coefficient', 'alpha ', '1/K')
-        # plot_gas_data(kr_thermal_coeff_data, 'krypton','Thermal Expansion Coefficient',
-        #               'Thermal Expansion Coefficient', 'alpha', '1/K')
+        plot_gas_data(ne_thermal_coeff_data, 'neon','Thermal Expansion Coefficient',
+                      'Thermal Expansion Coefficient', 'alpha', '1/K')
+        plot_gas_data(xe_thermal_coeff_data, 'xenon','Thermal Expansion Coefficient',
+                      'Thermal Expansion Coefficient', 'alpha ', '1/K')
+        plot_gas_data(kr_thermal_coeff_data, 'krypton','Thermal Expansion Coefficient',
+                      'Thermal Expansion Coefficient', 'alpha', '1/K')
 
         # Heat Capacity
-        # plot_gas_data(ne_heat_capacity_data, 'neon', 'Heat Capacity',
-        #               'Heat Capacity', 'C_p', 'J/(mol*K)')
-        # plot_gas_data(xe_heat_capacity_data, 'xenon', 'Heat Capacity',
-        #               'Heat Capacity', 'C_p', 'J/(mol*K)')
-        # plot_gas_data(kr_heat_capacity_data, 'krypton', 'Heat Capacity',
-        #               'Heat Capacity', 'C_p', 'J/(mol*K)')
+        plot_gas_data(ne_heat_capacity_data, 'neon', 'Heat Capacity',
+                      'Heat Capacity', 'C_p', 'J/(mol*K)')
+        plot_gas_data(xe_heat_capacity_data, 'xenon', 'Heat Capacity',
+                      'Heat Capacity', 'C_p', 'J/(mol*K)')
+        plot_gas_data(kr_heat_capacity_data, 'krypton', 'Heat Capacity',
+                      'Heat Capacity', 'C_p', 'J/(mol*K)')
 
         # Bulk Modulus
-        # plot_gas_data(ne_bulk_s_data, 'neon', 'Beta S',
-        #               'Bulk Modulus S', 'B_s', '1/MPa')
-        # plot_gas_data(ne_bulk_t_data, 'neon', 'Beta T',
-        #               'Bulk Modulus T', 'B_t', '1/MPa')
-        # plot_gas_data(xe_bulk_s_data, 'xenon', 'Beta S',
-        #               'Bulk Modulus S', 'B_s', '1/MPa')
-        # plot_gas_data(xe_bulk_t_data, 'xenon', 'Beta T',
-        #               'Bulk Modulus T', 'B_t', '1/MPa')
-        # plot_gas_data(kr_bulk_s_data, 'krypton', 'Beta S',
-        #               'Bulk Modulus S', 'B_s', '1/MPa')
-        # plot_gas_data(kr_bulk_t_data, 'krypton', 'Beta T',
-        #               'Bulk Modulus T', 'B_t', '1/MPa')
+        plot_gas_data(ne_bulk_s_data, 'neon', 'Beta S',
+                      'Bulk Modulus S', 'B_s', '1/MPa')
+        plot_gas_data(ne_bulk_t_data, 'neon', 'Beta T',
+                      'Bulk Modulus T', 'B_t', '1/MPa')
+        plot_gas_data(xe_bulk_s_data, 'xenon', 'Beta S',
+                      'Bulk Modulus S', 'B_s', '1/MPa')
+        plot_gas_data(xe_bulk_t_data, 'xenon', 'Beta T',
+                      'Bulk Modulus T', 'B_t', '1/MPa')
+        plot_gas_data(kr_bulk_s_data, 'krypton', 'Beta S',
+                      'Bulk Modulus S', 'B_s', '1/MPa')
+        plot_gas_data(kr_bulk_t_data, 'krypton', 'Beta T',
+                      'Bulk Modulus T', 'B_t', '1/MPa')
 
-        # Cell Volume
-        # plot_gas_data(ne_cell_volume_sub_data, 'neon', 'Cell Volume',
-        #                       'Sublimation Curve', 'V_cell', 'cm^3/mol')
-        # plot_gas_data(xe_cell_volume_sub_data, 'xenon', 'Cell Volume',
-        #                       'Sublimation Curve', 'V_cell', 'cm^3/mol')
-        # plot_gas_data(kr_cell_volume_sub_data, 'krypton', 'Cell Volume',
-        #                       'Sublimation Curve', 'V_cell', 'cm^3/mol')
+        #Cell Volume
+        plot_gas_data(ne_cell_volume_sub_data, 'neon', 'Cell Volume',
+                              'Sublimation Curve', 'V_cell', 'cm^3/mol')
+        plot_gas_data(xe_cell_volume_sub_data, 'xenon', 'Cell Volume',
+                              'Sublimation Curve', 'V_cell', 'cm^3/mol')
+        plot_gas_data(kr_cell_volume_sub_data, 'krypton', 'Cell Volume',
+                              'Sublimation Curve', 'V_cell', 'cm^3/mol')
 
-        # plot_gas_data(ne_cell_volume_melt_data, 'neon', 'Cell Volume',
-        #                       'Melting Curve', 'V_cell', 'cm^3/mol')
-        # plot_gas_data(xe_cell_volume_melt_data, 'xenon', 'Cell Volume',
-        #                         'Melting Curve', 'V_cell', 'cm^3/mol')
-        # plot_gas_data(kr_cell_volume_melt_data, 'krypton', 'Cell Volume',
-        #                         'Melting Curve', 'V_cell', 'cm^3/mol')
+        plot_gas_data(ne_cell_volume_melt_data, 'neon', 'Cell Volume',
+                              'Melting Curve', 'V_cell', 'cm^3/mol')
+        plot_gas_data(xe_cell_volume_melt_data, 'xenon', 'Cell Volume',
+                                'Melting Curve', 'V_cell', 'cm^3/mol')
+        plot_gas_data(kr_cell_volume_melt_data, 'krypton', 'Cell Volume',
+                                'Melting Curve', 'V_cell', 'cm^3/mol')
 
         plot_gas_data(kr_cell_volume_data, 'krypton', 'Cell Volume',
                       'Melting and Sublimation Curve', 'V', 'cm^3/mol')

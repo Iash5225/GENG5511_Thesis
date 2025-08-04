@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-from p_functions import psub,pmelt
+from GENG5511_Thesis.src.p_functions import psub,pmelt
 # from GENG5511_Thesis.src.constants import *
 # from constants import *
 

@@ -150,6 +150,7 @@ def plot_melting_gas_data(data, gas_name: str):
 
     # Set labels with italicized text to match LaTeX style in the image
     plt.xlabel(r'$\mathit{T}$ / K', fontsize=14)
+    
     plt.ylabel(r'$\mathit{p}$ / MPa', fontsize=14)
 
     # Set a logarithmic scale for the y-axis
@@ -171,7 +172,7 @@ def plot_melting_gas_data(data, gas_name: str):
     plt.title(f'Melting Pressure for {gas_name}', fontsize=14)
 
     output_filepath = f"{OUTPUT_FILEPATH}\{gas_name}_melting_temperatures_plot.png"
-    plt.savefig(output_filepath, dpi=300, bbox_inches='tight')
+   # plt.savefig(output_filepath, dpi=300, bbox_inches='tight')
     plt.show()
     
     
@@ -239,7 +240,7 @@ def plot_sublimation_gas_data(data, gas_name: str):
     plt.title(f'Sublimation Pressure for {gas_name}', fontsize=14)
 
     output_filepath = f"{OUTPUT_FILEPATH}\{gas_name}_sublimation_plot.png"
-    plt.savefig(output_filepath, dpi=300, bbox_inches='tight')
+    #plt.savefig(output_filepath, dpi=300, bbox_inches='tight')
     plt.show()
     
 def plot_gas_data(data, gas_name: str,y_axis:str,filename:str = None,y_var: str = 'Pressure',y_units: str = 'MPa'):
@@ -271,7 +272,14 @@ def plot_gas_data(data, gas_name: str,y_axis:str,filename:str = None,y_var: str 
 
     # Set labels with italicized text to match LaTeX style in the image
     plt.xlabel(r'$\mathit{T}$ / K', fontsize=14)
-    plt.ylabel(f'$\\mathit{{{y_var}}}$ / {y_units}', fontsize=14)
+    # plt.ylabel(f'$\\mathit{{{y_var}}}$ / {y_units}', fontsize=14)
+    if "$" in y_var:
+        label_str = f"{y_var} / {y_units}"
+    else:
+        ylabel_str = f"$\\mathit{{{y_var}}}$ / {y_units}"
+
+        plt.ylabel(ylabel_str, fontsize=14)
+
 
 
     # Set a logarithmic scale for the y-axis
@@ -293,7 +301,7 @@ def plot_gas_data(data, gas_name: str,y_axis:str,filename:str = None,y_var: str 
     plt.title(f'{filename} for {gas_name}', fontsize=14)
 
     output_filepath = f"{OUTPUT_FILEPATH}\{gas_name}_{filename}_plot.png"
-    plt.savefig(output_filepath, dpi=300, bbox_inches='tight')
+    #plt.savefig(output_filepath, dpi=300, bbox_inches='tight')
     plt.show()
 
 
@@ -360,7 +368,8 @@ def plot_melting_pressure_deviation(data, gas_name):
     plt.tight_layout(rect=[0, 0, 0.85, 1])
 
     output_filepath = f"{OUTPUT_FILEPATH}\\{gas_name}_melting_pressure_deviation.png"
-    plt.savefig(output_filepath, dpi=300, bbox_inches='tight')
+    #
+    # plt.savefig(output_filepath, dpi=300, bbox_inches='tight')
     plt.show()
 
 def read_melting_data(filepath, sheet_name):
@@ -650,3 +659,55 @@ def read_cell_volume_data(filepath, sheet_name):
     df_right.rename(columns={'Cell Volume ': 'Cell Volume'}, inplace=True)
 
     return df_left, df_right
+
+
+def plot_all_gas_properties(data, gas_name):
+    print(f"Plotting properties for: {gas_name.capitalize()}")
+
+    # Phase-Specific
+    if gas_name == 'neon':
+        plot_melting_gas_data(data['melting'], gas_name)
+    if gas_name == 'krypton':
+        plot_melting_pressure_deviation(data['melting'], gas_name)
+
+    # Fusion
+    plot_gas_data(data['fusion'], gas_name, 'Change in Enthalpy',
+                  'Heat_of_Fusion', r'$\Delta H$', r'kJ/mol')
+
+    # Heat of Sublimation
+    plot_gas_data(data['heatsub'], gas_name, 'Change in Enthalpy',
+                  'Heat_of_Sublimation', r'$\Delta H$', r'kJ/mol')
+
+    # Sublimation Pressure
+    print("Plotting sublimation pressure data...")
+    plot_sublimation_gas_data(data['sublimation'], gas_name)
+
+    # Thermal Expansion Coefficient
+    plot_gas_data(data['thermal_coeff'], gas_name,
+                  'Thermal Expansion Coefficient',
+                  'Thermal Expansion Coefficient', r'$\alpha$', r'$1/K$')
+
+    # Heat Capacity
+    plot_gas_data(data['heat_capacity'], gas_name,
+                  'Heat Capacity', 'Heat Capacity', r'$C_p$', r'J/(mol\cdot K)')
+
+    # Bulk Modulus
+    plot_gas_data(data['bulk_s'], gas_name, 'Beta S',
+                  'Bulk Modulus S', r'$B_s$', r'$1/\mathrm{MPa}$')
+    plot_gas_data(data['bulk_t'], gas_name, 'Beta T',
+                  'Bulk Modulus T', r'$B_t$', r'$1/\mathrm{MPa}$')
+
+    # Cell Volume
+    plot_gas_data(data['cell_volume_sub'], gas_name, 'Cell Volume',
+                  'Sublimation Curve', r'$V_{\mathrm{cell}}$', r'$\mathrm{cm}^3/\mathrm{mol}$')
+    plot_gas_data(data['cell_volume_melt'], gas_name, 'Cell Volume',
+                  'Melting Curve', r'$V_{\mathrm{cell}}$', r'$\mathrm{cm}^3/\mathrm{mol}$')
+
+    # Combined Plot
+    try:
+        combined = data['cell_volume_sub'].copy()
+        combined['V'] = data['cell_volume_melt']['V'].values
+        plot_gas_data(combined, gas_name, 'Cell Volume',
+                      'Melting and Sublimation Curve', r'$V$', r'$\mathrm{cm}^3/\mathrm{mol}$')
+    except Exception:
+        print("Warning: Could not combine melt + sublimation cell volume data.")
