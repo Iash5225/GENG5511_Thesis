@@ -1,54 +1,27 @@
 import numpy as np
 
 
-def psub(T):
+def psub(T, pt, Tt):
     """
-    Calculate the sublimation pressure at temperature T.
-
-    Parameters:
-    T (float or np.ndarray): Temperature in Kelvin
-
-    Returns:
-    float or np.ndarray: Sublimation pressure in MPa
+    Sublimation pressure (MPa) at temperature T (K).
+    pt: triple-point pressure (MPa)
+    Tt: triple-point temperature (K)
     """
-    # Constants
-    pt = 0.068891  # MPa
-    Tt = 83.806    # K
-
-    # Coefficients
-    d4 = -10.763
-    d5 = -1.526
-    d6 = -0.4245
-
-    # Ensure numpy array for element-wise operations
-    T = np.asarray(T)
-
-    term = (1 - T / Tt)
-    p_sub = pt * np.exp((Tt / T) * (d4 * term + d5 * term**1.5 + d6 * term**5))
-
-    return p_sub
+    T = np.asarray(T, dtype=float)
+    T_safe = np.where(T == 0.0, np.finfo(float).tiny, T)  # avoid div/0
+    d4, d5, d6 = -10.763, -1.526, -0.4245
+    term = 1.0 - T_safe / Tt
+    out = pt * np.exp((Tt / T_safe) * (d4*term + d5*term**1.5 + d6*term**5))
+    return out.item() if out.ndim == 0 else out
 
 
-def pmelt(T):
+def pmelt(T, pt, Tt):
     """
-    Calculate the melting pressure at temperature T.
-
-    Parameters:
-    T (float or np.ndarray): Temperature in Kelvin
-
-    Returns:
-    float or np.ndarray: Melting pressure in MPa
+    Melting pressure (MPa) at temperature T (K).
+    Clamps below Tt so fractional powers stay well-defined.
     """
-    # Constants
-    pt = 0.068891  # MPa
-    Tt = 83.806    # K
-    b1 = 1506.5415
-    b2 = 1.73136
-    b3 = 4677.1597
-    b4 = 0.9849295
-
-    T = np.asarray(T)  # Ensure array-like input
-    term = (T / Tt - 1)
-    p_melt = pt * (1 + b1 * term**b2 + b3 * term**b4)
-
-    return p_melt
+    T = np.asarray(T, dtype=float)
+    b1, b2, b3, b4 = 1506.5415, 1.73136, 4677.1597, 0.9849295
+    term = np.clip((T / Tt) - 1.0, 0.0, None)  # simple + safe
+    out = pt * (1.0 + b1*term**b2 + b3*term**b4)
+    return out.item() if out.ndim == 0 else out
