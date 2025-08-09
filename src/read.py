@@ -46,7 +46,7 @@ def load_all_gas_data(gas_name, read_from_excel=True):
         def txt(gas, key):
             return path / f"{gas}_{key}.txt"
 
-        data['melting'] = pd.read_csv(txt(gas_name, 'melting_data'), sep='\t')
+        data['melting'] = pd.read_csv(txt(gas_name, 'melting_data_for_fitting'), sep='\t')
         data['sublimation'] = pd.read_csv(
             txt(gas_name, 'sublimation_data'), sep='\t')
         data['fusion'] = pd.read_csv(txt(gas_name, 'fusion_data'), sep='\t')
