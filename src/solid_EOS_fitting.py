@@ -8,7 +8,6 @@ from thermal_script import plot_all_gas_properties
 from computethermoprops import *
 from p_functions import pmelt,psub
 from constants import CUSTOMCOLORS, CUSTOMMARKERS, PARAMS_INIT, LOWER_BOUND, UPPER_BOUND, NEON_P_t, NEON_T_t
-from math import pi
 from scipy.integrate import quad
 
 
@@ -108,7 +107,7 @@ def combined_cost_function(params, *datasets):
 
     # === Gamma slope penalty ===
     T6 = np.array([0.0001] + list(range(2, 84, 2)) + [83.806])
-    p6 = np.array([psub(T) for T in T6])
+    p6 = np.array([psub(T, NEON_P_t, NEON_T_t) for T in T6])
     Gamma_T6 = np.array([compute_thermo_props(T, p, params)[6]
                         for T, p in zip(T6, p6)])
     Vm_T6 = np.array([compute_thermo_props(T, p, params)[0]
@@ -160,6 +159,9 @@ def combined_cost_function(params, *datasets):
 
 
 def run_optimization(params_init, bounds, datasets):
+    print("Lens:", len(PARAMS_INIT), len(LOWER_BOUND), len(UPPER_BOUND))
+    assert len(PARAMS_INIT) == len(LOWER_BOUND) == len(UPPER_BOUND)
+
     result = minimize(
         fun=combined_cost_function,
         x0=params_init,
@@ -179,7 +181,7 @@ def plot_fitted_vs_data(T_Vm_sub, Vm_sub, Year_Vm_sub, Author_Vm_sub,
     """
     # Calculate fitted properties across temperature range
     T_plot_calc = np.arange(1, 401)
-    p_plot_calc = np.array([psub(T) if T < 83.806 else pmelt(T)
+    p_plot_calc = np.array([psub(T, NEON_P_t, NEON_T_t) if T < 83.806 else pmelt(T, NEON_P_t, NEON_T_t)
                            for T in T_plot_calc])
     fitted_props = np.array([compute_thermo_props(T, p, params_fit)
                             for T, p in zip(T_plot_calc, p_plot_calc)])
@@ -245,12 +247,12 @@ def extract_datasets(data):
 
     # Cell Volume Sublimation
     T_Vm_sub = data["cell_volume_sub"]['Temperature']
-    p_Vm_sub = np.array([psub(T) for T in T_Vm_sub])
+    p_Vm_sub = np.array([psub(T, NEON_P_t, NEON_T_t) for T in T_Vm_sub])
     Vm_sub = data['cell_volume_sub']['Cell Volume']
 
     # Cell Volume Melting
     T_Vm_melt = data['cell_volume_melt']['Temperature']
-    p_Vm_melt = np.array([pmelt(T) for T in T_Vm_melt])
+    p_Vm_melt = np.array([pmelt(T, NEON_P_t, NEON_T_t) for T in T_Vm_melt])
     Vm_melt = data['cell_volume_melt']['Cell Volume']
 
     # High Pressure Cell Volume (safe defaults if missing)
@@ -265,12 +267,12 @@ def extract_datasets(data):
 
     # Heat Capacity Sublimation
     T_cp_sub = data['heat_capacity']['Temperature']
-    p_cp_sub = np.array([psub(T) for T in T_cp_sub])
+    p_cp_sub = np.array([psub(T, NEON_P_t, NEON_T_t) for T in T_cp_sub])
     cp_sub = data['heat_capacity']['Heat Capacity']
 
     # Thermal Expansion Sublimation
     T_alpha_sub = data['thermal_coeff']['Temperature']
-    p_alpha_sub = np.array([psub(T) for T in T_alpha_sub])
+    p_alpha_sub = np.array([psub(T, NEON_P_t, NEON_T_t) for T in T_alpha_sub])
     alpha_sub = data['thermal_coeff']['Thermal Expansion Coefficient']
 
     # Bulk Modulus (S)
@@ -296,7 +298,7 @@ def extract_datasets(data):
     V_fluid_sub = data['sublimation']['Volume']
     # Enthalpy Sublimation
     T_H_sub = data['heatsub']['Temperature']
-    p_H_sub = np.array([psub(T) for T in T_H_sub])
+    p_H_sub = np.array([psub(T, NEON_P_t, NEON_T_t) for T in T_H_sub])
     delta_H_sub = data['heatsub']['Change in Enthalpy']
     H_fluid_sub = np.full(5, 5000) # TODO
 
@@ -330,10 +332,10 @@ def extract_datasets(data):
 
 def plot_vm_vs_temp(T_Vm_sub, Vm_sub, Year_Vm_sub, Author_Vm_sub,
                     T_Vm_melt, Vm_melt, Year_Vm_melt, Author_Vm_melt,
-                    params_fit, psub, pmelt, compute_thermo_props,
+                    params_fit, compute_thermo_props,
                     CUSTOMMARKERS, CUSTOMCOLORS, fontsize=13.5, markersize=7, linewidth=0.9):
     T_plot_calc = np.arange(1, 401)
-    p_plot_calc = np.array([psub(T) if T < 83.806 else pmelt(T)
+    p_plot_calc = np.array([psub(T, NEON_P_t, NEON_T_t) if T < 83.806 else pmelt(T, NEON_P_t, NEON_T_t)
                            for T in T_plot_calc])
     fitted_props = np.array([compute_thermo_props(T, p, params_fit)
                             for T, p in zip(T_plot_calc, p_plot_calc)])
