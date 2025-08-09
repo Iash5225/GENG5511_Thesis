@@ -7,6 +7,7 @@ from read import load_all_gas_data
 from thermal_script import plot_all_gas_properties
 from computethermoprops import *
 from p_functions import *
+from constants import CUSTOMCOLORS,CUSTOMMARKERS
 
 
 # Constants
@@ -16,7 +17,7 @@ Tt = 83.8058
 pt = 0.068891  # MPa
 
 # Read all data into 1 dataframe
-krypton_data = load_all_gas_data('krypton', read_from_excel=False)
+data = load_all_gas_data('krypton', read_from_excel=False)
 xenon_data = load_all_gas_data('xenon', read_from_excel=False)
 neon_data = load_all_gas_data('neon', read_from_excel=False)
 
@@ -254,36 +255,54 @@ def plot_fitted_vs_data(T_Vm_sub, Vm_sub, Year_Vm_sub, Author_Vm_sub,
     plt.show()
 
 
-mymarker = ['s', 'd', 'x', 'o', '^', '>', '<', '+', '*']
-mycolor = np.array([
-    [0, 0, 0], [112, 48, 160], [192, 0, 0], [1, 175, 146], [222, 110, 38],
-    [0, 0, 255], [150, 150, 150], [95, 58, 91], [72, 113, 57]
-]) / 256
+# mymarker = ['s', 'd', 'x', 'o', '^', '>', '<', '+', '*']
+# mycolor = np.array([
+#     [0, 0, 0], [112, 48, 160], [192, 0, 0], [1, 175, 146], [222, 110, 38],
+#     [0, 0, 255], [150, 150, 150], [95, 58, 91], [72, 113, 57]
+# ]) / 256
 
-gas = 'xenon'  # or 'neon', 'krypton'
-read_from_excel = False
 
-data = load_all_gas_data(gas, read_from_excel)
-print(data)
-
-T_Vm_sub = data['cell_volume_sub']['T'].values
+# Cell Volume Sublimation Temperature
+T_Vm_sub = data["cell_volume_sub"]['Temperature']
+# Sublimation Pressure using Cell Volume Temperature
 p_Vm_sub = np.array([psub(T) for T in T_Vm_sub])
-Vm_sub = data['cell_volume_sub']['V'].values
+# Cell Volume Sublimartion
+Vm_sub = data['cell_volume_sub']['Cell Volume']
+# Call Volume Sublimation Year and Author 
 Year_Vm_sub = data['cell_volume_sub']['Year']
 Author_Vm_sub = data['cell_volume_sub']['Author']
 
-T_Vm_melt = data['cell_volume_melt']['T'].values
+# Cell Volume Melting Temperature
+T_Vm_melt = data['cell_volume_melt']['Temperature']
+# Melting Pressure using Cell Volume Temperature
 p_Vm_melt = np.array([pmelt(T) for T in T_Vm_melt])
-Vm_melt = data['cell_volume_melt']['V'].values
+# Cell Volume Melting
+Vm_melt = data['cell_volume_melt']['Cell Volume']
+# Call Volume Melting Year and Author
 Year_Vm_melt = data['cell_volume_melt']['Year']
 Author_Vm_melt = data['cell_volume_melt']['Author']
 
-# Placeholder arrays for the remaining properties. Replace with your actual data.
-T_Vm_highp = p_Vm_highp = Vm_highp = np.array([])
-T_cp_sub = p_cp_sub = cp_sub = np.array([])
-T_alpha_sub = p_alpha_sub = alpha_sub = np.array([])
+# High Pressure Cell Volume
+T_Vm_highp = data['cell_volume_highp']['Temperature']
+p_Vm_highp = data['cell_volume_highp']['Pressure']
+Vm_highp = data['cell_volume_highp']['Cell Volume']
+
+# Heat Capacity Sublimation
+T_cp_sub = data['heat_capacity']['Temperature']
+p_cp_sub = np.array([psub(T) for T in T_cp_sub])
+cp_sub = data['heat_capacity']['Heat Capacity']
+
+# Thermal Expansion Sublimation
+T_alpha_sub = data['thermal_coeff']['Temperature']
+p_alpha_sub = np.array([psub(T) for T in T_alpha_sub])
+alpha_sub = data['thermal_coeff']['Thermal Expansion Coefficient']
+
+# Adiabatic Bulk Modulus Sublimation
 T_BetaT_sub = p_BetaT_sub = BetaT_sub = np.array([])
+
+# Isothermal Bulk Modulus Sublimation
 T_BetaS_sub = p_BetaS_sub = BetaS_sub = np.array([])
+
 T_sub = p_sub = G_fluid_sub = V_fluid_sub = np.array([])
 T_melt = p_melt = G_fluid_melt = V_fluid_melt = np.array([])
 T_H_sub = p_H_sub = delta_H_sub = H_fluid_sub = np.array([])
@@ -312,5 +331,5 @@ print("Final objective value:", fval)
 plot_fitted_vs_data(
     T_Vm_sub, Vm_sub, Year_Vm_sub, Author_Vm_sub,
     T_Vm_melt, Vm_melt, Year_Vm_melt, Author_Vm_melt,
-    params_fit, mymarker, mycolor
+    params_fit, CUSTOMMARKERS, CUSTOMCOLORS
 )

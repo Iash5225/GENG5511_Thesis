@@ -1,0 +1,3958 @@
+(* Content-type: application/vnd.wolfram.mathematica *)
+
+(*** Wolfram Notebook File ***)
+(* http://www.wolfram.com/nb *)
+
+(* CreatedBy='Wolfram 14.2' *)
+
+(*CacheID: 234*)
+(* Internal cache information:
+NotebookFileLineBreakTest
+NotebookFileLineBreakTest
+NotebookDataPosition[       154,          7]
+NotebookDataLength[    161595,       3950]
+NotebookOptionsPosition[    136236,       3532]
+NotebookOutlinePosition[    136645,       3548]
+CellTagsIndexPosition[    136602,       3545]
+WindowFrame->Normal*)
+
+(* Beginning of Notebook Content *)
+Notebook[{
+
+Cell[CellGroupData[{
+Cell["Working with Low-Level Subroutine Wrappers", "Title",
+ CellChangeTimes->{{3.9567878773542843`*^9, 3.956787919605057*^9}, {
+  3.9579106414302845`*^9, 
+  3.9579106524073467`*^9}},ExpressionUUID->"d577ad3d-4f50-cc48-a22d-\
+5f2143bba720"],
+
+Cell[CellGroupData[{
+
+Cell["Introduction", "Section",
+ CellChangeTimes->{{3.9567880773758183`*^9, 3.9567880784531727`*^9}, 
+   3.957910654622509*^9},ExpressionUUID->"a09478ea-0113-2a44-8e05-\
+40b695b6f09e"],
+
+Cell[TextData[{
+ "The ",
+ StyleBox["ThermoFAST64.wl",
+  FontWeight->"Bold"],
+ " package is primarily intended to provide \[OpenCurlyDoubleQuote]high-level\
+\[CloseCurlyDoubleQuote] functions, such as ",
+ StyleBox["SolvePTFlash",
+  FontWeight->"Bold"],
+ ",",
+ " which abstract away much of the verbose code that is necessary when \
+working with the subroutines from the fortran DLL. However, it is \
+occasionally necessary to access the low-level subroutines directly in order \
+to access specialized functionality. This notebook walks through a number of \
+examples showing how this can be done."
+}], "Text",
+ CellChangeTimes->{{3.9567879275682697`*^9, 3.956787993687847*^9}, {
+  3.95791068899839*^9, 
+  3.9579108343749447`*^9}},ExpressionUUID->"b69b6fa3-f891-db4e-aa19-\
+7acc51499f54"],
+
+Cell["\<\
+This notebook assumes the package has already been installed via the paclet; \
+assuming that is the case, the package can then be loaded:\
+\>", "Text",
+ CellChangeTimes->{{3.9579110006563816`*^9, 
+  3.957911038952406*^9}},ExpressionUUID->"bbbc5d61-0f2d-3f45-9a3a-\
+d8c25ddd59da"],
+
+Cell[BoxData[
+ RowBox[{"<<", "ThermoFAST64`"}]], "Input",
+ CellChangeTimes->{{3.957910995235277*^9, 3.957910998110113*^9}},
+ CellLabel->"In[39]:=",ExpressionUUID->"5b59b1f1-206a-864a-b9d5-8ed78854b463"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["Modifying component properties", "Section",
+ CellChangeTimes->{{3.9579108488536377`*^9, 
+  3.957910852736742*^9}},ExpressionUUID->"9cdd45cc-ef04-2846-a126-\
+5e7e7077a43e"],
+
+Cell["\<\
+This example uses the DLL subroutine wrappers to perform calculations with \
+modified component properties.\
+\>", "Text",
+ CellChangeTimes->{{3.9567879275682697`*^9, 3.956787993687847*^9}, {
+  3.95791068899839*^9, 3.9579108241343174`*^9}, {3.9579108570387707`*^9, 
+  3.9579108639414997`*^9}},ExpressionUUID->"28c25309-c8e1-ad47-86fd-\
+a26939873f2b"],
+
+Cell["The workflow is as follows:", "Text",
+ CellChangeTimes->{{3.9567879275682697`*^9, 
+  3.956787992005638*^9}},ExpressionUUID->"4e9794d9-0fcc-724f-8916-\
+f014f91d3fd5"],
+
+Cell[CellGroupData[{
+
+Cell["Set up feed:", "ItemNumbered",
+ CellChangeTimes->{{3.9567880080203667`*^9, 3.9567880133244*^9}, {
+  3.9567882893237724`*^9, 
+  3.956788293527416*^9}},ExpressionUUID->"dfea8205-199f-2b44-9f67-\
+63750ef1c302"],
+
+Cell["Set components", "SubitemNumbered",
+ CellChangeTimes->{{3.9567880080203667`*^9, 
+  3.9567880133244*^9}},ExpressionUUID->"919d2cfa-3f95-d84d-98de-07c20eca3fe2"],
+
+Cell["Set models", "SubitemNumbered",
+ CellChangeTimes->{{3.9567880080203667`*^9, 
+  3.9567880161280174`*^9}},ExpressionUUID->"eb2d48ce-d6bf-e64a-ab16-\
+2a180ab8f18e"],
+
+Cell["Set component property values", "SubitemNumbered",
+ CellChangeTimes->{{3.9567880080203667`*^9, 
+  3.956788046833269*^9}},ExpressionUUID->"ae9d692d-280e-214d-99e8-\
+6a593c08f845"],
+
+Cell["Set BIPs (if using cubic)", "SubitemNumbered",
+ CellChangeTimes->{{3.9567880080203667`*^9, 3.9567880518350296`*^9}, {
+  3.9567891893571568`*^9, 
+  3.9567891955314655`*^9}},ExpressionUUID->"392883e3-a6eb-a647-9571-\
+c662d5c1d12f"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["Run calculation:", "ItemNumbered",
+ CellChangeTimes->{{3.9567880080203667`*^9, 3.956788056797697*^9}, {
+  3.9567883062771816`*^9, 
+  3.9567883073573437`*^9}},ExpressionUUID->"f12f0cd3-da77-c541-a85b-\
+331d835312e9"],
+
+Cell["Call subroutine", "SubitemNumbered",
+ CellChangeTimes->{{3.9567880080203667`*^9, 3.956788056797697*^9}, {
+  3.9567883062771816`*^9, 
+  3.9567883166181965`*^9}},ExpressionUUID->"0b0f0e27-f776-ca4b-85ca-\
+89334f3b54ce"],
+
+Cell["Retrieve results", "SubitemNumbered",
+ CellChangeTimes->{{3.9567880080203667`*^9, 
+  3.95678806213554*^9}},ExpressionUUID->"803f2e41-b104-1846-9f81-\
+aadc06c52ff4"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["Set up feed: Helmholtz fluid model", "Subsection",
+ CellChangeTimes->{{3.9567881263311977`*^9, 3.956788127806959*^9}, {
+  3.9567883253297367`*^9, 3.9567883347507896`*^9}, {3.956789206612503*^9, 
+  3.9567892404222393`*^9}},ExpressionUUID->"abfec85d-43c2-b742-a2c4-\
+cecbd547560f"],
+
+Cell[CellGroupData[{
+
+Cell["set components", "Subsubsection",
+ CellChangeTimes->{{3.956788339541956*^9, 
+  3.956788340886648*^9}},ExpressionUUID->"01b00a71-0eb2-bd40-ae52-\
+0fc0509d900e"],
+
+Cell["\<\
+First, define the components, weights and solid-former status:\
+\>", "Text",
+ CellChangeTimes->{{3.9567881894837093`*^9, 
+  3.956788207149128*^9}},ExpressionUUID->"c4951b9e-a11e-1942-9fea-\
+c2aa38f6a165"],
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"compNames", "=", 
+   RowBox[{"{", 
+    RowBox[{"\"\<Methane\>\"", ",", "\"\<Hydrogen Sulfide\>\""}], "}"}]}], 
+  ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"weights", "=", 
+   RowBox[{"{", 
+    RowBox[{"0.9", ",", "0.1"}], "}"}]}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"canFormSolid", "=", 
+   RowBox[{"{", 
+    RowBox[{"True", ",", "True"}], "}"}]}], ";"}]}], "Input",
+ CellChangeTimes->{{3.9567881316135197`*^9, 3.9567881831512356`*^9}},
+ CellLabel->"In[25]:=",ExpressionUUID->"15d4bfae-f4ad-e74d-8c6d-8215a016408a"],
+
+Cell["Look up the component ids (needed by the subroutine):", "Text",
+ CellChangeTimes->{{3.956788211115711*^9, 
+  3.9567882225434628`*^9}},ExpressionUUID->"f5b38e1d-f5a8-4747-a7f3-\
+a1be3cea6fe0"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"nComps", "=", 
+   RowBox[{"Length", "[", "compNames", "]"}]}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{"compIds", "=", 
+  RowBox[{"Table", "[", 
+   RowBox[{
+    RowBox[{
+     RowBox[{"TFGetBuiltinCompId", "[", "name", "]"}], "[", "\"\<id\>\"", 
+     "]"}], ",", 
+    RowBox[{"{", 
+     RowBox[{"name", ",", "compNames"}], "}"}]}], "]"}]}]}], "Input",
+ CellChangeTimes->{{3.9567882255241985`*^9, 3.956788266455105*^9}},
+ CellLabel->"In[28]:=",ExpressionUUID->"aec83591-6b5e-ff4c-8121-fa36fa897311"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{"1", ",", "19"}], "}"}]], "Output",
+ CellChangeTimes->{3.9567882670267773`*^9},
+ CellLabel->"Out[29]=",ExpressionUUID->"e50fd2e2-6565-ce4a-8cfc-e632f31ea3a1"]
+}, Open  ]],
+
+Cell["\<\
+Call the subroutine to initialize user feed with these components:\
+\>", "Text",
+ CellChangeTimes->{{3.9567883526795692`*^9, 
+  3.95678836817206*^9}},ExpressionUUID->"604e6783-f14e-c446-b4c0-\
+6a9e8a9af797"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"TFSetFeedBuiltinComps", "[", 
+  RowBox[{"nComps", ",", "compIds", ",", "weights", ",", "canFormSolid"}], 
+  "]"}]], "Input",
+ CellChangeTimes->{{3.9567883702342777`*^9, 3.956788385948534*^9}},
+ CellLabel->"In[30]:=",ExpressionUUID->"232f5db0-9502-a843-9822-855bb6830313"],
+
+Cell[BoxData[
+ RowBox[{"\[LeftAssociation]", "\[RightAssociation]"}]], "Output",
+ CellChangeTimes->{3.9567883882558155`*^9},
+ CellLabel->"Out[30]=",ExpressionUUID->"d256f706-8ab9-b04e-ab61-6831c5ba9e3c"]
+}, Open  ]]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["set models", "Subsubsection",
+ CellChangeTimes->{{3.956788416597561*^9, 
+  3.956788418693363*^9}},ExpressionUUID->"12dec54f-a5cb-8246-bcbb-\
+ed0558fa6d56"],
+
+Cell["The available models are stored as a list of names:", "Text",
+ CellChangeTimes->{{3.9567884587370625`*^9, 3.956788466169752*^9}, {
+  3.956788506778517*^9, 
+  3.9567885183610344`*^9}},ExpressionUUID->"b9e85ab2-2c80-d94c-904e-\
+5c57a5b1f250"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData["$FluidModels"], "Input",
+ CellChangeTimes->{{3.956788468215431*^9, 3.956788471550253*^9}},
+ CellLabel->"In[31]:=",ExpressionUUID->"04be4d92-205e-654a-997d-63728c420e80"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{"\<\"Pure Fluid Reference\"\>", ",", "\<\"GERG-2008\"\>", 
+   ",", "\<\"EOS-LNG\"\>", ",", "\<\"H2 (GERG)\"\>", 
+   ",", "\<\"H2 (Pure Reference)\"\>", ",", "\<\"EOS-CG\"\>", 
+   ",", "\<\"GERG (fast)\"\>", ",", "\<\"Peng-Robinson (1978)\"\>", 
+   ",", "\<\"Soave-Redlich-Kwong\"\>", ",", "\<\"van der Waals\"\>", 
+   ",", "\<\"Peng-Robinson (1976)\"\>", 
+   ",", "\<\"Cubic-Plus-Assocation with Peng-Robinson\"\>", 
+   ",", "\<\"Cubic-Plus-Assocation with Soave-Redlich-Kwong\"\>"}], 
+  "}"}]], "Output",
+ CellChangeTimes->{3.95678847178829*^9},
+ CellLabel->"Out[31]=",ExpressionUUID->"9c02d531-da76-a143-87de-86e193847c14"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData["$SolidModels"], "Input",
+ CellChangeTimes->{{3.956788472870388*^9, 3.95678848225033*^9}},
+ CellLabel->"In[32]:=",ExpressionUUID->"9b770caf-d04b-d443-8054-475691d49c0d"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{"\<\"Classical\"\>", ",", "\<\"Helmholtz\"\>", 
+   ",", "\<\"Poynting\"\>"}], "}"}]], "Output",
+ CellChangeTimes->{3.9567884828197937`*^9},
+ CellLabel->"Out[32]=",ExpressionUUID->"2032c8c8-9075-e14c-80cd-b5d9d57b2c38"]
+}, Open  ]],
+
+Cell["\<\
+In this example we will set the fluid model to pure fluid reference and the \
+solid model to Helmholtz.\
+\>", "Text",
+ CellChangeTimes->{{3.9567884860706787`*^9, 3.956788501701668*^9}, {
+  3.956788535801878*^9, 3.956788619296667*^9}, {3.95678872154418*^9, 
+  3.956788723168144*^9}},ExpressionUUID->"9d8dbce6-418b-2145-9e21-\
+1f7289dcb658"],
+
+Cell["\<\
+The subroutines require codes corresponding to the model names:\
+\>", "Text",
+ CellChangeTimes->{{3.9567884860706787`*^9, 3.956788501701668*^9}, {
+  3.956788535801878*^9, 3.956788619296667*^9}, {3.95678872154418*^9, 
+  3.9567887222435017`*^9}},ExpressionUUID->"976f17ba-a671-9240-867e-\
+f45ca3496a61"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"fluidModelId", "=", 
+  RowBox[{
+  "FluidModelCode", "[", "\"\<Pure Fluid Reference\>\"", "]"}]}]], "Input",
+ CellChangeTimes->{{3.9567886208189545`*^9, 3.956788637827486*^9}},
+ CellLabel->"In[33]:=",ExpressionUUID->"fb7a360a-852b-ae4f-9f0f-384750c6f3f6"],
+
+Cell[BoxData["1"], "Output",
+ CellChangeTimes->{3.956788640639534*^9},
+ CellLabel->"Out[33]=",ExpressionUUID->"f21b7f05-1c4e-584a-9310-aa00bf8469db"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"solidModelId", "=", 
+  RowBox[{"SolidModelCode", "[", "\"\<Helmholtz\>\"", "]"}]}]], "Input",
+ CellChangeTimes->{{3.9567886421180935`*^9, 3.9567886501224937`*^9}},
+ CellLabel->"In[34]:=",ExpressionUUID->"92eb069e-bb3b-264c-b88e-6166412f2068"],
+
+Cell[BoxData["2"], "Output",
+ CellChangeTimes->{3.956788650376631*^9},
+ CellLabel->"Out[34]=",ExpressionUUID->"d54f3e27-7d7c-8a4e-9557-e3539cba9bc0"]
+}, Open  ]],
+
+Cell["We then call the appropriate \[OpenCurlyDoubleQuote]setter\
+\[CloseCurlyDoubleQuote] subroutine:", "Text",
+ CellChangeTimes->{{3.956788726047041*^9, 
+  3.9567887618518486`*^9}},ExpressionUUID->"fc554216-b7d9-544c-ab08-\
+cab79cbeaa47"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"TFSetFeedParameter", "[", 
+  RowBox[{"TFIdxFeedFluidModel", ",", "fluidModelId"}], "]"}]], "Input",
+ CellChangeTimes->{{3.95678876414332*^9, 3.956788803844488*^9}},
+ CellLabel->"In[35]:=",ExpressionUUID->"d85b9ee8-3f98-a841-841f-124b83be52ee"],
+
+Cell[BoxData[
+ RowBox[{"\[LeftAssociation]", "\[RightAssociation]"}]], "Output",
+ CellChangeTimes->{3.9567888062758846`*^9},
+ CellLabel->"Out[35]=",ExpressionUUID->"3cb6ac6a-2a77-504e-a4ee-5084e04c39f8"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"TFSetFeedParameter", "[", 
+  RowBox[{"TFIdxFeedSolidModel", ",", "solidModelId"}], "]"}]], "Input",
+ CellChangeTimes->{{3.9567888128949146`*^9, 3.956788827493141*^9}},
+ CellLabel->"In[36]:=",ExpressionUUID->"38ac3341-5e5b-2047-b7b4-9d2cf6aa4e8c"],
+
+Cell[BoxData[
+ RowBox[{"\[LeftAssociation]", "\[RightAssociation]"}]], "Output",
+ CellChangeTimes->{3.9567888279515305`*^9},
+ CellLabel->"Out[36]=",ExpressionUUID->"54358154-31be-a242-ab61-2bdb18c90b76"]
+}, Open  ]],
+
+Cell["Let\[CloseCurlyQuote]s double-check the model values have changed:", \
+"Text",
+ CellChangeTimes->{{3.95678905020413*^9, 
+  3.9567890649368687`*^9}},ExpressionUUID->"9c2f6d3c-6f0c-3142-b2ab-\
+d4513941196a"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"TFGetFeedParameter", "[", "TFIdxFeedFluidModel", "]"}]], "Input",
+ CellChangeTimes->{{3.95678907717634*^9, 3.9567890803314953`*^9}},
+ CellLabel->"In[43]:=",ExpressionUUID->"0fcecc91-1c8a-4b4b-8f2e-76b4b042df7a"],
+
+Cell[BoxData[
+ RowBox[{"\[LeftAssociation]", 
+  RowBox[{"\<\"value\"\>", "\[Rule]", "1"}], 
+  "\[RightAssociation]"}]], "Output",
+ CellChangeTimes->{3.9567890812017155`*^9},
+ CellLabel->"Out[43]=",ExpressionUUID->"ed5fab54-5b1f-664d-873c-6accbb36ec23"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"TFGetFeedParameter", "[", "TFIdxFeedSolidModel", "]"}]], "Input",
+ CellChangeTimes->{{3.956789087120159*^9, 3.956789088515646*^9}},
+ CellLabel->"In[44]:=",ExpressionUUID->"cae39551-f3f1-fb46-b43b-5704884252a3"],
+
+Cell[BoxData[
+ RowBox[{"\[LeftAssociation]", 
+  RowBox[{"\<\"value\"\>", "\[Rule]", "2"}], 
+  "\[RightAssociation]"}]], "Output",
+ CellChangeTimes->{3.956789089039379*^9},
+ CellLabel->"Out[44]=",ExpressionUUID->"3f9869a7-aef2-ad48-b4b5-935c1d95bd68"]
+}, Open  ]]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["set component property value", "Subsubsection",
+ CellChangeTimes->{{3.95678885280225*^9, 
+  3.956788858694004*^9}},ExpressionUUID->"90014d5d-f5cc-384b-a6ae-\
+3c13099d78af"],
+
+Cell[TextData[{
+ "Let us override the value of ",
+ Cell[BoxData[
+  FormBox[
+   RowBox[{"\[CapitalDelta]", "\[InvisibleSpace]", 
+    SubsuperscriptBox["c", "p", 
+     RowBox[{"L", "-", "S"}]]}], TraditionalForm]],
+  FormatType->TraditionalForm,ExpressionUUID->
+  "0b0d7519-6e65-634f-8c1c-ede217225ad6"],
+ " for hydrogen sulfide."
+}], "Text",
+ CellChangeTimes->{{3.956788861053276*^9, 
+  3.956788906216524*^9}},ExpressionUUID->"fef858ec-6ea1-784c-8422-\
+17afd85dd516"],
+
+Cell["\<\
+We first need to specify the index of the component in our feed:\
+\>", "Text",
+ CellChangeTimes->{{3.9567889692881527`*^9, 
+  3.9567889792705193`*^9}},ExpressionUUID->"73201719-fb47-384a-9667-\
+767bbe7ab51a"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"compIdx", "=", "2"}], ";"}]], "Input",
+ CellChangeTimes->{{3.9567889121643353`*^9, 3.956788914989048*^9}, {
+  3.956788954107321*^9, 
+  3.9567889633494606`*^9}},ExpressionUUID->"5f43fbf2-f8d5-ab4b-91d2-\
+d0fa96af3b96"],
+
+Cell["Next, we check the default value:", "Text",
+ CellChangeTimes->{{3.956788981536108*^9, 
+  3.956788989411045*^9}},ExpressionUUID->"c5d036d0-9565-5947-ba84-\
+2c46302d54c6"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"TFGetComponentProperty", "[", 
+  RowBox[{"TFIdxComponentClassicalDeltaCp", ",", "compIdx"}], "]"}]], "Input",
+ CellChangeTimes->{{3.956788921830845*^9, 3.9567889442670536`*^9}},
+ CellLabel->"In[39]:=",ExpressionUUID->"36eda784-1890-6141-92a6-36967636f03b"],
+
+Cell[BoxData[
+ RowBox[{"\[LeftAssociation]", 
+  RowBox[{"\<\"value\"\>", "\[Rule]", 
+   RowBox[{"-", "59.46204`"}]}], "\[RightAssociation]"}]], "Output",
+ CellChangeTimes->{{3.9567889446016407`*^9, 3.956788947643879*^9}},
+ CellLabel->"Out[39]=",ExpressionUUID->"4b5a066a-1290-9743-8ab8-bfd8aeaf4ff1"]
+}, Open  ]],
+
+Cell["Now let\[CloseCurlyQuote]s set it to a new value:", "Text",
+ CellChangeTimes->{{3.956788992724346*^9, 
+  3.9567889990933094`*^9}},ExpressionUUID->"27b27408-178c-e54a-a0bf-\
+ad28b56d2b49"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"newValue", "=", "0."}], ";"}]], "Input",
+ CellChangeTimes->{{3.956789000762472*^9, 3.9567890301149673`*^9}},
+ CellLabel->"In[41]:=",ExpressionUUID->"4207d735-1106-3a43-aba2-aa1895fa5dec"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"TFSetComponentProperty", "[", 
+  RowBox[{"TFIdxComponentClassicalDeltaCp", ",", "compIdx", ",", "newValue"}],
+   "]"}]], "Input",
+ CellChangeTimes->{{3.956789024444355*^9, 3.9567890350964775`*^9}},
+ CellLabel->"In[42]:=",ExpressionUUID->"13f3db33-ce92-5a49-b85e-eb1ca938e328"],
+
+Cell[BoxData[
+ RowBox[{"\[LeftAssociation]", "\[RightAssociation]"}]], "Output",
+ CellChangeTimes->{3.9567890354815063`*^9},
+ CellLabel->"Out[42]=",ExpressionUUID->"d9ce3532-a75a-c04b-be5d-c3a8aca69fcc"]
+}, Open  ]],
+
+Cell["And double-check:", "Text",
+ CellChangeTimes->{{3.956789095636675*^9, 
+  3.9567890976329594`*^9}},ExpressionUUID->"f5c6dac0-bbc9-a54e-a323-\
+b3c517c9ba1a"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"TFGetComponentProperty", "[", 
+  RowBox[{"TFIdxComponentClassicalDeltaCp", ",", "compIdx"}], "]"}]], "Input",
+ CellLabel->"In[45]:=",ExpressionUUID->"645fb6cd-b659-9d46-bc0b-b36b827b06af"],
+
+Cell[BoxData[
+ RowBox[{"\[LeftAssociation]", 
+  RowBox[{"\<\"value\"\>", "\[Rule]", "0.`"}], 
+  "\[RightAssociation]"}]], "Output",
+ CellChangeTimes->{3.9567891047406883`*^9},
+ CellLabel->"Out[45]=",ExpressionUUID->"fdf031f1-a5a6-0b4a-9182-258ac7da76fc"]
+}, Open  ]]
+}, Open  ]]
+}, Closed]],
+
+Cell[CellGroupData[{
+
+Cell["Set up feed: cubic fluid model", "Subsection",
+ CellChangeTimes->{{3.9567881263311977`*^9, 3.956788127806959*^9}, {
+  3.9567883253297367`*^9, 3.9567883347507896`*^9}, {3.956789206612503*^9, 
+  3.9567892404222393`*^9}, {3.956789292902424*^9, 
+  3.956789293552656*^9}},ExpressionUUID->"bda378e7-139d-4c48-acac-\
+02b5d7d5d262"],
+
+Cell["\<\
+In this section we repeat the steps of the previous section, so that code \
+does not need to be run for this section to work.\
+\>", "Text",
+ CellChangeTimes->{{3.9567893094022217`*^9, 
+  3.9567893353519382`*^9}},ExpressionUUID->"e99c762e-677f-c240-861d-\
+f6e5c7f44cb6"],
+
+Cell[CellGroupData[{
+
+Cell["set components", "Subsubsection",
+ CellChangeTimes->{{3.956788339541956*^9, 
+  3.956788340886648*^9}},ExpressionUUID->"e22e5fa6-5cc2-514a-9cc3-\
+01a1c20d391c"],
+
+Cell["\<\
+First, define the components, weights and solid-former status:\
+\>", "Text",
+ CellChangeTimes->{{3.9567881894837093`*^9, 
+  3.956788207149128*^9}},ExpressionUUID->"e7923f33-d2fc-b344-a306-\
+1a4e11692189"],
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"compNames", "=", 
+   RowBox[{"{", 
+    RowBox[{"\"\<Methane\>\"", ",", "\"\<Hydrogen Sulfide\>\""}], "}"}]}], 
+  ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"weights", "=", 
+   RowBox[{"{", 
+    RowBox[{"0.9", ",", "0.1"}], "}"}]}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"canFormSolid", "=", 
+   RowBox[{"{", 
+    RowBox[{"True", ",", "True"}], "}"}]}], ";"}]}], "Input",
+ CellChangeTimes->{{3.9567881316135197`*^9, 3.9567881831512356`*^9}},
+ CellLabel->"In[40]:=",ExpressionUUID->"e34419b2-fc73-c94e-abed-9b48c2e18cdd"],
+
+Cell["Look up the component ids (needed by the subroutine):", "Text",
+ CellChangeTimes->{{3.956788211115711*^9, 
+  3.9567882225434628`*^9}},ExpressionUUID->"ffeaa025-d531-ff45-aa7f-\
+b3c482d3b72c"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"nComps", "=", 
+   RowBox[{"Length", "[", "compNames", "]"}]}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{"compIds", "=", 
+  RowBox[{"Table", "[", 
+   RowBox[{
+    RowBox[{
+     RowBox[{"TFGetBuiltinCompId", "[", "name", "]"}], "[", "\"\<id\>\"", 
+     "]"}], ",", 
+    RowBox[{"{", 
+     RowBox[{"name", ",", "compNames"}], "}"}]}], "]"}]}]}], "Input",
+ CellChangeTimes->{{3.9567882255241985`*^9, 3.956788266455105*^9}},
+ CellLabel->"In[43]:=",ExpressionUUID->"c85cdf99-1fe3-d84d-b954-8f80d4cfb08d"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{"1", ",", "19"}], "}"}]], "Output",
+ CellChangeTimes->{3.9567882670267773`*^9, 3.957910433050354*^9, 
+  3.9579110487397614`*^9},
+ CellLabel->"Out[44]=",ExpressionUUID->"4f25c236-1ef5-1b43-b392-23b5f15cf303"]
+}, Open  ]],
+
+Cell["\<\
+Call the subroutine to initialize user feed with these components:\
+\>", "Text",
+ CellChangeTimes->{{3.9567883526795692`*^9, 
+  3.95678836817206*^9}},ExpressionUUID->"ff513361-fdcf-d04c-a54f-\
+7a8723298eb6"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"TFSetFeedBuiltinComps", "[", 
+  RowBox[{"nComps", ",", "compIds", ",", "weights", ",", "canFormSolid"}], 
+  "]"}]], "Input",
+ CellChangeTimes->{{3.9567883702342777`*^9, 3.956788385948534*^9}},
+ CellLabel->"In[45]:=",ExpressionUUID->"219dec98-4237-e840-8d34-09ba9f4113bd"],
+
+Cell[BoxData[
+ RowBox[{"\[LeftAssociation]", "\[RightAssociation]"}]], "Output",
+ CellChangeTimes->{3.9567883882558155`*^9, 3.9579104330887527`*^9, 
+  3.957911051452551*^9},
+ CellLabel->"Out[45]=",ExpressionUUID->"f32f725d-57a5-b14b-94c3-929292917c53"]
+}, Open  ]]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["set models", "Subsubsection",
+ CellChangeTimes->{{3.956788416597561*^9, 
+  3.956788418693363*^9}},ExpressionUUID->"09bfe180-d421-5842-aa46-\
+e71e0ccc5d07"],
+
+Cell["The available models are stored as a list of names:", "Text",
+ CellChangeTimes->{{3.9567884587370625`*^9, 3.956788466169752*^9}, {
+  3.956788506778517*^9, 
+  3.9567885183610344`*^9}},ExpressionUUID->"db829188-7445-3c4e-9ff5-\
+133357e87925"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData["$FluidModels"], "Input",
+ CellChangeTimes->{{3.956788468215431*^9, 3.956788471550253*^9}},
+ CellLabel->"In[46]:=",ExpressionUUID->"35caead0-1a07-cb4e-9c52-44a2fd1cdd8c"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{"\<\"Pure Fluid Reference\"\>", ",", "\<\"GERG-2008\"\>", 
+   ",", "\<\"EOS-LNG\"\>", ",", "\<\"H2 (GERG)\"\>", 
+   ",", "\<\"H2 (Pure Reference)\"\>", ",", "\<\"EOS-CG\"\>", 
+   ",", "\<\"GERG (fast)\"\>", ",", "\<\"Peng-Robinson (1978)\"\>", 
+   ",", "\<\"Soave-Redlich-Kwong\"\>", ",", "\<\"van der Waals\"\>", 
+   ",", "\<\"Peng-Robinson (1976)\"\>", 
+   ",", "\<\"Cubic-Plus-Assocation with Peng-Robinson\"\>", 
+   ",", "\<\"Cubic-Plus-Assocation with Soave-Redlich-Kwong\"\>"}], 
+  "}"}]], "Output",
+ CellChangeTimes->{3.95678847178829*^9, 3.9579104330959644`*^9, 
+  3.9579110594170914`*^9},
+ CellLabel->"Out[46]=",ExpressionUUID->"ce447250-9ad0-d244-9dc6-e17d5aec9166"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData["$SolidModels"], "Input",
+ CellChangeTimes->{{3.956788472870388*^9, 3.95678848225033*^9}},
+ CellLabel->"In[47]:=",ExpressionUUID->"7256cfbc-b074-234a-9727-c51e9faf742c"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{"\<\"Classical\"\>", ",", "\<\"Helmholtz\"\>", 
+   ",", "\<\"Poynting\"\>"}], "}"}]], "Output",
+ CellChangeTimes->{3.9567884828197937`*^9, 3.9579104331265087`*^9, 
+  3.957911060025507*^9},
+ CellLabel->"Out[47]=",ExpressionUUID->"5ed520c6-1369-e74f-b1b8-5a844d4bfda2"]
+}, Open  ]],
+
+Cell["\<\
+In this example we will set the fluid model to PR 78 and the solid model to \
+Helmholtz.\
+\>", "Text",
+ CellChangeTimes->{{3.9567884860706787`*^9, 3.956788501701668*^9}, {
+  3.956788535801878*^9, 3.956788619296667*^9}, {3.95678872154418*^9, 
+  3.956788723168144*^9}, {3.9567893502513256`*^9, 
+  3.9567893519621506`*^9}},ExpressionUUID->"9d011246-7f16-d745-a408-\
+c47c04cc5b41"],
+
+Cell["\<\
+The subroutines require codes corresponding to the model names:\
+\>", "Text",
+ CellChangeTimes->{{3.9567884860706787`*^9, 3.956788501701668*^9}, {
+  3.956788535801878*^9, 3.956788619296667*^9}, {3.95678872154418*^9, 
+  3.9567887222435017`*^9}},ExpressionUUID->"5c0246b5-437c-2d49-bc36-\
+28c145fa73d2"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"fluidModelId", "=", 
+  RowBox[{
+  "FluidModelCode", "[", "\"\<Peng-Robinson (1978)\>\"", "]"}]}]], "Input",
+ CellChangeTimes->{{3.9567886208189545`*^9, 3.956788637827486*^9}, 
+   3.9567893635761757`*^9},
+ CellLabel->"In[48]:=",ExpressionUUID->"36ba0a72-adba-f948-8344-ddc493e23191"],
+
+Cell[BoxData["20"], "Output",
+ CellChangeTimes->{3.956788640639534*^9, 3.9567893659722652`*^9, 
+  3.9579104331605988`*^9, 3.9579110619450245`*^9},
+ CellLabel->"Out[48]=",ExpressionUUID->"14ed603c-91e5-7e49-b18e-d5d6dcd36a33"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"solidModelId", "=", 
+  RowBox[{"SolidModelCode", "[", "\"\<Helmholtz\>\"", "]"}]}]], "Input",
+ CellChangeTimes->{{3.9567886421180935`*^9, 3.9567886501224937`*^9}},
+ CellLabel->"In[49]:=",ExpressionUUID->"54dac98d-f5f8-8349-a93b-82a41ce00cd1"],
+
+Cell[BoxData["2"], "Output",
+ CellChangeTimes->{3.956788650376631*^9, 3.956789368118492*^9, 
+  3.9579104331676006`*^9, 3.9579110630914*^9},
+ CellLabel->"Out[49]=",ExpressionUUID->"c42999de-5ca3-1c4c-ad84-c9ce090888c8"]
+}, Open  ]],
+
+Cell["We then call the appropriate \[OpenCurlyDoubleQuote]setter\
+\[CloseCurlyDoubleQuote] subroutine:", "Text",
+ CellChangeTimes->{{3.956788726047041*^9, 
+  3.9567887618518486`*^9}},ExpressionUUID->"2bacbb24-d506-0441-93e3-\
+e8c00abe01d9"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"TFSetFeedParameter", "[", 
+  RowBox[{"TFIdxFeedFluidModel", ",", "fluidModelId"}], "]"}]], "Input",
+ CellChangeTimes->{{3.95678876414332*^9, 3.956788803844488*^9}},
+ CellLabel->"In[50]:=",ExpressionUUID->"93889cfb-dce7-4a4b-b5ca-88cdeb784ca2"],
+
+Cell[BoxData[
+ RowBox[{"\[LeftAssociation]", "\[RightAssociation]"}]], "Output",
+ CellChangeTimes->{3.9567888062758846`*^9, 3.9567893760387955`*^9, 
+  3.9579104332024136`*^9, 3.957911064104454*^9},
+ CellLabel->"Out[50]=",ExpressionUUID->"a0479ec6-35fd-0948-a9ab-4369441317e7"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"TFSetFeedParameter", "[", 
+  RowBox[{"TFIdxFeedSolidModel", ",", "solidModelId"}], "]"}]], "Input",
+ CellChangeTimes->{{3.9567888128949146`*^9, 3.956788827493141*^9}},
+ CellLabel->"In[51]:=",ExpressionUUID->"d9701135-f830-3545-a5f3-fa5d717e9545"],
+
+Cell[BoxData[
+ RowBox[{"\[LeftAssociation]", "\[RightAssociation]"}]], "Output",
+ CellChangeTimes->{3.9567888279515305`*^9, 3.956789377920086*^9, 
+  3.9579104332394886`*^9, 3.957911064682596*^9},
+ CellLabel->"Out[51]=",ExpressionUUID->"e82e33ef-ec93-d142-9c44-c808f30700f7"]
+}, Open  ]],
+
+Cell["Let\[CloseCurlyQuote]s double-check the model values have changed:", \
+"Text",
+ CellChangeTimes->{{3.95678905020413*^9, 
+  3.9567890649368687`*^9}},ExpressionUUID->"23cf3b20-e5e1-4144-918e-\
+69af7ff1f02e"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"TFGetFeedParameter", "[", "TFIdxFeedFluidModel", "]"}]], "Input",
+ CellChangeTimes->{{3.95678907717634*^9, 3.9567890803314953`*^9}},
+ CellLabel->"In[52]:=",ExpressionUUID->"ba22555e-87e1-dd45-8284-fe9eac0910ec"],
+
+Cell[BoxData[
+ RowBox[{"\[LeftAssociation]", 
+  RowBox[{"\<\"value\"\>", "\[Rule]", "20"}], 
+  "\[RightAssociation]"}]], "Output",
+ CellChangeTimes->{3.9567890812017155`*^9, 3.956789380634859*^9, 
+  3.9579104332460327`*^9, 3.9579110659812984`*^9},
+ CellLabel->"Out[52]=",ExpressionUUID->"39cda9d4-72e5-7346-809c-4261387cb3a4"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"TFGetFeedParameter", "[", "TFIdxFeedSolidModel", "]"}]], "Input",
+ CellChangeTimes->{{3.956789087120159*^9, 3.956789088515646*^9}},
+ CellLabel->"In[53]:=",ExpressionUUID->"cfc4ab99-1f13-3544-afc8-65d546e67965"],
+
+Cell[BoxData[
+ RowBox[{"\[LeftAssociation]", 
+  RowBox[{"\<\"value\"\>", "\[Rule]", "2"}], 
+  "\[RightAssociation]"}]], "Output",
+ CellChangeTimes->{3.956789089039379*^9, 3.956789382049656*^9, 
+  3.9579104332806396`*^9, 3.957911066782959*^9},
+ CellLabel->"Out[53]=",ExpressionUUID->"526e3a4b-a1c8-6442-b7ce-82a69fdda0e6"]
+}, Open  ]]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["set component property value", "Subsubsection",
+ CellChangeTimes->{{3.95678885280225*^9, 
+  3.956788858694004*^9}},ExpressionUUID->"f18a7074-a8b7-0e43-977f-\
+8a6dd6466374"],
+
+Cell[TextData[{
+ "Let us override the value of ",
+ Cell[BoxData[
+  FormBox[
+   RowBox[{"\[CapitalDelta]", "\[InvisibleSpace]", 
+    SubsuperscriptBox["c", "p", 
+     RowBox[{"L", "-", "S"}]]}], TraditionalForm]],ExpressionUUID->
+  "ad1f7202-97f0-fd45-b419-a1f7a834077c"],
+ " for hydrogen sulfide."
+}], "Text",
+ CellChangeTimes->{{3.956788861053276*^9, 
+  3.956788906216524*^9}},ExpressionUUID->"4cc658a0-99dd-5e48-b359-\
+c6d361801628"],
+
+Cell["\<\
+We first need to specify the index of the component in our feed:\
+\>", "Text",
+ CellChangeTimes->{{3.9567889692881527`*^9, 
+  3.9567889792705193`*^9}},ExpressionUUID->"22be7297-a768-c546-aeb8-\
+e90abbe0b986"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"compIdx", "=", "2"}], ";"}]], "Input",
+ CellChangeTimes->{{3.9567889121643353`*^9, 3.956788914989048*^9}, {
+  3.956788954107321*^9, 3.9567889633494606`*^9}},
+ CellLabel->"In[54]:=",ExpressionUUID->"1d038084-257b-fb42-83d5-0d32fbcc685a"],
+
+Cell["Next, we check the default value:", "Text",
+ CellChangeTimes->{{3.956788981536108*^9, 
+  3.956788989411045*^9}},ExpressionUUID->"140c68dc-1ccf-3140-9214-\
+07fd264710f8"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"TFGetComponentProperty", "[", 
+  RowBox[{"TFIdxComponentClassicalDeltaCp", ",", "compIdx"}], "]"}]], "Input",
+ CellChangeTimes->{{3.956788921830845*^9, 3.9567889442670536`*^9}},
+ CellLabel->"In[55]:=",ExpressionUUID->"ea926087-ce72-2840-b246-5bde4042dff4"],
+
+Cell[BoxData[
+ RowBox[{"\[LeftAssociation]", 
+  RowBox[{"\<\"value\"\>", "\[Rule]", 
+   RowBox[{"-", "59.46204`"}]}], "\[RightAssociation]"}]], "Output",
+ CellChangeTimes->{{3.9567889446016407`*^9, 3.956788947643879*^9}, 
+   3.9567893904123974`*^9, 3.9579104333246517`*^9, 3.9579110719013844`*^9},
+ CellLabel->"Out[55]=",ExpressionUUID->"7755d291-36da-4647-8366-30b43bc78510"]
+}, Open  ]],
+
+Cell["Now let\[CloseCurlyQuote]s set it to a new value:", "Text",
+ CellChangeTimes->{{3.956788992724346*^9, 
+  3.9567889990933094`*^9}},ExpressionUUID->"6150f13f-1c48-0647-9e54-\
+2fc9f7f17ad1"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"newValue", "=", "0."}], ";"}]], "Input",
+ CellChangeTimes->{{3.956789000762472*^9, 3.9567890301149673`*^9}},
+ CellLabel->"In[56]:=",ExpressionUUID->"28a17c32-90e0-cb49-b809-4edc8d610eed"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"TFSetComponentProperty", "[", 
+  RowBox[{"TFIdxComponentClassicalDeltaCp", ",", "compIdx", ",", "newValue"}],
+   "]"}]], "Input",
+ CellChangeTimes->{{3.956789024444355*^9, 3.9567890350964775`*^9}},
+ CellLabel->"In[57]:=",ExpressionUUID->"34561fb7-d839-294b-b3de-1d5a09a7a5c4"],
+
+Cell[BoxData[
+ RowBox[{"\[LeftAssociation]", "\[RightAssociation]"}]], "Output",
+ CellChangeTimes->{3.9567890354815063`*^9, 3.9567893954301224`*^9, 
+  3.957910433360052*^9, 3.957911073998432*^9},
+ CellLabel->"Out[57]=",ExpressionUUID->"75270975-7f88-f449-8be5-fb42ecf2f022"]
+}, Open  ]],
+
+Cell["And double-check:", "Text",
+ CellChangeTimes->{{3.956789095636675*^9, 
+  3.9567890976329594`*^9}},ExpressionUUID->"bda92637-cb28-2341-8e92-\
+1f9204fcfb94"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"TFGetComponentProperty", "[", 
+  RowBox[{"TFIdxComponentClassicalDeltaCp", ",", "compIdx"}], "]"}]], "Input",
+ CellLabel->"In[58]:=",ExpressionUUID->"a5108836-cfd0-d04e-9087-d6cf06274358"],
+
+Cell[BoxData[
+ RowBox[{"\[LeftAssociation]", 
+  RowBox[{"\<\"value\"\>", "\[Rule]", "0.`"}], 
+  "\[RightAssociation]"}]], "Output",
+ CellChangeTimes->{3.9567891047406883`*^9, 3.956789398252014*^9, 
+  3.95791043339398*^9, 3.9579110752642593`*^9},
+ CellLabel->"Out[58]=",ExpressionUUID->"943828fd-4b5f-6047-83e8-28f1ee80898f"]
+}, Open  ]]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["set BIPs", "Subsubsection",
+ CellChangeTimes->{{3.9567894029387627`*^9, 
+  3.956789404529663*^9}},ExpressionUUID->"ae5c2eb0-8008-ba4b-bad4-\
+25e954c7b1f5"],
+
+Cell["\<\
+We will now modify the SFE BIPs. First, retrieve the default values:\
+\>", "Text",
+ CellChangeTimes->{{3.9567894407030334`*^9, 
+  3.956789467948181*^9}},ExpressionUUID->"50e52e93-2db7-124b-b273-\
+e1b92109f4be"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"bips", "=", 
+  RowBox[{
+   RowBox[{"TFGetFeedPropertyMatrix", "[", 
+    RowBox[{"TFIdxFeedCubicBipSfe", ",", "nComps", ",", "0"}], "]"}], 
+   "[", "\"\<value\>\"", "]"}]}]], "Input",
+ CellLabel->"In[59]:=",ExpressionUUID->"f61ada6b-99de-b740-a017-0457f9488a2b"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{
+   RowBox[{"{", 
+    RowBox[{"0.`", ",", "0.086`"}], "}"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"0.086`", ",", "0.`"}], "}"}]}], "}"}]], "Output",
+ CellChangeTimes->{3.956789474392647*^9, 3.957910433429697*^9, 
+  3.9579110768412304`*^9},
+ CellLabel->"Out[59]=",ExpressionUUID->"1c14c686-9a65-1649-ba24-d178134be90a"]
+}, Open  ]],
+
+Cell["Override the values and update the user feed:", "Text",
+ CellChangeTimes->{{3.956789499321047*^9, 
+  3.9567895425327415`*^9}},ExpressionUUID->"37ebd1f2-0315-5445-be7b-\
+2b2b3823edb5"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{
+   RowBox[{"bips", "[", 
+    RowBox[{"[", 
+     RowBox[{"1", ",", "2"}], "]"}], "]"}], "=", 
+   RowBox[{
+    RowBox[{"bips", "[", 
+     RowBox[{"[", 
+      RowBox[{"2", ",", "1"}], "]"}], "]"}], "=", "0.1"}]}], ";"}]], "Input",
+ CellChangeTimes->{{3.9562833244135857`*^9, 3.956283334346838*^9}},
+ CellLabel->"In[60]:=",ExpressionUUID->"f6bd4f44-4999-9a49-8845-e3111130d7e6"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"TFSetFeedPropertyMatrix", "[", 
+  RowBox[{"TFIdxFeedCubicBipSfe", ",", "nComps", ",", "0", ",", "bips"}], 
+  "]"}]], "Input",
+ CellChangeTimes->{{3.9562859294975605`*^9, 3.9562859458589993`*^9}},
+ CellLabel->"In[61]:=",ExpressionUUID->"041fbc3a-11d0-7d4c-9378-6f33e4774a6d"],
+
+Cell[BoxData[
+ RowBox[{"\[LeftAssociation]", "\[RightAssociation]"}]], "Output",
+ CellChangeTimes->{{3.956285946479868*^9, 3.9562859581384373`*^9}, 
+   3.9567895572639523`*^9, 3.957910433467808*^9, 3.957911078818775*^9},
+ CellLabel->"Out[61]=",ExpressionUUID->"2b69200c-74d8-ba44-a6a1-a7e63eafd044"]
+}, Open  ]],
+
+Cell["Check they have been updated:", "Text",
+ CellChangeTimes->{{3.9567895487793484`*^9, 
+  3.9567895546823063`*^9}},ExpressionUUID->"77a06258-e035-f844-bbe7-\
+75bd19b379a2"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"bips", "=", 
+  RowBox[{
+   RowBox[{"TFGetFeedPropertyMatrix", "[", 
+    RowBox[{"TFIdxFeedCubicBipSfe", ",", "nComps", ",", "0"}], "]"}], 
+   "[", "\"\<value\>\"", "]"}]}]], "Input",
+ CellLabel->"In[62]:=",ExpressionUUID->"d5e62434-8d92-6c4c-9f98-cda73fcb3085"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{
+   RowBox[{"{", 
+    RowBox[{"0.`", ",", "0.1`"}], "}"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"0.1`", ",", "0.`"}], "}"}]}], "}"}]], "Output",
+ CellChangeTimes->{3.9562859655572166`*^9, 3.9567895585895767`*^9, 
+  3.957910433500391*^9, 3.9579110804762154`*^9},
+ CellLabel->"Out[62]=",ExpressionUUID->"6461d66a-b398-3148-a655-735cdb351d4f"]
+}, Open  ]]
+}, Open  ]]
+}, Closed]],
+
+Cell[CellGroupData[{
+
+Cell["Run calculation: flash", "Subsection",
+ CellChangeTimes->{{3.956789575724596*^9, 
+  3.9567895786576767`*^9}},ExpressionUUID->"55eed171-a5a0-6741-b019-\
+2a7000a0e6a5"],
+
+Cell[CellGroupData[{
+
+Cell["call subroutine", "Subsubsection",
+ CellChangeTimes->{{3.9567897669349365`*^9, 
+  3.956789768936907*^9}},ExpressionUUID->"c417ec40-f00f-0242-88e5-\
+78f203c0d026"],
+
+Cell["There are multiple types of flash calculation:", "Text",
+ CellChangeTimes->{{3.956789594540354*^9, 
+  3.956789617749851*^9}},ExpressionUUID->"f936391f-ea83-a042-824f-\
+b6d6c89451d8"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData["$FlashCalculationTypes"], "Input",
+ CellChangeTimes->{{3.9563082601746674`*^9, 3.9563082635152073`*^9}},
+ CellLabel->"In[26]:=",ExpressionUUID->"7b9604a2-98e5-2545-9512-1b3e40077c5e"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{"\<\"Pressure-Temperature flash\"\>", 
+   ",", "\<\"Bubble Point Temperature\"\>", 
+   ",", "\<\"Dew Point Temperature\"\>", ",", "\<\"Bubble Point Pressure\"\>",
+    ",", "\<\"Dew Point Pressure\"\>", ",", "\<\"Pressure-Enthalpy Flash\"\>",
+    ",", "\<\"Temperature-Density Flash\"\>"}], "}"}]], "Output",
+ CellChangeTimes->{3.9563082640200634`*^9, 3.9579103285974445`*^9, 
+  3.9579104357788773`*^9},
+ CellLabel->"Out[26]=",ExpressionUUID->"5fd6b692-5293-a546-9950-9f43fcbc21ba"]
+}, Open  ]],
+
+Cell["We need to use the appropriate code:", "Text",
+ CellChangeTimes->{{3.956789620475111*^9, 
+  3.9567896275709305`*^9}},ExpressionUUID->"e80ac9e5-cd38-3449-9d7b-\
+103220c96c82"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"flashType", "=", 
+  RowBox[{
+  "FlashCalculationTypeCode", "[", "\"\<Pressure-Temperature flash\>\"", 
+   "]"}]}]], "Input",
+ CellChangeTimes->{{3.9563082996116295`*^9, 3.9563083136503124`*^9}, {
+  3.9567896310096073`*^9, 3.9567896336626053`*^9}},
+ CellLabel->"In[27]:=",ExpressionUUID->"d0fffcdf-d8a1-4540-acda-1b7834dc64e6"],
+
+Cell[BoxData["1"], "Output",
+ CellChangeTimes->{3.956789634654932*^9, 3.9579103306036987`*^9, 
+  3.957910438712887*^9},
+ CellLabel->"Out[27]=",ExpressionUUID->"ae599177-46ec-3d43-88db-e8e86045cd3d"]
+}, Open  ]],
+
+Cell["Set input values (default units are MPa and K):", "Text",
+ CellChangeTimes->{{3.9567896371217117`*^9, 
+  3.9567896806510143`*^9}},ExpressionUUID->"1f64094e-04b9-7646-8162-\
+ed0a503dd275"],
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"p", "=", "2."}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"T", "=", "200."}], ";"}]}], "Input",
+ CellChangeTimes->{{3.9563082996116295`*^9, 3.9563083136503124`*^9}, 
+   3.9567896310096073`*^9},
+ CellLabel->"In[28]:=",ExpressionUUID->"a9e0af4e-6949-704f-8da1-aad87daa9d78"],
+
+Cell["Now run the flash calculation:", "Text",
+ CellChangeTimes->{{3.956789699834156*^9, 
+  3.9567897041245403`*^9}},ExpressionUUID->"28818c86-57c0-d144-a8c3-\
+9fc61bed5cc5"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"TFFlash", "[", 
+  RowBox[{"flashType", ",", "p", ",", "T"}], "]"}]], "Input",
+ CellLabel->"In[30]:=",ExpressionUUID->"98f96aa3-3b87-d24d-9653-ed7c1148a29d"],
+
+Cell[BoxData[
+ RowBox[{"\[LeftAssociation]", 
+  RowBox[{
+   RowBox[{"\<\"var2\"\>", "\[Rule]", "200.`"}], ",", 
+   RowBox[{"\<\"n_phases\"\>", "\[Rule]", "2"}], ",", 
+   RowBox[{"\<\"alerts\"\>", "\[Rule]", 
+    RowBox[{"{", 
+     RowBox[{
+     "0", ",", "0", ",", "0", ",", "0", ",", "0", ",", "0", ",", "0", ",", 
+      "0", ",", "0", ",", "0", ",", "0", ",", "0", ",", "0", ",", "0", ",", 
+      "0", ",", "0"}], "}"}]}]}], "\[RightAssociation]"}]], "Output",
+ CellChangeTimes->{3.9567897068547764`*^9, 3.9579104430456333`*^9},
+ CellLabel->"Out[30]=",ExpressionUUID->"f06eaa7f-0684-3640-9e77-5c0b906ab92f"]
+}, Open  ]],
+
+Cell["\<\
+Note that this has not returned all the outputs, the only useful quantity is \
+the number of phases:\
+\>", "Text",
+ CellChangeTimes->{{3.9567897122274704`*^9, 
+  3.9567897466181374`*^9}},ExpressionUUID->"c37fd837-3f3d-4c4e-b5ad-\
+26f929dcefa5"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"nPhases", "=", 
+  RowBox[{"%", "[", "\"\<n_phases\>\"", "]"}]}]], "Input",
+ CellChangeTimes->{{3.9563080293211746`*^9, 3.956308046603014*^9}, {
+   3.956308250582573*^9, 3.956308273274027*^9}, {3.9563083188071537`*^9, 
+   3.9563083216557446`*^9}, {3.956308544182335*^9, 3.956308549598753*^9}, 
+   3.9567897526292057`*^9},
+ CellLabel->"In[31]:=",ExpressionUUID->"a5dc7b8f-e4da-8e4e-b063-e293991a8fd2"],
+
+Cell[BoxData["2"], "Output",
+ CellChangeTimes->{3.956308322152588*^9, 3.9563085503566265`*^9, 
+  3.9567897528020344`*^9, 3.9579104448110237`*^9},
+ CellLabel->"Out[31]=",ExpressionUUID->"efc76b0a-b601-5a4c-bbd0-fcae85c9a131"]
+}, Open  ]]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["retrieve results", "Subsubsection",
+ CellChangeTimes->{{3.9567897729551697`*^9, 
+  3.9567897758776646`*^9}},ExpressionUUID->"1ef41ecf-3410-304a-b3e9-\
+8fd616a1a313"],
+
+Cell["\<\
+We get information about the flash result by calling various accessor methods.\
+\>", "Text",
+ CellChangeTimes->{{3.956789754563402*^9, 
+  3.956789830625004*^9}},ExpressionUUID->"969fcb63-9d8e-ca42-9c9c-\
+1c225b0a37a3"],
+
+Cell["Phase names:", "Text",
+ CellChangeTimes->{{3.956789833503647*^9, 
+  3.9567898403420925`*^9}},ExpressionUUID->"b13f8781-09fc-c344-a6b8-\
+86adcec15ee0"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"Table", "[", 
+  RowBox[{
+   RowBox[{
+    RowBox[{"TFGetPhaseString", "[", 
+     RowBox[{"TFIdxPhaseName", ",", "k"}], "]"}], "[", "\"\<value\>\"", "]"}],
+    ",", 
+   RowBox[{"{", 
+    RowBox[{"k", ",", "nPhases"}], "}"}]}], "]"}]], "Input",
+ CellLabel->"In[32]:=",ExpressionUUID->"b6327725-fc7e-d544-a16f-deb870793ac6"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{"\<\"Vapour\"\>", ",", "\<\"Liquid\"\>"}], "}"}]], "Output",
+ CellChangeTimes->{3.9567898237918262`*^9, 3.9579104492489395`*^9},
+ CellLabel->"Out[32]=",ExpressionUUID->"2e88cf14-d1d5-d64e-a06e-6f0290a23b91"]
+}, Open  ]],
+
+Cell["Phase amounts:", "Text",
+ CellChangeTimes->{{3.956789853752901*^9, 
+  3.956789855163517*^9}},ExpressionUUID->"dc4022c0-3426-4943-97fd-\
+6705a682c03c"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"Table", "[", 
+  RowBox[{
+   RowBox[{
+    RowBox[{"TFGetPhaseProperty", "[", 
+     RowBox[{"TFIdxPhaseMolarAmount", ",", "k", ",", "0"}], "]"}], 
+    "[", "\"\<value\>\"", "]"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"k", ",", "nPhases"}], "}"}]}], "]"}]], "Input",
+ CellChangeTimes->{{3.9563098704615498`*^9, 3.9563099090663033`*^9}},
+ CellLabel->"In[33]:=",ExpressionUUID->"1f0359d2-4849-8d45-8b33-6995a03aa562"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{"0.9310838333164715`", ",", "0.06891616668352853`"}], 
+  "}"}]], "Output",
+ CellChangeTimes->{3.9563099110139217`*^9, 3.9567898585666084`*^9, 
+  3.957910451045004*^9},
+ CellLabel->"Out[33]=",ExpressionUUID->"2c7d89bb-2cfb-9648-920f-517be3206ced"]
+}, Open  ]],
+
+Cell[TextData[{
+ "Phase densities (",
+ Cell[BoxData[
+  FormBox[
+   RowBox[{"mol", "/", 
+    SuperscriptBox[
+     StyleBox["m",
+      FontSlant->"Plain"], "3"]}], TraditionalForm]],ExpressionUUID->
+  "342fd4b3-d309-e042-b11f-445645c52796"],
+ "):"
+}], "Text",
+ CellChangeTimes->{{3.9567899014851246`*^9, 
+  3.956790010748995*^9}},ExpressionUUID->"7cb03bf7-8198-6b47-b9e0-\
+ba586b04a576"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"Table", "[", 
+  RowBox[{
+   RowBox[{
+    RowBox[{"TFGetPhaseProperty", "[", 
+     RowBox[{"TFIdxPhaseMolarDensity", ",", "k", ",", "0"}], "]"}], 
+    "[", "\"\<value\>\"", "]"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"k", ",", "nPhases"}], "}"}]}], "]"}]], "Input",
+ CellChangeTimes->{{3.9567899192665405`*^9, 3.9567899204377785`*^9}},
+ CellLabel->"In[34]:=",ExpressionUUID->"ca5d15fa-09c3-2a4f-8732-4874fa4ffc4b"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{"1437.2431529276803`", ",", "30899.455360672193`"}], 
+  "}"}]], "Output",
+ CellChangeTimes->{3.9567899235334473`*^9, 3.957910452305252*^9},
+ CellLabel->"Out[34]=",ExpressionUUID->"e5d15c4e-4f9e-8844-8d82-b1f78a815217"]
+}, Open  ]],
+
+Cell["Component phase fractions:", "Text",
+ CellChangeTimes->{{3.9567900393471527`*^9, 
+  3.956790043167635*^9}},ExpressionUUID->"52220eab-2d70-aa43-b77d-\
+101c95e10b25"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"Table", "[", 
+  RowBox[{
+   RowBox[{
+    RowBox[{"TFGetPhasePropertyVector", "[", 
+     RowBox[{"TFIdxPhaseMolarFraction", ",", "nComps", ",", "k", ",", "0"}], 
+     "]"}], "[", "\"\<value\>\"", "]"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"k", ",", "nPhases"}], "}"}]}], "]"}]], "Input",
+ CellChangeTimes->{{3.956790049800707*^9, 3.9567900571726933`*^9}, {
+  3.9567900986728725`*^9, 3.956790099990244*^9}},
+ CellLabel->"In[35]:=",ExpressionUUID->"fe51cde7-f373-1f4e-9f62-44e646686e4f"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{
+   RowBox[{"{", 
+    RowBox[{"0.9637002618152503`", ",", "0.03629973818474973`"}], "}"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"0.03938504115346141`", ",", "0.9606149588465385`"}], "}"}]}], 
+  "}"}]], "Output",
+ CellChangeTimes->{3.9567900606773415`*^9, 3.956790100741396*^9, 
+  3.9579104536433163`*^9},
+ CellLabel->"Out[35]=",ExpressionUUID->"b425f7c5-642a-2749-b14e-d1f89dbe7abc"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"Table", "[", 
+  RowBox[{
+   RowBox[{
+    RowBox[{"TFGetPhasePropertyVector", "[", 
+     RowBox[{"TFIdxPhaseFugacity", ",", "nComps", ",", "k", ",", "0"}], "]"}],
+     "[", "\"\<value\>\"", "]"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"k", ",", "nPhases"}], "}"}]}], "]"}]], "Input",
+ CellChangeTimes->{{3.9579104625423336`*^9, 3.9579104781998596`*^9}},
+ CellLabel->"In[37]:=",ExpressionUUID->"52e6a6fb-c9ba-8240-82a0-1e87b675309c"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{
+   RowBox[{"{", 
+    RowBox[{"1.6597443467758846`", ",", "0.051662160452658694`"}], "}"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"1.6597443467758837`", ",", "0.05166216045265868`"}], "}"}]}], 
+  "}"}]], "Output",
+ CellChangeTimes->{{3.957910465899168*^9, 3.9579104790860863`*^9}},
+ CellLabel->"Out[37]=",ExpressionUUID->"61820d6a-dc18-0744-9759-28b8e0d06fca"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"Table", "[", 
+  RowBox[{
+   RowBox[{
+    RowBox[{"TFGetPhasePropertyVector", "[", 
+     RowBox[{
+     "TFIdxPhaseFugacityCoefficient", ",", "nComps", ",", "k", ",", "0"}], 
+     "]"}], "[", "\"\<value\>\"", "]"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"k", ",", "nPhases"}], "}"}]}], "]"}]], "Input",
+ CellLabel->"In[38]:=",ExpressionUUID->"318136fb-7346-7049-b2e9-a7b85ad23f49"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{
+   RowBox[{"{", 
+    RowBox[{"0.8611310033524054`", ",", "0.7116051387164417`"}], "}"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"21.070745366353574`", ",", "0.026890149886220897`"}], "}"}]}], 
+  "}"}]], "Output",
+ CellChangeTimes->{3.957910480291355*^9},
+ CellLabel->"Out[38]=",ExpressionUUID->"8b4fbdb1-c932-4a44-aadb-d9001076dc53"]
+}, Open  ]]
+}, Open  ]]
+}, Closed]],
+
+Cell[CellGroupData[{
+
+Cell["Run calculation: single fluid phase", "Subsection",
+ CellChangeTimes->{{3.957910498318447*^9, 
+  3.957910507002245*^9}},ExpressionUUID->"4b314d53-84b7-9e41-95b9-\
+9991d589b7a1"],
+
+Cell[CellGroupData[{
+
+Cell["call subroutine", "Subsubsection",
+ CellChangeTimes->{{3.9567897669349365`*^9, 
+  3.956789768936907*^9}},ExpressionUUID->"5e938029-22e7-6248-b6e1-\
+2b6ab68d4567"],
+
+Cell["The function is:", "Text",
+ CellChangeTimes->{{3.9579105484683323`*^9, 
+  3.957910551790964*^9}},ExpressionUUID->"79e46723-262b-5343-afa1-\
+137d81d1da4f"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"?", "TFSetFluidPhase"}]], "Input",
+ CellChangeTimes->{{3.957911086586893*^9, 3.957911091244318*^9}},
+ CellLabel->"In[63]:=",ExpressionUUID->"d623c2cc-7af8-6241-a5bb-889b140ecc04"],
+
+Cell[BoxData[
+ InterpretationBox[
+  StyleBox[
+   FrameBox[
+    DynamicModuleBox[{System`InformationDump`open$$ = False, 
+     System`InformationDump`mouseOver$$ = False}, 
+     PaneSelectorBox[{True->
+      TagBox[GridBox[{
+         {
+          ItemBox[
+           PaneBox[
+            StyleBox[
+             TagBox[
+              TooltipBox[
+               StyleBox["\<\" Symbol\"\>", "InformationRowLabel",
+                StripOnInput->False],
+               "\"Symbol\"",
+               TooltipStyle->"TextStyling"],
+              Annotation[#, "Symbol", "Tooltip"]& ], "InformationTitleText",
+             StripOnInput->False,
+             BaseStyle -> None],
+            FrameMargins->{{4, 0}, {-1, 1}}],
+           BaseStyle->"InformationTitleBackground",
+           StripOnInput->False], 
+          ItemBox["\<\"\"\>",
+           BaseStyle->"InformationTitleBackground",
+           StripOnInput->False]},
+         {
+          ItemBox[
+           PaneBox[
+            
+            StyleBox["\<\"TFSetFluidPhase[pmpa, tk, phaseHint] is a wrapper \
+for the ThermoFAST64.dll subroutine tf_set_fluid_phase_c.\\n\\nPurpose: Sets \
+the user state to a single fluid phase with the composition of the user\\n    \
+     feed at the given pressure and temperature.\\nImport:  pMPa - pressure \
+[MPa]\\n         TK - temperature [K]\\n         phase_hint - integer code \
+specifying the preferred density solution:\\n           0 - the root with \
+lower Gibbs energy\\n           1 - vapour root (if it exists)\\n           2 \
+- liquid root (if it exists)\\n           3 - vapour root OR nearest \
+maximum\\n           4 - liquid root OR nearest minimum\\nExport:  error - 0 \
+if success, else error code\"\>", "InformationUsageText",
+             StripOnInput->False,
+             LineSpacing->{1.5, 1.5, 3.}],
+            FrameMargins->{{10, 10}, {8, 10}}],
+           BaseStyle->"InformationUsageSubtitleBackground",
+           StripOnInput->False], 
+          ItemBox["\<\"\"\>",
+           BaseStyle->"InformationUsageSubtitleBackground",
+           StripOnInput->False]},
+         {
+          PaneBox[
+           TagBox[GridBox[{
+              {
+               StyleBox[
+                TagBox[
+                 TooltipBox[
+                  StyleBox["\<\" Definitions\"\>", "InformationRowLabel",
+                   StripOnInput->False],
+                  "\"Definitions\"",
+                  TooltipStyle->"TextStyling"],
+                 Annotation[#, "Definitions", "Tooltip"]& ], "DialogStyle",
+                StripOnInput->False]},
+              {
+               TemplateBox[{"\"\[ThinSpace]\"", 
+                 GridBox[{{
+                    RowBox[{
+                    RowBox[{"TFSetFluidPhase", "[", 
+                    RowBox[{
+                    
+                    RowBox[{
+                    "ThermoFAST64`Private`pmpa_", "?", "RealValuedNumericQ"}],
+                     ",", 
+                    
+                    RowBox[{
+                    "ThermoFAST64`Private`tk_", "?", "RealValuedNumericQ"}], 
+                    ",", "ThermoFAST64`Private`phaseHint_Integer"}], "]"}], 
+                    ":=", 
+                    RowBox[{"Module", "[", 
+                    RowBox[{
+                    RowBox[{"{", 
+                    RowBox[{"ThermoFAST64`Private`error", ",", 
+                    RowBox[{"ThermoFAST64`Private`pmpaArg", "=", 
+                    RowBox[{"MakeNETObject", "[", 
+                    
+                    RowBox[{"ThermoFAST64`Private`pmpa", ",", 
+                    "\"System.Double\""}], "]"}]}], ",", 
+                    RowBox[{"ThermoFAST64`Private`tkArg", "=", 
+                    RowBox[{"MakeNETObject", "[", 
+                    
+                    RowBox[{"ThermoFAST64`Private`tk", ",", 
+                    "\"System.Double\""}], "]"}]}], ",", 
+                    RowBox[{"ThermoFAST64`Private`phaseHintArg", "=", 
+                    RowBox[{"MakeNETObject", "[", 
+                    
+                    RowBox[{"ThermoFAST64`Private`phaseHint", ",", 
+                    "\"System.Int32\""}], "]"}]}], ",", 
+                    RowBox[{"ThermoFAST64`Private`errorArg", "=", 
+                    RowBox[{"MakeNETObject", "[", 
+                    RowBox[{"0", ",", "\"System.Int32\""}], "]"}]}]}], "}"}], 
+                    ",", 
+                    RowBox[{
+                    RowBox[{"ThermoFAST64`Private`dllSetFluidPhase", "[", 
+                    
+                    RowBox[{"ThermoFAST64`Private`pmpaArg", ",", 
+                    "ThermoFAST64`Private`tkArg", ",", 
+                    "ThermoFAST64`Private`phaseHintArg", ",", 
+                    "ThermoFAST64`Private`errorArg"}], "]"}], ";", 
+                    RowBox[{"ThermoFAST64`Private`error", "=", 
+                    
+                    RowBox[{"NETObjectToExpression", "[", 
+                    "ThermoFAST64`Private`errorArg", "]"}]}], ";", 
+                    RowBox[{"If", "[", 
+                    RowBox[{
+                    
+                    RowBox[{"ThermoFAST64`Private`error", "\[NotEqual]", 
+                    "0"}], ",", 
+                    RowBox[{
+                    RowBox[{"Message", "[", 
+                    RowBox[{
+                    StyleBox[
+                    RowBox[{"ThermoFAST64", "::", "dllerr"}], "MessageName"], 
+                    ",", 
+                    
+                    RowBox[{"ThermoFAST64`Private`errorMessage", "[", 
+                    "ThermoFAST64`Private`error", "]"}]}], "]"}], ";", 
+                    RowBox[{"Return", "[", "$Failed", "]"}]}]}], "]"}], ";", 
+                    RowBox[{"Association", "[", "]"}]}]}], "]"}]}]}, {" "}}, 
+                  GridBoxAlignment -> {"Columns" -> {{Left}}}, 
+                  DefaultBaseStyle -> "Column", 
+                  GridBoxItemSize -> {
+                   "Columns" -> {{Automatic}}, "Rows" -> {{Automatic}}}]},
+                "RowDefault"]}
+             },
+             DefaultBaseStyle->"Column",
+             GridBoxAlignment->{"Columns" -> {{Left}}},
+             
+             GridBoxItemSize->{
+              "Columns" -> {{Automatic}}, "Rows" -> {{Automatic}}}],
+            "Column"],
+           FrameMargins->{{6, 0}, {3, 6}}], "\<\"\"\>"},
+         {
+          PaneBox[GridBox[{
+             {
+              
+              DynamicModuleBox[{System`InformationDump`open$$ = {
+               False, False, False, False, False, False}}, 
+               StyleBox[GridBox[{
+                  {
+                   TagBox[
+                    TooltipBox[
+                    StyleBox["\<\" Full Name\"\>", "InformationRowLabel",
+                    StripOnInput->False],
+                    "\"FullName\"",
+                    TooltipStyle->"TextStyling"],
+                    
+                    Annotation[#, "FullName", 
+                    "Tooltip"]& ], "\<\"ThermoFAST64`TFSetFluidPhase\"\>"}
+                 },
+                 AutoDelete->False,
+                 GridBoxAlignment->{"Columns" -> {Right, Left}},
+                 GridBoxDividers->None,
+                 GridBoxItemSize->{"Columns" -> {Automatic, Automatic}},
+                 GridBoxSpacings->{"Columns" -> {
+                    Offset[0.27999999999999997`], {
+                    Offset[0.5599999999999999]}, 
+                    Offset[0.27999999999999997`]}, "Rows" -> {
+                    Offset[0.2], {
+                    Offset[0.8]}, 
+                    Offset[0.2]}}], "DialogStyle",
+                StripOnInput->False],
+               DynamicModuleValues:>{}]}
+            },
+            DefaultBaseStyle->"Column",
+            GridBoxAlignment->{"Columns" -> {{Left}}},
+            GridBoxDividers->{"Columns" -> {{False}}, "Rows" -> {{False}}},
+            
+            GridBoxItemSize->{
+             "Columns" -> {{Automatic}}, "Rows" -> {{Automatic}}},
+            GridBoxSpacings->{"Columns" -> {
+                Offset[0.27999999999999997`], {
+                 Offset[0.5599999999999999]}, 
+                Offset[0.27999999999999997`]}, "Rows" -> {
+                Offset[0.2], {
+                 Offset[3.6]}, 
+                Offset[0.2]}}],
+           FrameMargins->{{6, 6}, {6, 3}}], ""},
+         {
+          ItemBox[
+           TagBox[
+            ButtonBox[
+             PaneSelectorBox[{False->
+              
+              DynamicBox[FEPrivate`FrontEndResource[
+               "FEBitmaps", "UpPointerOpener"]], True->
+              
+              DynamicBox[FEPrivate`FrontEndResource[
+               "FEBitmaps", "UpPointerOpenerHot"]]}, Dynamic[
+              System`InformationDump`mouseOver$$]],
+             Alignment->Left,
+             Appearance->{"Default" -> None},
+             
+             ButtonFunction:>FEPrivate`Set[
+              System`InformationDump`open$$, False],
+             Evaluator->Automatic,
+             FrameMargins->{{9, 0}, {0, 0}},
+             ImageMargins->0,
+             ImageSize->Full,
+             Method->"Preemptive"],
+            
+            EventHandlerTag[{
+             "MouseEntered" :> 
+              FEPrivate`Set[System`InformationDump`mouseOver$$, True], 
+              "MouseExited" :> 
+              FEPrivate`Set[System`InformationDump`mouseOver$$, False], 
+              Method -> "Preemptive", PassEventsDown -> Automatic, 
+              PassEventsUp -> True}]],
+           BaseStyle->"InformationTitleBackground",
+           StripOnInput->False], "\[SpanFromLeft]"}
+        },
+        AutoDelete->False,
+        FrameStyle->Directive[
+          GrayLevel[0.8], 
+          Thickness[Tiny]],
+        GridBoxAlignment->{"Columns" -> {Left, Right}, "Rows" -> {{Center}}},
+        GridBoxDividers->{
+         "Columns" -> {{None}}, "Rows" -> {False, {True}, False}},
+        GridBoxItemSize->{
+         "Columns" -> {{Automatic}}, "Rows" -> {{Automatic}}}],
+       "Grid"], False->
+      TagBox[GridBox[{
+         {
+          ItemBox[
+           PaneBox[
+            StyleBox[
+             TagBox[
+              TooltipBox[
+               StyleBox["\<\" Symbol\"\>", "InformationRowLabel",
+                StripOnInput->False],
+               "\"Symbol\"",
+               TooltipStyle->"TextStyling"],
+              Annotation[#, "Symbol", "Tooltip"]& ], "InformationTitleText",
+             StripOnInput->False],
+            FrameMargins->{{4, 0}, {-1, 1}}],
+           BaseStyle->"InformationTitleBackground",
+           StripOnInput->False], 
+          ItemBox["\<\"\"\>",
+           BaseStyle->"InformationTitleBackground",
+           StripOnInput->False]},
+         {
+          ItemBox[
+           PaneBox[
+            
+            StyleBox["\<\"TFSetFluidPhase[pmpa, tk, phaseHint] is a wrapper \
+for the ThermoFAST64.dll subroutine tf_set_fluid_phase_c.\\n\\nPurpose: Sets \
+the user state to a single fluid phase with the composition of the user\\n    \
+     feed at the given pressure and temperature.\\nImport:  pMPa - pressure \
+[MPa]\\n         TK - temperature [K]\\n         phase_hint - integer code \
+specifying the preferred density solution:\\n           0 - the root with \
+lower Gibbs energy\\n           1 - vapour root (if it exists)\\n           2 \
+- liquid root (if it exists)\\n           3 - vapour root OR nearest \
+maximum\\n           4 - liquid root OR nearest minimum\\nExport:  error - 0 \
+if success, else error code\"\>", "InformationUsageText",
+             StripOnInput->False,
+             LineSpacing->{1.5, 1.5, 3.}],
+            FrameMargins->{{10, 10}, {8, 10}}],
+           BaseStyle->"InformationUsageSubtitleBackground",
+           StripOnInput->False], 
+          ItemBox["\<\"\"\>",
+           BaseStyle->"InformationUsageSubtitleBackground",
+           StripOnInput->False]},
+         {
+          ItemBox[
+           TagBox[
+            ButtonBox[
+             PaneSelectorBox[{False->
+              
+              DynamicBox[FEPrivate`FrontEndResource[
+               "FEBitmaps", "DownPointerOpener"],
+               
+               ImageSizeCache->{
+                10., {2.9335936884162948`, 7.066406311583705}}], True->
+              
+              DynamicBox[FEPrivate`FrontEndResource[
+               "FEBitmaps", "DownPointerOpenerHot"],
+               
+               ImageSizeCache->{
+                10., {2.9335936884162948`, 7.066406311583705}}]}, Dynamic[
+              System`InformationDump`mouseOver$$]],
+             Alignment->Left,
+             Appearance->{"Default" -> None},
+             
+             ButtonFunction:>FEPrivate`Set[
+              System`InformationDump`open$$, True],
+             Evaluator->Automatic,
+             FrameMargins->{{9, 0}, {0, 0}},
+             ImageMargins->0,
+             ImageSize->Full,
+             Method->"Preemptive"],
+            
+            EventHandlerTag[{
+             "MouseEntered" :> 
+              FEPrivate`Set[System`InformationDump`mouseOver$$, True], 
+              "MouseExited" :> 
+              FEPrivate`Set[System`InformationDump`mouseOver$$, False], 
+              Method -> "Preemptive", PassEventsDown -> Automatic, 
+              PassEventsUp -> True}]],
+           BaseStyle->"InformationTitleBackground",
+           StripOnInput->False], "\[SpanFromLeft]"}
+        },
+        AutoDelete->False,
+        FrameStyle->Directive[
+          GrayLevel[0.8], 
+          Thickness[Tiny]],
+        GridBoxAlignment->{"Columns" -> {Left, Right}, "Rows" -> {{Center}}},
+        GridBoxDividers->{
+         "Columns" -> {{None}}, "Rows" -> {False, {True}, False}},
+        GridBoxItemSize->{
+         "Columns" -> {{Automatic}}, "Rows" -> {{Automatic}}}],
+       "Grid"]}, Dynamic[System`InformationDump`open$$],
+      BaselinePosition->Baseline,
+      FrameMargins->0,
+      ImageSize->Automatic],
+     DynamicModuleValues:>{}],
+    BaseStyle->"InformationGridFrame",
+    StripOnInput->False], "InformationGridPlain",
+   StripOnInput->False],
+  InformationData[<|
+   "ObjectType" -> "Symbol", "Usage" -> 
+    "TFSetFluidPhase[pmpa, tk, phaseHint] is a wrapper for the \
+ThermoFAST64.dll subroutine tf_set_fluid_phase_c.\n\nPurpose: Sets the user \
+state to a single fluid phase with the composition of the user\n         feed \
+at the given pressure and temperature.\nImport:  pMPa - pressure [MPa]\n      \
+   TK - temperature [K]\n         phase_hint - integer code specifying the \
+preferred density solution:\n           0 - the root with lower Gibbs energy\n\
+           1 - vapour root (if it exists)\n           2 - liquid root (if it \
+exists)\n           3 - vapour root OR nearest maximum\n           4 - liquid \
+root OR nearest minimum\nExport:  error - 0 if success, else error code", 
+    "Documentation" -> None, "OwnValues" -> None, "UpValues" -> None, 
+    "DownValues" -> 
+    Information`InformationValueForm[
+     DownValues, ThermoFAST64`TFSetFluidPhase, {ThermoFAST64`TFSetFluidPhase[
+         PatternTest[
+          Pattern[ThermoFAST64`Private`pmpa, 
+           Blank[]], RealValuedNumericQ], 
+         PatternTest[
+          Pattern[ThermoFAST64`Private`tk, 
+           Blank[]], RealValuedNumericQ], 
+         Pattern[ThermoFAST64`Private`phaseHint, 
+          Blank[Integer]]] :> 
+       Module[{ThermoFAST64`Private`error, ThermoFAST64`Private`pmpaArg = 
+          NETLink`MakeNETObject[ThermoFAST64`Private`pmpa, "System.Double"], 
+          ThermoFAST64`Private`tkArg = 
+          NETLink`MakeNETObject[ThermoFAST64`Private`tk, "System.Double"], 
+          ThermoFAST64`Private`phaseHintArg = 
+          NETLink`MakeNETObject[
+           ThermoFAST64`Private`phaseHint, "System.Int32"], 
+          ThermoFAST64`Private`errorArg = 
+          NETLink`MakeNETObject[0, "System.Int32"]}, 
+         ThermoFAST64`Private`dllSetFluidPhase[
+          ThermoFAST64`Private`pmpaArg, ThermoFAST64`Private`tkArg, 
+           ThermoFAST64`Private`phaseHintArg, ThermoFAST64`Private`errorArg]; 
+         ThermoFAST64`Private`error = 
+          NETLink`NETObjectToExpression[ThermoFAST64`Private`errorArg]; 
+         If[ThermoFAST64`Private`error != 0, Message[
+             MessageName[ThermoFAST64`ThermoFAST64, "dllerr"], 
+             ThermoFAST64`Private`errorMessage[ThermoFAST64`Private`error]]; 
+           Return[$Failed]]; <||>]}], "SubValues" -> None, "DefaultValues" -> 
+    None, "NValues" -> None, "FormatValues" -> None, "Options" -> None, 
+    "Attributes" -> {}, "FullName" -> "ThermoFAST64`TFSetFluidPhase"|>, 
+   False]]], "Output",
+ CellChangeTimes->{3.9579110921784725`*^9},
+ CellLabel->"Out[63]=",ExpressionUUID->"e037ea7f-8ea0-8b44-9e9f-5c219a3ce19e"]
+}, Open  ]],
+
+Cell["Set input values (default units are MPa and K):", "Text",
+ CellChangeTimes->{{3.9567896371217117`*^9, 
+  3.9567896806510143`*^9}},ExpressionUUID->"718889d3-97f6-d647-ba3a-\
+672cd22a57de"],
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"p", "=", "2."}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"T", "=", "200."}], ";"}]}], "Input",
+ CellChangeTimes->{{3.9563082996116295`*^9, 3.9563083136503124`*^9}, 
+   3.9567896310096073`*^9},
+ CellLabel->"In[28]:=",ExpressionUUID->"4809cdf1-c8d0-194b-99e1-7fdeaadeaac6"],
+
+Cell["Set phase hint:", "Text",
+ CellChangeTimes->{{3.9579116526882477`*^9, 
+  3.9579116548416176`*^9}},ExpressionUUID->"1a94caa7-0644-c444-bb3c-\
+c093fd135f2e"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"phaseHint", "=", "2"}], ";"}]], "Input",
+ CellChangeTimes->{{3.9579116201007175`*^9, 3.957911629458355*^9}},
+ CellLabel->"In[64]:=",ExpressionUUID->"e076b79f-1ded-3f45-a227-e13ccebe8e06"],
+
+Cell["Run the calculation:", "Text",
+ CellChangeTimes->{{3.9579116591524715`*^9, 
+  3.9579116621053047`*^9}},ExpressionUUID->"cf1b5303-193f-c64b-b034-\
+b7ab57fc3e48"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"TFSetFluidPhase", "[", 
+  RowBox[{"p", ",", "T", ",", "phaseHint"}], "]"}]], "Input",
+ CellChangeTimes->{{3.9579115948474903`*^9, 3.957911598523773*^9}, {
+  3.9579116328496513`*^9, 3.9579116383040257`*^9}},
+ CellLabel->"In[65]:=",ExpressionUUID->"45a78396-8bd6-0f48-b7e5-3f26787a4e7a"],
+
+Cell[BoxData[
+ RowBox[{"\[LeftAssociation]", "\[RightAssociation]"}]], "Output",
+ CellChangeTimes->{3.9579116409698105`*^9},
+ CellLabel->"Out[65]=",ExpressionUUID->"bf82b040-5d39-3c47-a8c4-bf52055b7254"]
+}, Open  ]],
+
+Cell["Get number of phases (should be 1):", "Text",
+ CellChangeTimes->{{3.9567897122274704`*^9, 3.9567897466181374`*^9}, {
+  3.957911668736292*^9, 3.957911675144598*^9}, {3.957912137681919*^9, 
+  3.957912138065716*^9}},ExpressionUUID->"54cf1535-5681-0b46-b992-\
+d481a057823f"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"nPhases", "=", 
+  RowBox[{
+   RowBox[{"TFGetPhaseCount", "[", "]"}], "[", "\"\<n\>\"", "]"}]}]], "Input",
+ CellChangeTimes->{{3.957912090126484*^9, 3.9579120931339016`*^9}, {
+  3.9579121281652927`*^9, 3.957912133370363*^9}},
+ CellLabel->"In[67]:=",ExpressionUUID->"57fe032a-5096-f942-a5b9-9cbf94ce4786"],
+
+Cell[BoxData["1"], "Output",
+ CellChangeTimes->{3.9579120959427032`*^9, 3.9579121336899242`*^9},
+ CellLabel->"Out[67]=",ExpressionUUID->"9ff9c4a9-e693-7f45-9a2d-e431433186a2"]
+}, Open  ]]
+}, Closed]],
+
+Cell[CellGroupData[{
+
+Cell["retrieve results", "Subsubsection",
+ CellChangeTimes->{{3.9567897729551697`*^9, 
+  3.9567897758776646`*^9}},ExpressionUUID->"2e4b09ec-2136-2944-a7e6-\
+91fa2f1efb60"],
+
+Cell["\<\
+We get attributes of the fluid phase in the same as we did above for the \
+flash calculation output.\
+\>", "Text",
+ CellChangeTimes->{{3.956789754563402*^9, 3.956789830625004*^9}, {
+  3.9579121540820637`*^9, 
+  3.957912184306961*^9}},ExpressionUUID->"bfb2a7b5-f990-7c4e-bf5f-\
+8e96f4dee6ce"],
+
+Cell["Phase names:", "Text",
+ CellChangeTimes->{{3.956789833503647*^9, 
+  3.9567898403420925`*^9}},ExpressionUUID->"b175c447-7808-ac43-9724-\
+8d3dc52af536"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"Table", "[", 
+  RowBox[{
+   RowBox[{
+    RowBox[{"TFGetPhaseString", "[", 
+     RowBox[{"TFIdxPhaseName", ",", "k"}], "]"}], "[", "\"\<value\>\"", "]"}],
+    ",", 
+   RowBox[{"{", 
+    RowBox[{"k", ",", "nPhases"}], "}"}]}], "]"}]], "Input",
+ CellLabel->"In[68]:=",ExpressionUUID->"ac3c5afc-c261-0440-af73-35f1d67e8e26"],
+
+Cell[BoxData[
+ RowBox[{"{", "\<\"Vapour\"\>", "}"}]], "Output",
+ CellChangeTimes->{3.9567898237918262`*^9, 3.9579104492489395`*^9, 
+  3.9579121877610073`*^9},
+ CellLabel->"Out[68]=",ExpressionUUID->"a1b7d72e-3f50-b645-9c1c-01a353387bb6"]
+}, Open  ]],
+
+Cell[TextData[{
+ "Phase densities (",
+ Cell[BoxData[
+  FormBox[
+   RowBox[{"mol", "/", 
+    SuperscriptBox[
+     StyleBox["m",
+      FontSlant->"Plain"], "3"]}], TraditionalForm]],ExpressionUUID->
+  "219c06f5-4fe9-784f-b012-ca82f396d3e4"],
+ "):"
+}], "Text",
+ CellChangeTimes->{{3.9567899014851246`*^9, 
+  3.956790010748995*^9}},ExpressionUUID->"5c55ac59-829d-e54e-a3e2-\
+fafd22ca6747"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"Table", "[", 
+  RowBox[{
+   RowBox[{
+    RowBox[{"TFGetPhaseProperty", "[", 
+     RowBox[{"TFIdxPhaseMolarDensity", ",", "k", ",", "0"}], "]"}], 
+    "[", "\"\<value\>\"", "]"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"k", ",", "nPhases"}], "}"}]}], "]"}]], "Input",
+ CellChangeTimes->{{3.9567899192665405`*^9, 3.9567899204377785`*^9}},
+ CellLabel->"In[70]:=",ExpressionUUID->"003a704e-717e-0541-a597-c64bf93c5800"],
+
+Cell[BoxData[
+ RowBox[{"{", "1463.8955548028855`", "}"}]], "Output",
+ CellChangeTimes->{3.9567899235334473`*^9, 3.957910452305252*^9, 
+  3.957912278129513*^9},
+ CellLabel->"Out[70]=",ExpressionUUID->"538492f3-14f9-764b-8253-06e27c6de828"]
+}, Open  ]],
+
+Cell["Component phase fractions:", "Text",
+ CellChangeTimes->{{3.9567900393471527`*^9, 
+  3.956790043167635*^9}},ExpressionUUID->"e16babd4-b921-5846-83cc-\
+ba575546176e"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"Table", "[", 
+  RowBox[{
+   RowBox[{
+    RowBox[{"TFGetPhasePropertyVector", "[", 
+     RowBox[{"TFIdxPhaseMolarFraction", ",", "nComps", ",", "k", ",", "0"}], 
+     "]"}], "[", "\"\<value\>\"", "]"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"k", ",", "nPhases"}], "}"}]}], "]"}]], "Input",
+ CellChangeTimes->{{3.956790049800707*^9, 3.9567900571726933`*^9}, {
+  3.9567900986728725`*^9, 3.956790099990244*^9}},
+ CellLabel->"In[71]:=",ExpressionUUID->"a89b9d11-9185-7d42-be2e-f1971301d5ac"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{"{", 
+   RowBox[{"0.9`", ",", "0.1`"}], "}"}], "}"}]], "Output",
+ CellChangeTimes->{3.9567900606773415`*^9, 3.956790100741396*^9, 
+  3.9579104536433163`*^9, 3.957912279810747*^9},
+ CellLabel->"Out[71]=",ExpressionUUID->"c7a9ee0f-5007-2541-9ba2-0591f7cfb5aa"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"Table", "[", 
+  RowBox[{
+   RowBox[{
+    RowBox[{"TFGetPhasePropertyVector", "[", 
+     RowBox[{"TFIdxPhaseFugacity", ",", "nComps", ",", "k", ",", "0"}], "]"}],
+     "[", "\"\<value\>\"", "]"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"k", ",", "nPhases"}], "}"}]}], "]"}]], "Input",
+ CellChangeTimes->{{3.9579104625423336`*^9, 3.9579104781998596`*^9}},
+ CellLabel->"In[72]:=",ExpressionUUID->"d9530367-fafd-0b41-8feb-40fa078325a0"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{"{", 
+   RowBox[{"1.5524115562559193`", ",", "0.139385451216169`"}], "}"}], 
+  "}"}]], "Output",
+ CellChangeTimes->{{3.957910465899168*^9, 3.9579104790860863`*^9}, 
+   3.9579122827619324`*^9},
+ CellLabel->"Out[72]=",ExpressionUUID->"4441e9a0-9bb5-e646-b65c-947d5144aa48"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"Table", "[", 
+  RowBox[{
+   RowBox[{
+    RowBox[{"TFGetPhasePropertyVector", "[", 
+     RowBox[{
+     "TFIdxPhaseFugacityCoefficient", ",", "nComps", ",", "k", ",", "0"}], 
+     "]"}], "[", "\"\<value\>\"", "]"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"k", ",", "nPhases"}], "}"}]}], "]"}]], "Input",
+ CellLabel->"In[73]:=",ExpressionUUID->"6ee8700f-1084-dd47-a12f-2b3577b80f83"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{"{", 
+   RowBox[{"0.8624508645866218`", ",", "0.6969272560808449`"}], "}"}], 
+  "}"}]], "Output",
+ CellChangeTimes->{3.957910480291355*^9, 3.9579122847706985`*^9},
+ CellLabel->"Out[73]=",ExpressionUUID->"547dc351-76a4-9c4f-ab69-e0e5e6a0e5e3"]
+}, Open  ]]
+}, Closed]]
+}, Closed]],
+
+Cell[CellGroupData[{
+
+Cell["Run calculation: pure solid phases", "Subsection",
+ CellChangeTimes->{{3.957910498318447*^9, 3.957910507002245*^9}, {
+  3.957912313444029*^9, 
+  3.9579123196587353`*^9}},ExpressionUUID->"8119f742-60ec-044c-be68-\
+8cff9af1db26"],
+
+Cell[CellGroupData[{
+
+Cell["call subroutine", "Subsubsection",
+ CellChangeTimes->{{3.9567897669349365`*^9, 
+  3.956789768936907*^9}},ExpressionUUID->"acab1bd3-be50-f74e-b866-\
+3cb6d4ba3088"],
+
+Cell["The function is:", "Text",
+ CellChangeTimes->{{3.9579105484683323`*^9, 
+  3.957910551790964*^9}},ExpressionUUID->"9e69619d-8ca7-8a4a-bee0-\
+090c8f1beccd"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"?", "TFSetSolidPhases"}]], "Input",
+ CellChangeTimes->{{3.957911086586893*^9, 3.957911091244318*^9}, {
+  3.957912327115225*^9, 3.957912336160652*^9}},
+ CellLabel->"In[74]:=",ExpressionUUID->"4cd9b183-c95e-704a-b153-75b7a54bde20"],
+
+Cell[BoxData[
+ InterpretationBox[
+  StyleBox[
+   FrameBox[
+    DynamicModuleBox[{System`InformationDump`open$$ = False, 
+     System`InformationDump`mouseOver$$ = False}, 
+     PaneSelectorBox[{True->
+      TagBox[GridBox[{
+         {
+          ItemBox[
+           PaneBox[
+            StyleBox[
+             TagBox[
+              TooltipBox[
+               StyleBox["\<\" Symbol\"\>", "InformationRowLabel",
+                StripOnInput->False],
+               "\"Symbol\"",
+               TooltipStyle->"TextStyling"],
+              Annotation[#, "Symbol", "Tooltip"]& ], "InformationTitleText",
+             StripOnInput->False,
+             BaseStyle -> None],
+            FrameMargins->{{4, 0}, {-1, 1}}],
+           BaseStyle->"InformationTitleBackground",
+           StripOnInput->False], 
+          ItemBox["\<\"\"\>",
+           BaseStyle->"InformationTitleBackground",
+           StripOnInput->False]},
+         {
+          ItemBox[
+           PaneBox[
+            
+            StyleBox["\<\"TFSetSolidPhases[pmpa, tk] is a wrapper for the \
+ThermoFAST64.dll subroutine tf_set_solid_phases_c.\\n\\nPurpose: Sets the \
+user state to have all components in their pure solid phase at the\\n         \
+given pressure and temperature.\\nImport:  pMPa - pressure in MPa\\n         \
+TK - temperature in K\\nExport:  n_phases - number of pure solid phases\\n    \
+     error - 0 if success, else error code\"\>", "InformationUsageText",
+             StripOnInput->False,
+             LineSpacing->{1.5, 1.5, 3.}],
+            FrameMargins->{{10, 10}, {8, 10}}],
+           BaseStyle->"InformationUsageSubtitleBackground",
+           StripOnInput->False], 
+          ItemBox["\<\"\"\>",
+           BaseStyle->"InformationUsageSubtitleBackground",
+           StripOnInput->False]},
+         {
+          PaneBox[
+           TagBox[GridBox[{
+              {
+               StyleBox[
+                TagBox[
+                 TooltipBox[
+                  StyleBox["\<\" Definitions\"\>", "InformationRowLabel",
+                   StripOnInput->False],
+                  "\"Definitions\"",
+                  TooltipStyle->"TextStyling"],
+                 Annotation[#, "Definitions", "Tooltip"]& ], "DialogStyle",
+                StripOnInput->False]},
+              {
+               TemplateBox[{"\"\[ThinSpace]\"", 
+                 GridBox[{{
+                    RowBox[{
+                    RowBox[{"TFSetSolidPhases", "[", 
+                    RowBox[{
+                    
+                    RowBox[{
+                    "ThermoFAST64`Private`pmpa_", "?", "RealValuedNumericQ"}],
+                     ",", 
+                    
+                    RowBox[{
+                    "ThermoFAST64`Private`tk_", "?", "RealValuedNumericQ"}]}],
+                     "]"}], ":=", 
+                    RowBox[{"Module", "[", 
+                    RowBox[{
+                    RowBox[{"{", 
+                    RowBox[{"ThermoFAST64`Private`error", ",", 
+                    RowBox[{"ThermoFAST64`Private`pmpaArg", "=", 
+                    RowBox[{"MakeNETObject", "[", 
+                    
+                    RowBox[{"ThermoFAST64`Private`pmpa", ",", 
+                    "\"System.Double\""}], "]"}]}], ",", 
+                    RowBox[{"ThermoFAST64`Private`tkArg", "=", 
+                    RowBox[{"MakeNETObject", "[", 
+                    
+                    RowBox[{"ThermoFAST64`Private`tk", ",", 
+                    "\"System.Double\""}], "]"}]}], ",", 
+                    RowBox[{"ThermoFAST64`Private`nPhasesArg", "=", 
+                    RowBox[{"MakeNETObject", "[", 
+                    RowBox[{"0", ",", "\"System.Int32\""}], "]"}]}], ",", 
+                    RowBox[{"ThermoFAST64`Private`errorArg", "=", 
+                    RowBox[{"MakeNETObject", "[", 
+                    RowBox[{"0", ",", "\"System.Int32\""}], "]"}]}]}], "}"}], 
+                    ",", 
+                    RowBox[{
+                    RowBox[{"ThermoFAST64`Private`dllSetSolidPhases", "[", 
+                    
+                    RowBox[{"ThermoFAST64`Private`pmpaArg", ",", 
+                    "ThermoFAST64`Private`tkArg", ",", 
+                    "ThermoFAST64`Private`nPhasesArg", ",", 
+                    "ThermoFAST64`Private`errorArg"}], "]"}], ";", 
+                    RowBox[{"ThermoFAST64`Private`error", "=", 
+                    
+                    RowBox[{"NETObjectToExpression", "[", 
+                    "ThermoFAST64`Private`errorArg", "]"}]}], ";", 
+                    RowBox[{"If", "[", 
+                    RowBox[{
+                    
+                    RowBox[{"ThermoFAST64`Private`error", "\[NotEqual]", 
+                    "0"}], ",", 
+                    RowBox[{
+                    RowBox[{"Message", "[", 
+                    RowBox[{
+                    StyleBox[
+                    RowBox[{"ThermoFAST64", "::", "dllerr"}], "MessageName"], 
+                    ",", 
+                    
+                    RowBox[{"ThermoFAST64`Private`errorMessage", "[", 
+                    "ThermoFAST64`Private`error", "]"}]}], "]"}], ";", 
+                    RowBox[{"Return", "[", "$Failed", "]"}]}]}], "]"}], ";", 
+                    RowBox[{"Association", "[", 
+                    RowBox[{"\"n_phases\"", "\[Rule]", 
+                    
+                    RowBox[{"NETObjectToExpression", "[", 
+                    "ThermoFAST64`Private`nPhasesArg", "]"}]}], "]"}]}]}], 
+                    "]"}]}]}, {" "}}, 
+                  GridBoxAlignment -> {"Columns" -> {{Left}}}, 
+                  DefaultBaseStyle -> "Column", 
+                  GridBoxItemSize -> {
+                   "Columns" -> {{Automatic}}, "Rows" -> {{Automatic}}}]},
+                "RowDefault"]}
+             },
+             DefaultBaseStyle->"Column",
+             GridBoxAlignment->{"Columns" -> {{Left}}},
+             
+             GridBoxItemSize->{
+              "Columns" -> {{Automatic}}, "Rows" -> {{Automatic}}}],
+            "Column"],
+           FrameMargins->{{6, 0}, {3, 6}}], "\<\"\"\>"},
+         {
+          PaneBox[GridBox[{
+             {
+              
+              DynamicModuleBox[{System`InformationDump`open$$ = {
+               False, False, False, False, False, False}}, 
+               StyleBox[GridBox[{
+                  {
+                   TagBox[
+                    TooltipBox[
+                    StyleBox["\<\" Full Name\"\>", "InformationRowLabel",
+                    StripOnInput->False],
+                    "\"FullName\"",
+                    TooltipStyle->"TextStyling"],
+                    
+                    Annotation[#, "FullName", 
+                    "Tooltip"]& ], "\<\"ThermoFAST64`TFSetSolidPhases\"\>"}
+                 },
+                 AutoDelete->False,
+                 GridBoxAlignment->{"Columns" -> {Right, Left}},
+                 GridBoxDividers->None,
+                 GridBoxItemSize->{"Columns" -> {Automatic, Automatic}},
+                 GridBoxSpacings->{"Columns" -> {
+                    Offset[0.27999999999999997`], {
+                    Offset[0.5599999999999999]}, 
+                    Offset[0.27999999999999997`]}, "Rows" -> {
+                    Offset[0.2], {
+                    Offset[0.8]}, 
+                    Offset[0.2]}}], "DialogStyle",
+                StripOnInput->False],
+               DynamicModuleValues:>{}]}
+            },
+            DefaultBaseStyle->"Column",
+            GridBoxAlignment->{"Columns" -> {{Left}}},
+            GridBoxDividers->{"Columns" -> {{False}}, "Rows" -> {{False}}},
+            
+            GridBoxItemSize->{
+             "Columns" -> {{Automatic}}, "Rows" -> {{Automatic}}},
+            GridBoxSpacings->{"Columns" -> {
+                Offset[0.27999999999999997`], {
+                 Offset[0.5599999999999999]}, 
+                Offset[0.27999999999999997`]}, "Rows" -> {
+                Offset[0.2], {
+                 Offset[3.6]}, 
+                Offset[0.2]}}],
+           FrameMargins->{{6, 6}, {6, 3}}], ""},
+         {
+          ItemBox[
+           TagBox[
+            ButtonBox[
+             PaneSelectorBox[{False->
+              
+              DynamicBox[FEPrivate`FrontEndResource[
+               "FEBitmaps", "UpPointerOpener"]], True->
+              
+              DynamicBox[FEPrivate`FrontEndResource[
+               "FEBitmaps", "UpPointerOpenerHot"]]}, Dynamic[
+              System`InformationDump`mouseOver$$]],
+             Alignment->Left,
+             Appearance->{"Default" -> None},
+             
+             ButtonFunction:>FEPrivate`Set[
+              System`InformationDump`open$$, False],
+             Evaluator->Automatic,
+             FrameMargins->{{9, 0}, {0, 0}},
+             ImageMargins->0,
+             ImageSize->Full,
+             Method->"Preemptive"],
+            
+            EventHandlerTag[{
+             "MouseEntered" :> 
+              FEPrivate`Set[System`InformationDump`mouseOver$$, True], 
+              "MouseExited" :> 
+              FEPrivate`Set[System`InformationDump`mouseOver$$, False], 
+              Method -> "Preemptive", PassEventsDown -> Automatic, 
+              PassEventsUp -> True}]],
+           BaseStyle->"InformationTitleBackground",
+           StripOnInput->False], "\[SpanFromLeft]"}
+        },
+        AutoDelete->False,
+        FrameStyle->Directive[
+          GrayLevel[0.8], 
+          Thickness[Tiny]],
+        GridBoxAlignment->{"Columns" -> {Left, Right}, "Rows" -> {{Center}}},
+        GridBoxDividers->{
+         "Columns" -> {{None}}, "Rows" -> {False, {True}, False}},
+        GridBoxItemSize->{
+         "Columns" -> {{Automatic}}, "Rows" -> {{Automatic}}}],
+       "Grid"], False->
+      TagBox[GridBox[{
+         {
+          ItemBox[
+           PaneBox[
+            StyleBox[
+             TagBox[
+              TooltipBox[
+               StyleBox["\<\" Symbol\"\>", "InformationRowLabel",
+                StripOnInput->False],
+               "\"Symbol\"",
+               TooltipStyle->"TextStyling"],
+              Annotation[#, "Symbol", "Tooltip"]& ], "InformationTitleText",
+             StripOnInput->False],
+            FrameMargins->{{4, 0}, {-1, 1}}],
+           BaseStyle->"InformationTitleBackground",
+           StripOnInput->False], 
+          ItemBox["\<\"\"\>",
+           BaseStyle->"InformationTitleBackground",
+           StripOnInput->False]},
+         {
+          ItemBox[
+           PaneBox[
+            
+            StyleBox["\<\"TFSetSolidPhases[pmpa, tk] is a wrapper for the \
+ThermoFAST64.dll subroutine tf_set_solid_phases_c.\\n\\nPurpose: Sets the \
+user state to have all components in their pure solid phase at the\\n         \
+given pressure and temperature.\\nImport:  pMPa - pressure in MPa\\n         \
+TK - temperature in K\\nExport:  n_phases - number of pure solid phases\\n    \
+     error - 0 if success, else error code\"\>", "InformationUsageText",
+             StripOnInput->False,
+             LineSpacing->{1.5, 1.5, 3.}],
+            FrameMargins->{{10, 10}, {8, 10}}],
+           BaseStyle->"InformationUsageSubtitleBackground",
+           StripOnInput->False], 
+          ItemBox["\<\"\"\>",
+           BaseStyle->"InformationUsageSubtitleBackground",
+           StripOnInput->False]},
+         {
+          ItemBox[
+           TagBox[
+            ButtonBox[
+             PaneSelectorBox[{False->
+              
+              DynamicBox[FEPrivate`FrontEndResource[
+               "FEBitmaps", "DownPointerOpener"],
+               
+               ImageSizeCache->{
+                10., {2.9335936884162948`, 7.066406311583705}}], True->
+              
+              DynamicBox[FEPrivate`FrontEndResource[
+               "FEBitmaps", "DownPointerOpenerHot"],
+               
+               ImageSizeCache->{
+                10., {2.9335936884162948`, 7.066406311583705}}]}, Dynamic[
+              System`InformationDump`mouseOver$$]],
+             Alignment->Left,
+             Appearance->{"Default" -> None},
+             
+             ButtonFunction:>FEPrivate`Set[
+              System`InformationDump`open$$, True],
+             Evaluator->Automatic,
+             FrameMargins->{{9, 0}, {0, 0}},
+             ImageMargins->0,
+             ImageSize->Full,
+             Method->"Preemptive"],
+            
+            EventHandlerTag[{
+             "MouseEntered" :> 
+              FEPrivate`Set[System`InformationDump`mouseOver$$, True], 
+              "MouseExited" :> 
+              FEPrivate`Set[System`InformationDump`mouseOver$$, False], 
+              Method -> "Preemptive", PassEventsDown -> Automatic, 
+              PassEventsUp -> True}]],
+           BaseStyle->"InformationTitleBackground",
+           StripOnInput->False], "\[SpanFromLeft]"}
+        },
+        AutoDelete->False,
+        FrameStyle->Directive[
+          GrayLevel[0.8], 
+          Thickness[Tiny]],
+        GridBoxAlignment->{"Columns" -> {Left, Right}, "Rows" -> {{Center}}},
+        GridBoxDividers->{
+         "Columns" -> {{None}}, "Rows" -> {False, {True}, False}},
+        GridBoxItemSize->{
+         "Columns" -> {{Automatic}}, "Rows" -> {{Automatic}}}],
+       "Grid"]}, Dynamic[System`InformationDump`open$$],
+      BaselinePosition->Baseline,
+      FrameMargins->0,
+      ImageSize->Automatic],
+     DynamicModuleValues:>{}],
+    BaseStyle->"InformationGridFrame",
+    StripOnInput->False], "InformationGridPlain",
+   StripOnInput->False],
+  InformationData[<|
+   "ObjectType" -> "Symbol", "Usage" -> 
+    "TFSetSolidPhases[pmpa, tk] is a wrapper for the ThermoFAST64.dll \
+subroutine tf_set_solid_phases_c.\n\nPurpose: Sets the user state to have all \
+components in their pure solid phase at the\n         given pressure and \
+temperature.\nImport:  pMPa - pressure in MPa\n         TK - temperature in K\
+\nExport:  n_phases - number of pure solid phases\n         error - 0 if \
+success, else error code", "Documentation" -> None, "OwnValues" -> None, 
+    "UpValues" -> None, "DownValues" -> 
+    Information`InformationValueForm[
+     DownValues, ThermoFAST64`TFSetSolidPhases, {ThermoFAST64`TFSetSolidPhases[
+         PatternTest[
+          Pattern[ThermoFAST64`Private`pmpa, 
+           Blank[]], RealValuedNumericQ], 
+         PatternTest[
+          Pattern[ThermoFAST64`Private`tk, 
+           Blank[]], RealValuedNumericQ]] :> 
+       Module[{ThermoFAST64`Private`error, ThermoFAST64`Private`pmpaArg = 
+          NETLink`MakeNETObject[ThermoFAST64`Private`pmpa, "System.Double"], 
+          ThermoFAST64`Private`tkArg = 
+          NETLink`MakeNETObject[ThermoFAST64`Private`tk, "System.Double"], 
+          ThermoFAST64`Private`nPhasesArg = 
+          NETLink`MakeNETObject[0, "System.Int32"], 
+          ThermoFAST64`Private`errorArg = 
+          NETLink`MakeNETObject[0, "System.Int32"]}, 
+         ThermoFAST64`Private`dllSetSolidPhases[
+          ThermoFAST64`Private`pmpaArg, ThermoFAST64`Private`tkArg, 
+           ThermoFAST64`Private`nPhasesArg, ThermoFAST64`Private`errorArg]; 
+         ThermoFAST64`Private`error = 
+          NETLink`NETObjectToExpression[ThermoFAST64`Private`errorArg]; 
+         If[ThermoFAST64`Private`error != 0, Message[
+             MessageName[ThermoFAST64`ThermoFAST64, "dllerr"], 
+             ThermoFAST64`Private`errorMessage[ThermoFAST64`Private`error]]; 
+           Return[$Failed]]; <|
+          "n_phases" -> 
+           NETLink`NETObjectToExpression[
+            ThermoFAST64`Private`nPhasesArg]|>]}], "SubValues" -> None, 
+    "DefaultValues" -> None, "NValues" -> None, "FormatValues" -> None, 
+    "Options" -> None, "Attributes" -> {}, "FullName" -> 
+    "ThermoFAST64`TFSetSolidPhases"|>, False]]], "Output",
+ CellChangeTimes->{3.9579110921784725`*^9, 3.957912336936304*^9},
+ CellLabel->"Out[74]=",ExpressionUUID->"0abdbcf6-8f03-ae4b-8283-c7867f306e3a"]
+}, Open  ]],
+
+Cell["Set input values (default units are MPa and K):", "Text",
+ CellChangeTimes->{{3.9567896371217117`*^9, 
+  3.9567896806510143`*^9}},ExpressionUUID->"d8bc1091-3725-e446-9c4b-\
+bcf5542e912a"],
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"p", "=", "2."}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"T", "=", "200."}], ";"}]}], "Input",
+ CellChangeTimes->{{3.9563082996116295`*^9, 3.9563083136503124`*^9}, 
+   3.9567896310096073`*^9},
+ CellLabel->"In[75]:=",ExpressionUUID->"ecb1df1b-3f37-ed4b-ae49-b29f1509b256"],
+
+Cell["Run the calculation:", "Text",
+ CellChangeTimes->{{3.9579116591524715`*^9, 
+  3.9579116621053047`*^9}},ExpressionUUID->"93266eb8-c622-484e-9c15-\
+d6a69f3e4563"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"nPhases", "=", 
+  RowBox[{
+   RowBox[{"TFSetSolidPhases", "[", 
+    RowBox[{"p", ",", "T"}], "]"}], "[", "\"\<n_phases\>\"", "]"}]}]], "Input",
+ CellChangeTimes->{{3.9579115948474903`*^9, 3.957911598523773*^9}, {
+  3.9579116328496513`*^9, 3.9579116383040257`*^9}, {3.957912351475971*^9, 
+  3.957912373890482*^9}},
+ CellLabel->"In[78]:=",ExpressionUUID->"43771224-ba79-0643-9c2b-df86249813d2"],
+
+Cell[BoxData["2"], "Output",
+ CellChangeTimes->{
+  3.9579116409698105`*^9, {3.957912358478588*^9, 3.9579123743943443`*^9}},
+ CellLabel->"Out[78]=",ExpressionUUID->"4e5d3e94-b96a-874b-acae-30e8581bf541"]
+}, Open  ]]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["retrieve results", "Subsubsection",
+ CellChangeTimes->{{3.9567897729551697`*^9, 
+  3.9567897758776646`*^9}},ExpressionUUID->"7d1b524a-b3b6-8948-87c8-\
+a3def0b19514"],
+
+Cell["\<\
+We get attributes of the fluid phase in the same as we did above for the \
+flash calculation output.\
+\>", "Text",
+ CellChangeTimes->{{3.956789754563402*^9, 3.956789830625004*^9}, {
+  3.9579121540820637`*^9, 
+  3.957912184306961*^9}},ExpressionUUID->"64bfd057-be5c-6640-8879-\
+c9a9703de545"],
+
+Cell["Phase names:", "Text",
+ CellChangeTimes->{{3.956789833503647*^9, 
+  3.9567898403420925`*^9}},ExpressionUUID->"f39a2572-8f0c-4943-a15c-\
+c89b1591b7c7"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"Table", "[", 
+  RowBox[{
+   RowBox[{
+    RowBox[{"TFGetPhaseString", "[", 
+     RowBox[{"TFIdxPhaseName", ",", "k"}], "]"}], "[", "\"\<value\>\"", "]"}],
+    ",", 
+   RowBox[{"{", 
+    RowBox[{"k", ",", "nPhases"}], "}"}]}], "]"}]], "Input",
+ CellLabel->"In[79]:=",ExpressionUUID->"af07d677-242d-4342-95ea-d80409ec9073"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{"\<\"Solid Methane I\"\>", 
+   ",", "\<\"Solid Hydrogen Sulfide I\"\>"}], "}"}]], "Output",
+ CellChangeTimes->{3.9567898237918262`*^9, 3.9579104492489395`*^9, 
+  3.9579121877610073`*^9, 3.957912384470337*^9},
+ CellLabel->"Out[79]=",ExpressionUUID->"f7d21b95-93f3-a643-bd6b-150cc80ab930"]
+}, Open  ]],
+
+Cell[TextData[{
+ "Phase densities (",
+ Cell[BoxData[
+  FormBox[
+   RowBox[{"mol", "/", 
+    SuperscriptBox[
+     StyleBox["m",
+      FontSlant->"Plain"], "3"]}], TraditionalForm]],ExpressionUUID->
+  "62b82755-eb00-d94a-8a28-5194c41df834"],
+ "):"
+}], "Text",
+ CellChangeTimes->{{3.9567899014851246`*^9, 
+  3.956790010748995*^9}},ExpressionUUID->"f59d36e9-0e9a-a84d-9537-\
+2ebf90ccd6f3"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"Table", "[", 
+  RowBox[{
+   RowBox[{
+    RowBox[{"TFGetPhaseProperty", "[", 
+     RowBox[{"TFIdxPhaseMolarDensity", ",", "k", ",", "0"}], "]"}], 
+    "[", "\"\<value\>\"", "]"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"k", ",", "nPhases"}], "}"}]}], "]"}]], "Input",
+ CellChangeTimes->{{3.9567899192665405`*^9, 3.9567899204377785`*^9}},
+ CellLabel->"In[80]:=",ExpressionUUID->"3c1e59ca-cdce-7f4a-bd2f-4994263185aa"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{"23648.`", ",", "35215.`"}], "}"}]], "Output",
+ CellChangeTimes->{3.9567899235334473`*^9, 3.957910452305252*^9, 
+  3.957912278129513*^9, 3.957912387578516*^9},
+ CellLabel->"Out[80]=",ExpressionUUID->"c5ea9e81-eb02-2247-9c28-15e5f809a2fe"]
+}, Open  ]],
+
+Cell["Component phase fractions:", "Text",
+ CellChangeTimes->{{3.9567900393471527`*^9, 
+  3.956790043167635*^9}},ExpressionUUID->"1dd53380-30ab-c746-a972-\
+07176838228c"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"Table", "[", 
+  RowBox[{
+   RowBox[{
+    RowBox[{"TFGetPhasePropertyVector", "[", 
+     RowBox[{"TFIdxPhaseMolarFraction", ",", "nComps", ",", "k", ",", "0"}], 
+     "]"}], "[", "\"\<value\>\"", "]"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"k", ",", "nPhases"}], "}"}]}], "]"}]], "Input",
+ CellChangeTimes->{{3.956790049800707*^9, 3.9567900571726933`*^9}, {
+  3.9567900986728725`*^9, 3.956790099990244*^9}},
+ CellLabel->"In[81]:=",ExpressionUUID->"677180b8-db17-9246-a6e3-2a2eebb0e2b8"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{
+   RowBox[{"{", 
+    RowBox[{"1.`", ",", "0.`"}], "}"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"0.`", ",", "1.`"}], "}"}]}], "}"}]], "Output",
+ CellChangeTimes->{3.9567900606773415`*^9, 3.956790100741396*^9, 
+  3.9579104536433163`*^9, 3.957912279810747*^9, 3.957912388941044*^9},
+ CellLabel->"Out[81]=",ExpressionUUID->"6fadced9-2a15-154e-8b37-7452a0c68456"]
+}, Open  ]],
+
+Cell["\<\
+Note that for fugacities, we return a vector as for any other phases. \
+However, since these are pure solid phases, all values apart from that of the \
+solid component are indeterminate:\
+\>", "Text",
+ CellChangeTimes->{{3.957912399952652*^9, 
+  3.9579124876575184`*^9}},ExpressionUUID->"ca67bcca-66da-9d4d-8018-\
+24265d26ac7a"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"Table", "[", 
+  RowBox[{
+   RowBox[{
+    RowBox[{"TFGetPhasePropertyVector", "[", 
+     RowBox[{"TFIdxPhaseFugacity", ",", "nComps", ",", "k", ",", "0"}], "]"}],
+     "[", "\"\<value\>\"", "]"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"k", ",", "nPhases"}], "}"}]}], "]"}]], "Input",
+ CellChangeTimes->{{3.9579104625423336`*^9, 3.9579104781998596`*^9}},
+ CellLabel->"In[82]:=",ExpressionUUID->"70147591-efa6-7447-9674-1894348407e3"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{
+   RowBox[{"{", 
+    RowBox[{"4.5192786591682585`", ",", "Indeterminate"}], "}"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"Indeterminate", ",", "0.05752958988696808`"}], "}"}]}], 
+  "}"}]], "Output",
+ CellChangeTimes->{{3.957910465899168*^9, 3.9579104790860863`*^9}, 
+   3.9579122827619324`*^9, 3.957912390635275*^9},
+ CellLabel->"Out[82]=",ExpressionUUID->"0c3d4374-f4ec-174d-8592-192e7abbd576"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"Table", "[", 
+  RowBox[{
+   RowBox[{
+    RowBox[{"TFGetPhasePropertyVector", "[", 
+     RowBox[{
+     "TFIdxPhaseFugacityCoefficient", ",", "nComps", ",", "k", ",", "0"}], 
+     "]"}], "[", "\"\<value\>\"", "]"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"k", ",", "nPhases"}], "}"}]}], "]"}]], "Input",
+ CellLabel->"In[83]:=",ExpressionUUID->"5a71c7a6-1dd7-9d4a-93fe-856389e430dc"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{
+   RowBox[{"{", 
+    RowBox[{"2.2596393295841293`", ",", "Indeterminate"}], "}"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"Indeterminate", ",", "0.02876479494348404`"}], "}"}]}], 
+  "}"}]], "Output",
+ CellChangeTimes->{3.957910480291355*^9, 3.9579122847706985`*^9, 
+  3.9579123925155888`*^9},
+ CellLabel->"Out[83]=",ExpressionUUID->"20ebb939-c208-574c-aefe-c971e0b428b8"]
+}, Open  ]]
+}, Open  ]]
+}, Open  ]]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["Run calculation: find solid transitions", "Section",
+ CellChangeTimes->{{3.956789575724596*^9, 3.9567895786576767`*^9}, {
+  3.956790126228016*^9, 
+  3.956790133435383*^9}},ExpressionUUID->"300e36f5-96d4-7448-a096-\
+d4466ef6108b"],
+
+Cell[CellGroupData[{
+
+Cell["call subroutine", "Subsection",
+ CellChangeTimes->{{3.9567897669349365`*^9, 
+  3.956789768936907*^9}},ExpressionUUID->"2cd9df07-2f0a-5543-82d3-\
+26f9b4af1396"],
+
+Cell["The subroutine only takes one argument:", "Text",
+ CellChangeTimes->{{3.956789594540354*^9, 3.956789617749851*^9}, {
+  3.9567901436654377`*^9, 
+  3.9567901549755*^9}},ExpressionUUID->"01c8c2cc-825b-eb4c-b63e-ce11393959df"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"?", "TFFindSolidTransitions"}]], "Input",
+ CellChangeTimes->{{3.956790158253927*^9, 3.956790160557379*^9}},
+ CellLabel->"In[74]:=",ExpressionUUID->"f31a4e64-eae8-3948-a38b-6fb860cf5665"],
+
+Cell[BoxData[
+ InterpretationBox[
+  StyleBox[
+   FrameBox[
+    DynamicModuleBox[{System`InformationDump`open$$ = False, 
+     System`InformationDump`mouseOver$$ = False}, 
+     PaneSelectorBox[{True->
+      TagBox[GridBox[{
+         {
+          ItemBox[
+           PaneBox[
+            StyleBox[
+             TagBox[
+              TooltipBox[
+               StyleBox["\<\" Symbol\"\>", "InformationRowLabel",
+                StripOnInput->False],
+               "\"Symbol\"",
+               TooltipStyle->"TextStyling"],
+              Annotation[#, "Symbol", "Tooltip"]& ], "InformationTitleText",
+             StripOnInput->False,
+             BaseStyle -> None],
+            FrameMargins->{{4, 0}, {-1, 1}}],
+           BaseStyle->"InformationTitleBackground",
+           StripOnInput->False], 
+          ItemBox["\<\"\"\>",
+           BaseStyle->"InformationTitleBackground",
+           StripOnInput->False]},
+         {
+          ItemBox[
+           PaneBox[
+            
+            StyleBox["\<\"TFFindSolidTransitions[pressure] is a wrapper for \
+the ThermoFAST64.dll subroutine tf_find_solid_transitions_c.\\n\\nPurpose: \
+Locates all phase transitions involving one or more solid phases for the user\
+\\n         feed at the given pressure.\\nImport:  pressure - pressure \
+(MPa)\\nExport:  n_transitions - number of transitions identified\\n         \
+alerts - int array of alert/information codes\\n         error - 0 if \
+success, else error code\"\>", "InformationUsageText",
+             StripOnInput->False,
+             LineSpacing->{1.5, 1.5, 3.}],
+            FrameMargins->{{10, 10}, {8, 10}}],
+           BaseStyle->"InformationUsageSubtitleBackground",
+           StripOnInput->False], 
+          ItemBox["\<\"\"\>",
+           BaseStyle->"InformationUsageSubtitleBackground",
+           StripOnInput->False]},
+         {
+          PaneBox[
+           TagBox[GridBox[{
+              {
+               StyleBox[
+                TagBox[
+                 TooltipBox[
+                  StyleBox["\<\" Definitions\"\>", "InformationRowLabel",
+                   StripOnInput->False],
+                  "\"Definitions\"",
+                  TooltipStyle->"TextStyling"],
+                 Annotation[#, "Definitions", "Tooltip"]& ], "DialogStyle",
+                StripOnInput->False]},
+              {
+               TemplateBox[{"\"\[ThinSpace]\"", 
+                 GridBox[{{
+                    RowBox[{
+                    RowBox[{"TFFindSolidTransitions", "[", 
+                    
+                    RowBox[{
+                    "ThermoFAST64`Private`pressure_", "?", 
+                    "RealValuedNumericQ"}], "]"}], ":=", 
+                    RowBox[{"Module", "[", 
+                    RowBox[{
+                    RowBox[{"{", 
+                    RowBox[{
+                    RowBox[{"ThermoFAST64`Private`pressureArg", "=", 
+                    RowBox[{"MakeNETObject", "[", 
+                    
+                    RowBox[{"ThermoFAST64`Private`pressure", ",", 
+                    "\"System.Double\""}], "]"}]}], ",", 
+                    RowBox[{"ThermoFAST64`Private`nTransitionsArg", "=", 
+                    RowBox[{"MakeNETObject", "[", 
+                    RowBox[{"0", ",", "\"System.Int32\""}], "]"}]}], ",", 
+                    RowBox[{"ThermoFAST64`Private`alertsArg", "=", 
+                    RowBox[{"MakeNETObject", "[", 
+                    RowBox[{
+                    RowBox[{"ConstantArray", "[", 
+                    RowBox[{"0", ",", 
+                    RowBox[{"{", "TFNAlerts", "}"}]}], "]"}], ",", 
+                    "\"System.Int32[]\""}], "]"}]}], ",", 
+                    RowBox[{"ThermoFAST64`Private`errorArg", "=", 
+                    RowBox[{"MakeNETObject", "[", 
+                    RowBox[{"0", ",", "\"System.Int32\""}], "]"}]}]}], "}"}], 
+                    ",", 
+                    RowBox[{
+                    
+                    RowBox[{"ThermoFAST64`Private`dllFindSolidTransitions", 
+                    "[", 
+                    RowBox[{"ThermoFAST64`Private`pressureArg", ",", 
+                    "ThermoFAST64`Private`nTransitionsArg", ",", 
+                    "ThermoFAST64`Private`alertsArg", ",", 
+                    "ThermoFAST64`Private`errorArg"}], "]"}], ";", 
+                    RowBox[{"ThermoFAST64`Private`error", "=", 
+                    
+                    RowBox[{"NETObjectToExpression", "[", 
+                    "ThermoFAST64`Private`errorArg", "]"}]}], ";", 
+                    RowBox[{"If", "[", 
+                    RowBox[{
+                    
+                    RowBox[{"ThermoFAST64`Private`error", "\[NotEqual]", 
+                    "0"}], ",", 
+                    RowBox[{
+                    RowBox[{"Message", "[", 
+                    RowBox[{
+                    StyleBox[
+                    RowBox[{"ThermoFAST64", "::", "dllerr"}], "MessageName"], 
+                    ",", 
+                    
+                    RowBox[{"ThermoFAST64`Private`errorMessage", "[", 
+                    "ThermoFAST64`Private`error", "]"}]}], "]"}], ";", 
+                    RowBox[{"Return", "[", "$Failed", "]"}]}]}], "]"}], ";", 
+                    RowBox[{"Association", "[", 
+                    RowBox[{
+                    RowBox[{"\"n_transitions\"", "\[Rule]", 
+                    
+                    RowBox[{"NETObjectToExpression", "[", 
+                    "ThermoFAST64`Private`nTransitionsArg", "]"}]}], ",", 
+                    RowBox[{"\"alerts\"", "\[Rule]", 
+                    
+                    RowBox[{"NETObjectToExpression", "[", 
+                    "ThermoFAST64`Private`alertsArg", "]"}]}]}], "]"}]}]}], 
+                    "]"}]}]}, {" "}}, 
+                  GridBoxAlignment -> {"Columns" -> {{Left}}}, 
+                  DefaultBaseStyle -> "Column", 
+                  GridBoxItemSize -> {
+                   "Columns" -> {{Automatic}}, "Rows" -> {{Automatic}}}]},
+                "RowDefault"]}
+             },
+             DefaultBaseStyle->"Column",
+             GridBoxAlignment->{"Columns" -> {{Left}}},
+             
+             GridBoxItemSize->{
+              "Columns" -> {{Automatic}}, "Rows" -> {{Automatic}}}],
+            "Column"],
+           FrameMargins->{{6, 0}, {3, 6}}], "\<\"\"\>"},
+         {
+          PaneBox[GridBox[{
+             {
+              
+              DynamicModuleBox[{System`InformationDump`open$$ = {
+               False, False, False, False, False, False}}, 
+               StyleBox[GridBox[{
+                  {
+                   TagBox[
+                    TooltipBox[
+                    StyleBox["\<\" Full Name\"\>", "InformationRowLabel",
+                    StripOnInput->False],
+                    "\"FullName\"",
+                    TooltipStyle->"TextStyling"],
+                    
+                    Annotation[#, "FullName", 
+                    "Tooltip"]& ], "\<\"ThermoFAST64`TFFindSolidTransitions\"\
+\>"}
+                 },
+                 AutoDelete->False,
+                 GridBoxAlignment->{"Columns" -> {Right, Left}},
+                 GridBoxDividers->None,
+                 GridBoxItemSize->{"Columns" -> {Automatic, Automatic}},
+                 GridBoxSpacings->{"Columns" -> {
+                    Offset[0.27999999999999997`], {
+                    Offset[0.5599999999999999]}, 
+                    Offset[0.27999999999999997`]}, "Rows" -> {
+                    Offset[0.2], {
+                    Offset[0.8]}, 
+                    Offset[0.2]}}], "DialogStyle",
+                StripOnInput->False],
+               DynamicModuleValues:>{}]}
+            },
+            DefaultBaseStyle->"Column",
+            GridBoxAlignment->{"Columns" -> {{Left}}},
+            GridBoxDividers->{"Columns" -> {{False}}, "Rows" -> {{False}}},
+            
+            GridBoxItemSize->{
+             "Columns" -> {{Automatic}}, "Rows" -> {{Automatic}}},
+            GridBoxSpacings->{"Columns" -> {
+                Offset[0.27999999999999997`], {
+                 Offset[0.5599999999999999]}, 
+                Offset[0.27999999999999997`]}, "Rows" -> {
+                Offset[0.2], {
+                 Offset[3.6]}, 
+                Offset[0.2]}}],
+           FrameMargins->{{6, 6}, {6, 3}}], ""},
+         {
+          ItemBox[
+           TagBox[
+            ButtonBox[
+             PaneSelectorBox[{False->
+              
+              DynamicBox[FEPrivate`FrontEndResource[
+               "FEBitmaps", "UpPointerOpener"]], True->
+              
+              DynamicBox[FEPrivate`FrontEndResource[
+               "FEBitmaps", "UpPointerOpenerHot"]]}, Dynamic[
+              System`InformationDump`mouseOver$$]],
+             Alignment->Left,
+             Appearance->{"Default" -> None},
+             
+             ButtonFunction:>FEPrivate`Set[
+              System`InformationDump`open$$, False],
+             Evaluator->Automatic,
+             FrameMargins->{{9, 0}, {0, 0}},
+             ImageMargins->0,
+             ImageSize->Full,
+             Method->"Preemptive"],
+            
+            EventHandlerTag[{
+             "MouseEntered" :> 
+              FEPrivate`Set[System`InformationDump`mouseOver$$, True], 
+              "MouseExited" :> 
+              FEPrivate`Set[System`InformationDump`mouseOver$$, False], 
+              Method -> "Preemptive", PassEventsDown -> Automatic, 
+              PassEventsUp -> True}]],
+           BaseStyle->"InformationTitleBackground",
+           StripOnInput->False], "\[SpanFromLeft]"}
+        },
+        AutoDelete->False,
+        FrameStyle->Directive[
+          GrayLevel[0.8], 
+          Thickness[Tiny]],
+        GridBoxAlignment->{"Columns" -> {Left, Right}, "Rows" -> {{Center}}},
+        GridBoxDividers->{
+         "Columns" -> {{None}}, "Rows" -> {False, {True}, False}},
+        GridBoxItemSize->{
+         "Columns" -> {{Automatic}}, "Rows" -> {{Automatic}}}],
+       "Grid"], False->
+      TagBox[GridBox[{
+         {
+          ItemBox[
+           PaneBox[
+            StyleBox[
+             TagBox[
+              TooltipBox[
+               StyleBox["\<\" Symbol\"\>", "InformationRowLabel",
+                StripOnInput->False],
+               "\"Symbol\"",
+               TooltipStyle->"TextStyling"],
+              Annotation[#, "Symbol", "Tooltip"]& ], "InformationTitleText",
+             StripOnInput->False],
+            FrameMargins->{{4, 0}, {-1, 1}}],
+           BaseStyle->"InformationTitleBackground",
+           StripOnInput->False], 
+          ItemBox["\<\"\"\>",
+           BaseStyle->"InformationTitleBackground",
+           StripOnInput->False]},
+         {
+          ItemBox[
+           PaneBox[
+            
+            StyleBox["\<\"TFFindSolidTransitions[pressure] is a wrapper for \
+the ThermoFAST64.dll subroutine tf_find_solid_transitions_c.\\n\\nPurpose: \
+Locates all phase transitions involving one or more solid phases for the user\
+\\n         feed at the given pressure.\\nImport:  pressure - pressure \
+(MPa)\\nExport:  n_transitions - number of transitions identified\\n         \
+alerts - int array of alert/information codes\\n         error - 0 if \
+success, else error code\"\>", "InformationUsageText",
+             StripOnInput->False,
+             LineSpacing->{1.5, 1.5, 3.}],
+            FrameMargins->{{10, 10}, {8, 10}}],
+           BaseStyle->"InformationUsageSubtitleBackground",
+           StripOnInput->False], 
+          ItemBox["\<\"\"\>",
+           BaseStyle->"InformationUsageSubtitleBackground",
+           StripOnInput->False]},
+         {
+          ItemBox[
+           TagBox[
+            ButtonBox[
+             PaneSelectorBox[{False->
+              
+              DynamicBox[FEPrivate`FrontEndResource[
+               "FEBitmaps", "DownPointerOpener"],
+               
+               ImageSizeCache->{
+                10., {2.9335936884162948`, 7.066406311583705}}], True->
+              
+              DynamicBox[FEPrivate`FrontEndResource[
+               "FEBitmaps", "DownPointerOpenerHot"],
+               
+               ImageSizeCache->{
+                10., {2.9335936884162948`, 7.066406311583705}}]}, Dynamic[
+              System`InformationDump`mouseOver$$]],
+             Alignment->Left,
+             Appearance->{"Default" -> None},
+             
+             ButtonFunction:>FEPrivate`Set[
+              System`InformationDump`open$$, True],
+             Evaluator->Automatic,
+             FrameMargins->{{9, 0}, {0, 0}},
+             ImageMargins->0,
+             ImageSize->Full,
+             Method->"Preemptive"],
+            EventHandlerTag[{
+             "MouseEntered" :> 
+              FEPrivate`Set[System`InformationDump`mouseOver$$, True], 
+              "MouseExited" :> 
+              FEPrivate`Set[System`InformationDump`mouseOver$$, False], 
+              Method -> "Preemptive", PassEventsDown -> Automatic, 
+              PassEventsUp -> True}]],
+           BaseStyle->"InformationTitleBackground",
+           StripOnInput->False], "\[SpanFromLeft]"}
+        },
+        AutoDelete->False,
+        FrameStyle->Directive[
+          GrayLevel[0.8], 
+          Thickness[Tiny]],
+        GridBoxAlignment->{"Columns" -> {Left, Right}, "Rows" -> {{Center}}},
+        GridBoxDividers->{
+         "Columns" -> {{None}}, "Rows" -> {False, {True}, False}},
+        GridBoxItemSize->{
+         "Columns" -> {{Automatic}}, "Rows" -> {{Automatic}}}],
+       "Grid"]}, Dynamic[System`InformationDump`open$$],
+      BaselinePosition->Baseline,
+      FrameMargins->0,
+      ImageSize->Automatic],
+     DynamicModuleValues:>{}],
+    BaseStyle->"InformationGridFrame",
+    StripOnInput->False], "InformationGridPlain",
+   StripOnInput->False],
+  InformationData[<|
+   "ObjectType" -> "Symbol", "Usage" -> 
+    "TFFindSolidTransitions[pressure] is a wrapper for the ThermoFAST64.dll \
+subroutine tf_find_solid_transitions_c.\n\nPurpose: Locates all phase \
+transitions involving one or more solid phases for the user\n         feed at \
+the given pressure.\nImport:  pressure - pressure (MPa)\nExport:  \
+n_transitions - number of transitions identified\n         alerts - int array \
+of alert/information codes\n         error - 0 if success, else error code", 
+    "Documentation" -> None, "OwnValues" -> None, "UpValues" -> None, 
+    "DownValues" -> 
+    Information`InformationValueForm[
+     DownValues, ThermoFAST64`TFFindSolidTransitions, {
+      ThermoFAST64`TFFindSolidTransitions[
+         PatternTest[
+          Pattern[ThermoFAST64`Private`pressure, 
+           Blank[]], RealValuedNumericQ]] :> 
+       Module[{ThermoFAST64`Private`pressureArg = 
+          NETLink`MakeNETObject[
+           ThermoFAST64`Private`pressure, "System.Double"], 
+          ThermoFAST64`Private`nTransitionsArg = 
+          NETLink`MakeNETObject[0, "System.Int32"], 
+          ThermoFAST64`Private`alertsArg = NETLink`MakeNETObject[
+            ConstantArray[0, {ThermoFAST64`TFNAlerts}], "System.Int32[]"], 
+          ThermoFAST64`Private`errorArg = 
+          NETLink`MakeNETObject[0, "System.Int32"]}, 
+         ThermoFAST64`Private`dllFindSolidTransitions[
+          ThermoFAST64`Private`pressureArg, 
+           ThermoFAST64`Private`nTransitionsArg, 
+           ThermoFAST64`Private`alertsArg, ThermoFAST64`Private`errorArg]; 
+         ThermoFAST64`Private`error = 
+          NETLink`NETObjectToExpression[ThermoFAST64`Private`errorArg]; 
+         If[ThermoFAST64`Private`error != 0, Message[
+             MessageName[ThermoFAST64`ThermoFAST64, "dllerr"], 
+             ThermoFAST64`Private`errorMessage[ThermoFAST64`Private`error]]; 
+           Return[$Failed]]; <|
+          "n_transitions" -> 
+           NETLink`NETObjectToExpression[
+            ThermoFAST64`Private`nTransitionsArg], "alerts" -> 
+           NETLink`NETObjectToExpression[ThermoFAST64`Private`alertsArg]|>]}],
+     "SubValues" -> None, "DefaultValues" -> None, "NValues" -> None, 
+    "FormatValues" -> None, "Options" -> None, "Attributes" -> {}, "FullName" -> 
+    "ThermoFAST64`TFFindSolidTransitions"|>, False]]], "Output",
+ CellChangeTimes->{3.956790161000643*^9},
+ CellLabel->"Out[74]=",ExpressionUUID->"4df6abf8-d2bf-7040-9cf5-0d33476e55ff"]
+}, Open  ]],
+
+Cell["Set input pressure (MPa):", "Text",
+ CellChangeTimes->{{3.9567896371217117`*^9, 3.9567896806510143`*^9}, {
+  3.956790171433569*^9, 
+  3.956790173276415*^9}},ExpressionUUID->"782eb179-a0e9-2c4a-b377-\
+b00b8610ec85"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"p", "=", "2."}], ";"}]], "Input",
+ CellChangeTimes->{{3.9563082996116295`*^9, 3.9563083136503124`*^9}, 
+   3.9567896310096073`*^9, {3.956790175192089*^9, 3.956790175588583*^9}},
+ CellLabel->"In[75]:=",ExpressionUUID->"1e340abf-efbc-fd47-94fd-bada8c89f729"],
+
+Cell["Run the subroutine:", "Text",
+ CellChangeTimes->{{3.956789699834156*^9, 3.9567897041245403`*^9}, {
+  3.956790179071604*^9, 
+  3.9567901841054688`*^9}},ExpressionUUID->"cab4f832-16ae-a948-add1-\
+5fd5adc4e113"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"TFFindSolidTransitions", "[", "p", "]"}]], "Input",
+ CellChangeTimes->{{3.956790186513033*^9, 3.9567901937196465`*^9}},
+ CellLabel->"In[76]:=",ExpressionUUID->"810cdc5a-e405-bf40-a71c-c3f4b75668a8"],
+
+Cell[BoxData[
+ RowBox[{"\[LeftAssociation]", 
+  RowBox[{
+   RowBox[{"\<\"n_transitions\"\>", "\[Rule]", "2"}], ",", 
+   RowBox[{"\<\"alerts\"\>", "\[Rule]", 
+    RowBox[{"{", 
+     RowBox[{
+     "0", ",", "0", ",", "0", ",", "0", ",", "0", ",", "0", ",", "0", ",", 
+      "0", ",", "0", ",", "0", ",", "0", ",", "0", ",", "0", ",", "0", ",", 
+      "0", ",", "0"}], "}"}]}]}], "\[RightAssociation]"}]], "Output",
+ CellChangeTimes->{3.9567897068547764`*^9, 3.9567901968174553`*^9},
+ CellLabel->"Out[76]=",ExpressionUUID->"5fbe2be7-d5d7-c84a-b54a-7a61ed9b9852"]
+}, Open  ]],
+
+Cell["Here only the number of transitions is returned:", "Text",
+ CellChangeTimes->{{3.9567897122274704`*^9, 3.9567897466181374`*^9}, {
+  3.9567902315307655`*^9, 
+  3.956790238575865*^9}},ExpressionUUID->"7c2083ac-5a3d-5c47-9946-\
+c3d1291c7d9c"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"nTransitions", "=", 
+  RowBox[{"%", "[", "\"\<n_transitions\>\"", "]"}]}]], "Input",
+ CellChangeTimes->{{3.9563080293211746`*^9, 3.956308046603014*^9}, {
+   3.956308250582573*^9, 3.956308273274027*^9}, {3.9563083188071537`*^9, 
+   3.9563083216557446`*^9}, {3.956308544182335*^9, 3.956308549598753*^9}, 
+   3.9567897526292057`*^9, {3.956790221933441*^9, 3.956790230015497*^9}},
+ CellLabel->"In[77]:=",ExpressionUUID->"a1e40d32-2a55-1a4a-8d6e-2162bc57a261"],
+
+Cell[BoxData["2"], "Output",
+ CellChangeTimes->{3.956308322152588*^9, 3.9563085503566265`*^9, 
+  3.9567897528020344`*^9, 3.956790240430977*^9},
+ CellLabel->"Out[77]=",ExpressionUUID->"b853e12f-575a-5c44-9781-31baedaba275"]
+}, Open  ]]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["retrieve results", "Subsection",
+ CellChangeTimes->{{3.9567897729551697`*^9, 
+  3.9567897758776646`*^9}},ExpressionUUID->"152f7bfb-6cb8-8d48-80ed-\
+9e55aa1b145d"],
+
+Cell["\<\
+There is a single accessor subroutine which returns information about a given \
+transition:\
+\>", "Text",
+ CellChangeTimes->{{3.956789754563402*^9, 3.956789830625004*^9}, {
+  3.956790258855427*^9, 
+  3.9567902780895615`*^9}},ExpressionUUID->"8725f70d-3213-7748-b0e5-\
+3f4b4a08ea57"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"?", "TFGetSolidTransitionInfo"}]], "Input",
+ CellChangeTimes->{{3.9567902790737133`*^9, 3.956790282363085*^9}},
+ CellLabel->"In[78]:=",ExpressionUUID->"035bf1e4-bbc7-4545-be3f-66efc648a589"],
+
+Cell[BoxData[
+ InterpretationBox[
+  StyleBox[
+   FrameBox[
+    DynamicModuleBox[{System`InformationDump`open$$ = False, 
+     System`InformationDump`mouseOver$$ = False}, 
+     PaneSelectorBox[{True->
+      TagBox[GridBox[{
+         {
+          ItemBox[
+           PaneBox[
+            StyleBox[
+             TagBox[
+              TooltipBox[
+               StyleBox["\<\" Symbol\"\>", "InformationRowLabel",
+                StripOnInput->False],
+               "\"Symbol\"",
+               TooltipStyle->"TextStyling"],
+              Annotation[#, "Symbol", "Tooltip"]& ], "InformationTitleText",
+             StripOnInput->False,
+             BaseStyle -> None],
+            FrameMargins->{{4, 0}, {-1, 1}}],
+           BaseStyle->"InformationTitleBackground",
+           StripOnInput->False], 
+          ItemBox["\<\"\"\>",
+           BaseStyle->"InformationTitleBackground",
+           StripOnInput->False]},
+         {
+          ItemBox[
+           PaneBox[
+            
+            StyleBox["\<\"TFGetSolidTransitionInfo[idx] is a wrapper for the \
+ThermoFAST64.dll subroutine tf_get_solid_transition_info_c.\\n\\nPurpose: \
+Returns information related to the given solid transition in previous \
+solid\\n         transitions output.\\nImport:  idx - index of solid \
+transition\\nExport:  temperature - temperature (K)\\n         vls_molar - \
+molar vap / liq / sld fractions\\n         vls_mass - mass vap / liq / sld \
+fractions\\n         error - 0 if success, else error code\"\>", 
+             "InformationUsageText",
+             StripOnInput->False,
+             LineSpacing->{1.5, 1.5, 3.}],
+            FrameMargins->{{10, 10}, {8, 10}}],
+           BaseStyle->"InformationUsageSubtitleBackground",
+           StripOnInput->False], 
+          ItemBox["\<\"\"\>",
+           BaseStyle->"InformationUsageSubtitleBackground",
+           StripOnInput->False]},
+         {
+          PaneBox[
+           TagBox[GridBox[{
+              {
+               StyleBox[
+                TagBox[
+                 TooltipBox[
+                  StyleBox["\<\" Definitions\"\>", "InformationRowLabel",
+                   StripOnInput->False],
+                  "\"Definitions\"",
+                  TooltipStyle->"TextStyling"],
+                 Annotation[#, "Definitions", "Tooltip"]& ], "DialogStyle",
+                StripOnInput->False]},
+              {
+               TemplateBox[{"\"\[ThinSpace]\"", 
+                 GridBox[{{
+                    RowBox[{
+                    
+                    RowBox[{
+                    "TFGetSolidTransitionInfo", "[", 
+                    "ThermoFAST64`Private`idx_Integer", "]"}], ":=", 
+                    RowBox[{"Module", "[", 
+                    RowBox[{
+                    RowBox[{"{", 
+                    RowBox[{
+                    RowBox[{"ThermoFAST64`Private`idxArg", "=", 
+                    RowBox[{"MakeNETObject", "[", 
+                    
+                    RowBox[{"ThermoFAST64`Private`idx", ",", 
+                    "\"System.Int32\""}], "]"}]}], ",", 
+                    RowBox[{"ThermoFAST64`Private`temperatureArg", "=", 
+                    RowBox[{"MakeNETObject", "[", 
+                    RowBox[{"0.`", ",", "\"System.Double\""}], "]"}]}], ",", 
+                    RowBox[{"ThermoFAST64`Private`vlsMolarArg", "=", 
+                    RowBox[{"MakeNETObject", "[", 
+                    RowBox[{
+                    RowBox[{"ConstantArray", "[", 
+                    RowBox[{"0.`", ",", 
+                    RowBox[{"{", "3", "}"}]}], "]"}], ",", 
+                    "\"System.Double[]\""}], "]"}]}], ",", 
+                    RowBox[{"ThermoFAST64`Private`vlsMassArg", "=", 
+                    RowBox[{"MakeNETObject", "[", 
+                    RowBox[{
+                    RowBox[{"ConstantArray", "[", 
+                    RowBox[{"0.`", ",", 
+                    RowBox[{"{", "3", "}"}]}], "]"}], ",", 
+                    "\"System.Double[]\""}], "]"}]}], ",", 
+                    RowBox[{"ThermoFAST64`Private`transitionTypeArg", "=", 
+                    RowBox[{"MakeNETObject", "[", 
+                    RowBox[{
+                    RowBox[{"ConstantArray", "[", 
+                    RowBox[{"0", ",", 
+                    RowBox[{"{", "TFLenName", "}"}]}], "]"}], ",", 
+                    "\"System.Byte[]\""}], "]"}]}], ",", 
+                    RowBox[{"ThermoFAST64`Private`solidsFormedArg", "=", 
+                    RowBox[{"MakeNETObject", "[", 
+                    RowBox[{
+                    RowBox[{"ConstantArray", "[", 
+                    RowBox[{"0", ",", 
+                    RowBox[{"{", "TFLenLong", "}"}]}], "]"}], ",", 
+                    "\"System.Byte[]\""}], "]"}]}], ",", 
+                    RowBox[{"ThermoFAST64`Private`errorArg", "=", 
+                    RowBox[{"MakeNETObject", "[", 
+                    RowBox[{"0", ",", "\"System.Int32\""}], "]"}]}]}], "}"}], 
+                    ",", 
+                    RowBox[{
+                    
+                    RowBox[{"ThermoFAST64`Private`dllGetSolidTransitionInfo", 
+                    "[", 
+                    
+                    RowBox[{"ThermoFAST64`Private`idxArg", ",", 
+                    "ThermoFAST64`Private`temperatureArg", ",", 
+                    "ThermoFAST64`Private`vlsMolarArg", ",", 
+                    "ThermoFAST64`Private`vlsMassArg", ",", 
+                    "ThermoFAST64`Private`transitionTypeArg", ",", 
+                    "ThermoFAST64`Private`solidsFormedArg", ",", 
+                    "ThermoFAST64`Private`errorArg"}], "]"}], ";", 
+                    RowBox[{"ThermoFAST64`Private`error", "=", 
+                    
+                    RowBox[{"NETObjectToExpression", "[", 
+                    "ThermoFAST64`Private`errorArg", "]"}]}], ";", 
+                    RowBox[{"If", "[", 
+                    RowBox[{
+                    
+                    RowBox[{"ThermoFAST64`Private`error", "\[NotEqual]", 
+                    "0"}], ",", 
+                    RowBox[{
+                    RowBox[{"Message", "[", 
+                    RowBox[{
+                    StyleBox[
+                    RowBox[{"ThermoFAST64", "::", "dllerr"}], "MessageName"], 
+                    ",", 
+                    
+                    RowBox[{"ThermoFAST64`Private`errorMessage", "[", 
+                    "ThermoFAST64`Private`error", "]"}]}], "]"}], ";", 
+                    RowBox[{"Return", "[", "$Failed", "]"}]}]}], "]"}], ";", 
+                    RowBox[{"Association", "[", 
+                    RowBox[{
+                    RowBox[{"\"temperature\"", "\[Rule]", 
+                    
+                    RowBox[{"NETObjectToExpression", "[", 
+                    "ThermoFAST64`Private`temperatureArg", "]"}]}], ",", 
+                    RowBox[{"\"vls_molar\"", "\[Rule]", 
+                    
+                    RowBox[{"NETObjectToExpression", "[", 
+                    "ThermoFAST64`Private`vlsMolarArg", "]"}]}], ",", 
+                    RowBox[{"\"vls_mass\"", "\[Rule]", 
+                    
+                    RowBox[{"NETObjectToExpression", "[", 
+                    "ThermoFAST64`Private`vlsMassArg", "]"}]}], ",", 
+                    RowBox[{"\"transition_type\"", "\[Rule]", 
+                    RowBox[{"ThermoFAST64`Private`fromByteCode", "[", 
+                    
+                    RowBox[{"NETObjectToExpression", "[", 
+                    "ThermoFAST64`Private`transitionTypeArg", "]"}], "]"}]}], 
+                    ",", 
+                    RowBox[{"\"solids_formed\"", "\[Rule]", 
+                    RowBox[{"ThermoFAST64`Private`fromByteCode", "[", 
+                    
+                    RowBox[{"NETObjectToExpression", "[", 
+                    "ThermoFAST64`Private`solidsFormedArg", "]"}], "]"}]}]}], 
+                    "]"}]}]}], "]"}]}]}, {" "}}, 
+                  GridBoxAlignment -> {"Columns" -> {{Left}}}, 
+                  DefaultBaseStyle -> "Column", 
+                  GridBoxItemSize -> {
+                   "Columns" -> {{Automatic}}, "Rows" -> {{Automatic}}}]},
+                "RowDefault"]}
+             },
+             DefaultBaseStyle->"Column",
+             GridBoxAlignment->{"Columns" -> {{Left}}},
+             
+             GridBoxItemSize->{
+              "Columns" -> {{Automatic}}, "Rows" -> {{Automatic}}}],
+            "Column"],
+           FrameMargins->{{6, 0}, {3, 6}}], "\<\"\"\>"},
+         {
+          PaneBox[GridBox[{
+             {
+              
+              DynamicModuleBox[{System`InformationDump`open$$ = {
+               False, False, False, False, False, False}}, 
+               StyleBox[GridBox[{
+                  {
+                   TagBox[
+                    TooltipBox[
+                    StyleBox["\<\" Full Name\"\>", "InformationRowLabel",
+                    StripOnInput->False],
+                    "\"FullName\"",
+                    TooltipStyle->"TextStyling"],
+                    
+                    Annotation[#, "FullName", 
+                    "Tooltip"]& ], "\<\"ThermoFAST64`TFGetSolidTransitionInfo\
+\"\>"}
+                 },
+                 AutoDelete->False,
+                 GridBoxAlignment->{"Columns" -> {Right, Left}},
+                 GridBoxDividers->None,
+                 GridBoxItemSize->{"Columns" -> {Automatic, Automatic}},
+                 GridBoxSpacings->{"Columns" -> {
+                    Offset[0.27999999999999997`], {
+                    Offset[0.5599999999999999]}, 
+                    Offset[0.27999999999999997`]}, "Rows" -> {
+                    Offset[0.2], {
+                    Offset[0.8]}, 
+                    Offset[0.2]}}], "DialogStyle",
+                StripOnInput->False],
+               DynamicModuleValues:>{}]}
+            },
+            DefaultBaseStyle->"Column",
+            GridBoxAlignment->{"Columns" -> {{Left}}},
+            GridBoxDividers->{"Columns" -> {{False}}, "Rows" -> {{False}}},
+            
+            GridBoxItemSize->{
+             "Columns" -> {{Automatic}}, "Rows" -> {{Automatic}}},
+            GridBoxSpacings->{"Columns" -> {
+                Offset[0.27999999999999997`], {
+                 Offset[0.5599999999999999]}, 
+                Offset[0.27999999999999997`]}, "Rows" -> {
+                Offset[0.2], {
+                 Offset[3.6]}, 
+                Offset[0.2]}}],
+           FrameMargins->{{6, 6}, {6, 3}}], ""},
+         {
+          ItemBox[
+           TagBox[
+            ButtonBox[
+             PaneSelectorBox[{False->
+              
+              DynamicBox[FEPrivate`FrontEndResource[
+               "FEBitmaps", "UpPointerOpener"]], True->
+              
+              DynamicBox[FEPrivate`FrontEndResource[
+               "FEBitmaps", "UpPointerOpenerHot"]]}, Dynamic[
+              System`InformationDump`mouseOver$$]],
+             Alignment->Left,
+             Appearance->{"Default" -> None},
+             
+             ButtonFunction:>FEPrivate`Set[
+              System`InformationDump`open$$, False],
+             Evaluator->Automatic,
+             FrameMargins->{{9, 0}, {0, 0}},
+             ImageMargins->0,
+             ImageSize->Full,
+             Method->"Preemptive"],
+            
+            EventHandlerTag[{
+             "MouseEntered" :> 
+              FEPrivate`Set[System`InformationDump`mouseOver$$, True], 
+              "MouseExited" :> 
+              FEPrivate`Set[System`InformationDump`mouseOver$$, False], 
+              Method -> "Preemptive", PassEventsDown -> Automatic, 
+              PassEventsUp -> True}]],
+           BaseStyle->"InformationTitleBackground",
+           StripOnInput->False], "\[SpanFromLeft]"}
+        },
+        AutoDelete->False,
+        FrameStyle->Directive[
+          GrayLevel[0.8], 
+          Thickness[Tiny]],
+        GridBoxAlignment->{"Columns" -> {Left, Right}, "Rows" -> {{Center}}},
+        GridBoxDividers->{
+         "Columns" -> {{None}}, "Rows" -> {False, {True}, False}},
+        GridBoxItemSize->{
+         "Columns" -> {{Automatic}}, "Rows" -> {{Automatic}}}],
+       "Grid"], False->
+      TagBox[GridBox[{
+         {
+          ItemBox[
+           PaneBox[
+            StyleBox[
+             TagBox[
+              TooltipBox[
+               StyleBox["\<\" Symbol\"\>", "InformationRowLabel",
+                StripOnInput->False],
+               "\"Symbol\"",
+               TooltipStyle->"TextStyling"],
+              Annotation[#, "Symbol", "Tooltip"]& ], "InformationTitleText",
+             StripOnInput->False],
+            FrameMargins->{{4, 0}, {-1, 1}}],
+           BaseStyle->"InformationTitleBackground",
+           StripOnInput->False], 
+          ItemBox["\<\"\"\>",
+           BaseStyle->"InformationTitleBackground",
+           StripOnInput->False]},
+         {
+          ItemBox[
+           PaneBox[
+            
+            StyleBox["\<\"TFGetSolidTransitionInfo[idx] is a wrapper for the \
+ThermoFAST64.dll subroutine tf_get_solid_transition_info_c.\\n\\nPurpose: \
+Returns information related to the given solid transition in previous \
+solid\\n         transitions output.\\nImport:  idx - index of solid \
+transition\\nExport:  temperature - temperature (K)\\n         vls_molar - \
+molar vap / liq / sld fractions\\n         vls_mass - mass vap / liq / sld \
+fractions\\n         error - 0 if success, else error code\"\>", 
+             "InformationUsageText",
+             StripOnInput->False,
+             LineSpacing->{1.5, 1.5, 3.}],
+            FrameMargins->{{10, 10}, {8, 10}}],
+           BaseStyle->"InformationUsageSubtitleBackground",
+           StripOnInput->False], 
+          ItemBox["\<\"\"\>",
+           BaseStyle->"InformationUsageSubtitleBackground",
+           StripOnInput->False]},
+         {
+          ItemBox[
+           TagBox[
+            ButtonBox[
+             PaneSelectorBox[{False->
+              
+              DynamicBox[FEPrivate`FrontEndResource[
+               "FEBitmaps", "DownPointerOpener"],
+               
+               ImageSizeCache->{
+                10., {2.9335936884162948`, 7.066406311583705}}], True->
+              
+              DynamicBox[FEPrivate`FrontEndResource[
+               "FEBitmaps", "DownPointerOpenerHot"],
+               
+               ImageSizeCache->{
+                10., {2.9335936884162948`, 7.066406311583705}}]}, Dynamic[
+              System`InformationDump`mouseOver$$]],
+             Alignment->Left,
+             Appearance->{"Default" -> None},
+             
+             ButtonFunction:>FEPrivate`Set[
+              System`InformationDump`open$$, True],
+             Evaluator->Automatic,
+             FrameMargins->{{9, 0}, {0, 0}},
+             ImageMargins->0,
+             ImageSize->Full,
+             Method->"Preemptive"],
+            
+            EventHandlerTag[{
+             "MouseEntered" :> 
+              FEPrivate`Set[System`InformationDump`mouseOver$$, True], 
+              "MouseExited" :> 
+              FEPrivate`Set[System`InformationDump`mouseOver$$, False], 
+              Method -> "Preemptive", PassEventsDown -> Automatic, 
+              PassEventsUp -> True}]],
+           BaseStyle->"InformationTitleBackground",
+           StripOnInput->False], "\[SpanFromLeft]"}
+        },
+        AutoDelete->False,
+        FrameStyle->Directive[
+          GrayLevel[0.8], 
+          Thickness[Tiny]],
+        GridBoxAlignment->{"Columns" -> {Left, Right}, "Rows" -> {{Center}}},
+        GridBoxDividers->{
+         "Columns" -> {{None}}, "Rows" -> {False, {True}, False}},
+        GridBoxItemSize->{
+         "Columns" -> {{Automatic}}, "Rows" -> {{Automatic}}}],
+       "Grid"]}, Dynamic[System`InformationDump`open$$],
+      BaselinePosition->Baseline,
+      FrameMargins->0,
+      ImageSize->Automatic],
+     DynamicModuleValues:>{}],
+    BaseStyle->"InformationGridFrame",
+    StripOnInput->False], "InformationGridPlain",
+   StripOnInput->False],
+  InformationData[<|
+   "ObjectType" -> "Symbol", "Usage" -> 
+    "TFGetSolidTransitionInfo[idx] is a wrapper for the ThermoFAST64.dll \
+subroutine tf_get_solid_transition_info_c.\n\nPurpose: Returns information \
+related to the given solid transition in previous solid\n         transitions \
+output.\nImport:  idx - index of solid transition\nExport:  temperature - \
+temperature (K)\n         vls_molar - molar vap / liq / sld fractions\n       \
+  vls_mass - mass vap / liq / sld fractions\n         error - 0 if success, \
+else error code", "Documentation" -> None, "OwnValues" -> None, "UpValues" -> 
+    None, "DownValues" -> 
+    Information`InformationValueForm[
+     DownValues, ThermoFAST64`TFGetSolidTransitionInfo, {
+      ThermoFAST64`TFGetSolidTransitionInfo[
+         Pattern[ThermoFAST64`Private`idx, 
+          Blank[Integer]]] :> 
+       Module[{ThermoFAST64`Private`idxArg = 
+          NETLink`MakeNETObject[ThermoFAST64`Private`idx, "System.Int32"], 
+          ThermoFAST64`Private`temperatureArg = 
+          NETLink`MakeNETObject[0., "System.Double"], 
+          ThermoFAST64`Private`vlsMolarArg = NETLink`MakeNETObject[
+            ConstantArray[0., {3}], "System.Double[]"], 
+          ThermoFAST64`Private`vlsMassArg = NETLink`MakeNETObject[
+            ConstantArray[0., {3}], "System.Double[]"], 
+          ThermoFAST64`Private`transitionTypeArg = NETLink`MakeNETObject[
+            ConstantArray[0, {ThermoFAST64`TFLenName}], "System.Byte[]"], 
+          ThermoFAST64`Private`solidsFormedArg = NETLink`MakeNETObject[
+            ConstantArray[0, {ThermoFAST64`TFLenLong}], "System.Byte[]"], 
+          ThermoFAST64`Private`errorArg = 
+          NETLink`MakeNETObject[0, "System.Int32"]}, 
+         ThermoFAST64`Private`dllGetSolidTransitionInfo[
+          ThermoFAST64`Private`idxArg, ThermoFAST64`Private`temperatureArg, 
+           ThermoFAST64`Private`vlsMolarArg, ThermoFAST64`Private`vlsMassArg, 
+           ThermoFAST64`Private`transitionTypeArg, 
+           ThermoFAST64`Private`solidsFormedArg, 
+           ThermoFAST64`Private`errorArg]; 
+         ThermoFAST64`Private`error = 
+          NETLink`NETObjectToExpression[ThermoFAST64`Private`errorArg]; 
+         If[ThermoFAST64`Private`error != 0, Message[
+             MessageName[ThermoFAST64`ThermoFAST64, "dllerr"], 
+             ThermoFAST64`Private`errorMessage[ThermoFAST64`Private`error]]; 
+           Return[$Failed]]; <|
+          "temperature" -> 
+           NETLink`NETObjectToExpression[ThermoFAST64`Private`temperatureArg],
+            "vls_molar" -> 
+           NETLink`NETObjectToExpression[ThermoFAST64`Private`vlsMolarArg], 
+           "vls_mass" -> 
+           NETLink`NETObjectToExpression[ThermoFAST64`Private`vlsMassArg], 
+           "transition_type" -> ThermoFAST64`Private`fromByteCode[
+             NETLink`NETObjectToExpression[
+             ThermoFAST64`Private`transitionTypeArg]], "solids_formed" -> 
+           ThermoFAST64`Private`fromByteCode[
+             NETLink`NETObjectToExpression[
+             ThermoFAST64`Private`solidsFormedArg]]|>]}], "SubValues" -> None,
+     "DefaultValues" -> None, "NValues" -> None, "FormatValues" -> None, 
+    "Options" -> None, "Attributes" -> {}, "FullName" -> 
+    "ThermoFAST64`TFGetSolidTransitionInfo"|>, False]]], "Output",
+ CellChangeTimes->{3.9567902831490116`*^9},
+ CellLabel->"Out[78]=",ExpressionUUID->"0e86e0ba-14b3-d240-ac69-68ee52e7c429"]
+}, Open  ]],
+
+Cell["Here is all the info:", "Text",
+ CellChangeTimes->{{3.956789833503647*^9, 3.9567898403420925`*^9}, {
+  3.956790305923292*^9, 
+  3.956790308841255*^9}},ExpressionUUID->"172c0d5b-224d-7f4c-a343-\
+e87ff53c6e0c"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"Table", "[", 
+  RowBox[{
+   RowBox[{"TFGetSolidTransitionInfo", "[", "k", "]"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"k", ",", "nPhases"}], "}"}]}], "]"}]], "Input",
+ CellChangeTimes->{{3.956790313947283*^9, 3.9567903208899136`*^9}},
+ CellLabel->"In[79]:=",ExpressionUUID->"8bb7c3ef-3b64-a749-bb57-63b3870e37f4"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{
+   RowBox[{"\[LeftAssociation]", 
+    RowBox[{
+     RowBox[{"\<\"temperature\"\>", "\[Rule]", "183.77766368815776`"}], ",", 
+     RowBox[{"\<\"vls_molar\"\>", "\[Rule]", 
+      RowBox[{"{", 
+       RowBox[{
+       "0.9131443492398507`", ",", "0.`", ",", "0.08685565076014942`"}], 
+       "}"}]}], ",", 
+     RowBox[{"\<\"vls_mass\"\>", "\[Rule]", 
+      RowBox[{"{", 
+       RowBox[{
+       "14.886184989121439`", ",", "0.`", ",", "2.9601170108785615`"}], 
+       "}"}]}], ",", 
+     RowBox[{"\<\"transition_type\"\>", "\[Rule]", "\<\"VLE to SVE\"\>"}], ",", 
+     RowBox[{"\<\"solids_formed\"\>", 
+      "\[Rule]", "\<\"Solid Hydrogen Sulfide I\"\>"}]}], 
+    "\[RightAssociation]"}], ",", 
+   RowBox[{"\[LeftAssociation]", 
+    RowBox[{
+     RowBox[{"\<\"temperature\"\>", "\[Rule]", "167.22734628420775`"}], ",", 
+     RowBox[{"\<\"vls_molar\"\>", "\[Rule]", 
+      RowBox[{"{", 
+       RowBox[{"0.`", ",", "0.935867067910521`", ",", "0.064132932089479`"}], 
+       "}"}]}], ",", 
+     RowBox[{"\<\"vls_mass\"\>", "\[Rule]", 
+      RowBox[{"{", 
+       RowBox[{"0.`", ",", "15.660595237410325`", ",", "2.185706762589683`"}],
+        "}"}]}], ",", 
+     RowBox[{"\<\"transition_type\"\>", "\[Rule]", "\<\"SVE to SLE\"\>"}], ",", 
+     RowBox[{"\<\"solids_formed\"\>", 
+      "\[Rule]", "\<\"Solid Hydrogen Sulfide I\"\>"}]}], 
+    "\[RightAssociation]"}]}], "}"}]], "Output",
+ CellChangeTimes->{3.9567898237918262`*^9, 3.956790321254856*^9},
+ CellLabel->"Out[79]=",ExpressionUUID->"05b12ae8-7cac-8045-b6db-f85b141ac3d0"]
+}, Open  ]],
+
+Cell["\<\
+We can massage this into a more useful form depending on what we want to do, \
+e.g.:\
+\>", "Text",
+ CellChangeTimes->{{3.9567903481966457`*^9, 3.956790369810505*^9}, {
+  3.9567904211099453`*^9, 
+  3.956790425892172*^9}},ExpressionUUID->"072f48a9-f568-df49-939a-\
+9662f9d43076"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"Table", "[", 
+  RowBox[{
+   RowBox[{
+    RowBox[{"res", "=", 
+     RowBox[{"TFGetSolidTransitionInfo", "[", "k", "]"}]}], ";", 
+    RowBox[{
+     RowBox[{"res", "[", "\"\<transition_type\>\"", "]"}], "->", 
+     RowBox[{"res", "[", "\"\<temperature\>\"", "]"}]}]}], ",", 
+   RowBox[{"{", 
+    RowBox[{"k", ",", "nPhases"}], "}"}]}], "]"}]], "Input",
+ CellChangeTimes->{{3.9567903798202057`*^9, 3.956790399504961*^9}},
+ CellLabel->"In[80]:=",ExpressionUUID->"e1527eaa-2c4c-0a48-8ab0-d1d488ca678d"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{
+   RowBox[{"\<\"VLE to SVE\"\>", "\[Rule]", "183.77766368815776`"}], ",", 
+   RowBox[{"\<\"SVE to SLE\"\>", "\[Rule]", "167.22734628420775`"}]}], 
+  "}"}]], "Output",
+ CellChangeTimes->{3.9567904007733154`*^9},
+ CellLabel->"Out[80]=",ExpressionUUID->"b6e881ac-bc74-c64e-b815-a11fcd5e56f8"]
+}, Open  ]]
+}, Open  ]]
+}, Open  ]]
+}, Open  ]]
+},
+WindowSize->{1428, 729.75},
+WindowMargins->{{1200, Automatic}, {Automatic, -12}},
+FrontEndVersion->"14.2 for Microsoft Windows (64-bit) (December 26, 2024)",
+StyleDefinitions->"Default.nb",
+ExpressionUUID->"ba709efa-ba3c-a240-abdd-b5883b7b17a1"
+]
+(* End of Notebook Content *)
+
+(* Internal cache information *)
+(*CellTagsOutline
+CellTagsIndex->{}
+*)
+(*CellTagsIndex
+CellTagsIndex->{}
+*)
+(*NotebookFileOutline
+Notebook[{
+Cell[CellGroupData[{
+Cell[576, 22, 240, 4, 96, "Title",ExpressionUUID->"d577ad3d-4f50-cc48-a22d-5f2143bba720"],
+Cell[CellGroupData[{
+Cell[841, 30, 184, 3, 66, "Section",ExpressionUUID->"a09478ea-0113-2a44-8e05-40b695b6f09e"],
+Cell[1028, 35, 786, 18, 77, "Text",ExpressionUUID->"b69b6fa3-f891-db4e-aa19-7acc51499f54"],
+Cell[1817, 55, 289, 6, 33, "Text",ExpressionUUID->"bbbc5d61-0f2d-3f45-9a3a-d8c25ddd59da"],
+Cell[2109, 63, 202, 3, 28, "Input",ExpressionUUID->"5b59b1f1-206a-864a-b9d5-8ed78854b463"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[2348, 71, 177, 3, 66, "Section",ExpressionUUID->"9cdd45cc-ef04-2846-a126-5e7e7077a43e"],
+Cell[2528, 76, 359, 7, 33, "Text",ExpressionUUID->"28c25309-c8e1-ad47-86fd-a26939873f2b"],
+Cell[2890, 85, 171, 3, 33, "Text",ExpressionUUID->"4e9794d9-0fcc-724f-8916-f014f91d3fd5"],
+Cell[CellGroupData[{
+Cell[3086, 92, 213, 4, 30, "ItemNumbered",ExpressionUUID->"dfea8205-199f-2b44-9f67-63750ef1c302"],
+Cell[3302, 98, 165, 2, 25, "SubitemNumbered",ExpressionUUID->"919d2cfa-3f95-d84d-98de-07c20eca3fe2"],
+Cell[3470, 102, 167, 3, 25, "SubitemNumbered",ExpressionUUID->"eb2d48ce-d6bf-e64a-ab16-2a180ab8f18e"],
+Cell[3640, 107, 184, 3, 25, "SubitemNumbered",ExpressionUUID->"ae9d692d-280e-214d-99e8-6a593c08f845"],
+Cell[3827, 112, 235, 4, 25, "SubitemNumbered",ExpressionUUID->"392883e3-a6eb-a647-9571-c662d5c1d12f"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[4099, 121, 221, 4, 30, "ItemNumbered",ExpressionUUID->"f12f0cd3-da77-c541-a85b-331d835312e9"],
+Cell[4323, 127, 223, 4, 25, "SubitemNumbered",ExpressionUUID->"0b0f0e27-f776-ca4b-85ca-89334f3b54ce"],
+Cell[4549, 133, 170, 3, 25, "SubitemNumbered",ExpressionUUID->"803f2e41-b104-1846-9f81-aadc06c52ff4"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[4756, 141, 285, 4, 53, "Subsection",ExpressionUUID->"abfec85d-43c2-b742-a2c4-cecbd547560f"],
+Cell[CellGroupData[{
+Cell[5066, 149, 165, 3, 43, "Subsubsection",ExpressionUUID->"01b00a71-0eb2-bd40-ae52-0fc0509d900e"],
+Cell[5234, 154, 214, 5, 33, "Text",ExpressionUUID->"c4951b9e-a11e-1942-9fea-c2aa38f6a165"],
+Cell[5451, 161, 576, 15, 66, "Input",ExpressionUUID->"15d4bfae-f4ad-e74d-8c6d-8215a016408a"],
+Cell[6030, 178, 197, 3, 33, "Text",ExpressionUUID->"f5b38e1d-f5a8-4747-a7f3-a1be3cea6fe0"],
+Cell[CellGroupData[{
+Cell[6252, 185, 533, 13, 47, "Input",ExpressionUUID->"aec83591-6b5e-ff4c-8121-fa36fa897311"],
+Cell[6788, 200, 197, 4, 32, "Output",ExpressionUUID->"e50fd2e2-6565-ce4a-8cfc-e632f31ea3a1"]
+}, Open  ]],
+Cell[7000, 207, 217, 5, 33, "Text",ExpressionUUID->"604e6783-f14e-c446-b4c0-6a9e8a9af797"],
+Cell[CellGroupData[{
+Cell[7242, 216, 295, 5, 28, "Input",ExpressionUUID->"232f5db0-9502-a843-9822-855bb6830313"],
+Cell[7540, 223, 203, 3, 32, "Output",ExpressionUUID->"d256f706-8ab9-b04e-ab61-6831c5ba9e3c"]
+}, Open  ]]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[7792, 232, 161, 3, 43, "Subsubsection",ExpressionUUID->"12dec54f-a5cb-8246-bcbb-ed0558fa6d56"],
+Cell[7956, 237, 246, 4, 33, "Text",ExpressionUUID->"b9e85ab2-2c80-d94c-904e-5c57a5b1f250"],
+Cell[CellGroupData[{
+Cell[8227, 245, 183, 2, 28, "Input",ExpressionUUID->"04be4d92-205e-654a-997d-63728c420e80"],
+Cell[8413, 249, 664, 12, 51, "Output",ExpressionUUID->"9c02d531-da76-a143-87de-86e193847c14"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[9114, 266, 182, 2, 28, "Input",ExpressionUUID->"9b770caf-d04b-d443-8054-475691d49c0d"],
+Cell[9299, 270, 257, 5, 32, "Output",ExpressionUUID->"2032c8c8-9075-e14c-80cd-b5d9d57b2c38"]
+}, Open  ]],
+Cell[9571, 278, 349, 7, 33, "Text",ExpressionUUID->"9d8dbce6-418b-2145-9e21-1f7289dcb658"],
+Cell[9923, 287, 311, 6, 33, "Text",ExpressionUUID->"976f17ba-a671-9240-867e-f45ca3496a61"],
+Cell[CellGroupData[{
+Cell[10259, 297, 278, 5, 28, "Input",ExpressionUUID->"fb7a360a-852b-ae4f-9f0f-384750c6f3f6"],
+Cell[10540, 304, 149, 2, 32, "Output",ExpressionUUID->"f21b7f05-1c4e-584a-9310-aa00bf8469db"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[10726, 311, 266, 4, 28, "Input",ExpressionUUID->"92eb069e-bb3b-264c-b88e-6166412f2068"],
+Cell[10995, 317, 149, 2, 32, "Output",ExpressionUUID->"d54f3e27-7d7c-8a4e-9557-e3539cba9bc0"]
+}, Open  ]],
+Cell[11159, 322, 240, 4, 33, "Text",ExpressionUUID->"fc554216-b7d9-544c-ab08-cab79cbeaa47"],
+Cell[CellGroupData[{
+Cell[11424, 330, 267, 4, 28, "Input",ExpressionUUID->"d85b9ee8-3f98-a841-841f-124b83be52ee"],
+Cell[11694, 336, 203, 3, 32, "Output",ExpressionUUID->"3cb6ac6a-2a77-504e-a4ee-5084e04c39f8"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[11934, 344, 270, 4, 28, "Input",ExpressionUUID->"38ac3341-5e5b-2047-b7b4-9d2cf6aa4e8c"],
+Cell[12207, 350, 203, 3, 32, "Output",ExpressionUUID->"54358154-31be-a242-ab61-2bdb18c90b76"]
+}, Open  ]],
+Cell[12425, 356, 211, 4, 33, "Text",ExpressionUUID->"9c2f6d3c-6f0c-3142-b2ab-d4513941196a"],
+Cell[CellGroupData[{
+Cell[12661, 364, 235, 3, 28, "Input",ExpressionUUID->"0fcecc91-1c8a-4b4b-8f2e-76b4b042df7a"],
+Cell[12899, 369, 252, 5, 32, "Output",ExpressionUUID->"ed5fab54-5b1f-664d-873c-6accbb36ec23"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[13188, 379, 234, 3, 28, "Input",ExpressionUUID->"cae39551-f3f1-fb46-b43b-5704884252a3"],
+Cell[13425, 384, 250, 5, 32, "Output",ExpressionUUID->"3f9869a7-aef2-ad48-b4b5-935c1d95bd68"]
+}, Open  ]]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[13724, 395, 178, 3, 43, "Subsubsection",ExpressionUUID->"90014d5d-f5cc-384b-a6ae-3c13099d78af"],
+Cell[13905, 400, 466, 13, 35, "Text",ExpressionUUID->"fef858ec-6ea1-784c-8422-17afd85dd516"],
+Cell[14374, 415, 218, 5, 33, "Text",ExpressionUUID->"73201719-fb47-384a-9667-767bbe7ab51a"],
+Cell[14595, 422, 252, 6, 28, "Input",ExpressionUUID->"5f43fbf2-f8d5-ab4b-91d2-d0fa96af3b96"],
+Cell[14850, 430, 175, 3, 33, "Text",ExpressionUUID->"c5d036d0-9565-5947-ba84-2c46302d54c6"],
+Cell[CellGroupData[{
+Cell[15050, 437, 280, 4, 28, "Input",ExpressionUUID->"36eda784-1890-6141-92a6-36967636f03b"],
+Cell[15333, 443, 300, 5, 32, "Output",ExpressionUUID->"4b5a066a-1290-9743-8ab8-bfd8aeaf4ff1"]
+}, Open  ]],
+Cell[15648, 451, 193, 3, 33, "Text",ExpressionUUID->"27b27408-178c-e54a-a0bf-ad28b56d2b49"],
+Cell[15844, 456, 222, 4, 28, "Input",ExpressionUUID->"4207d735-1106-3a43-aba2-aa1895fa5dec"],
+Cell[CellGroupData[{
+Cell[16091, 464, 300, 5, 28, "Input",ExpressionUUID->"13f3db33-ce92-5a49-b85e-eb1ca938e328"],
+Cell[16394, 471, 203, 3, 32, "Output",ExpressionUUID->"d9ce3532-a75a-c04b-be5d-c3a8aca69fcc"]
+}, Open  ]],
+Cell[16612, 477, 161, 3, 33, "Text",ExpressionUUID->"f5c6dac0-bbc9-a54e-a323-b3c517c9ba1a"],
+Cell[CellGroupData[{
+Cell[16798, 484, 212, 3, 28, "Input",ExpressionUUID->"645fb6cd-b659-9d46-bc0b-b36b827b06af"],
+Cell[17013, 489, 254, 5, 32, "Output",ExpressionUUID->"fdf031f1-a5a6-0b4a-9182-258ac7da76fc"]
+}, Open  ]]
+}, Open  ]]
+}, Closed]],
+Cell[CellGroupData[{
+Cell[17328, 501, 330, 5, 37, "Subsection",ExpressionUUID->"bda378e7-139d-4c48-acac-02b5d7d5d262"],
+Cell[17661, 508, 279, 6, 33, "Text",ExpressionUUID->"e99c762e-677f-c240-861d-f6e5c7f44cb6"],
+Cell[CellGroupData[{
+Cell[17965, 518, 165, 3, 43, "Subsubsection",ExpressionUUID->"e22e5fa6-5cc2-514a-9cc3-01a1c20d391c"],
+Cell[18133, 523, 214, 5, 33, "Text",ExpressionUUID->"e7923f33-d2fc-b344-a306-1a4e11692189"],
+Cell[18350, 530, 576, 15, 66, "Input",ExpressionUUID->"e34419b2-fc73-c94e-abed-9b48c2e18cdd"],
+Cell[18929, 547, 197, 3, 33, "Text",ExpressionUUID->"ffeaa025-d531-ff45-aa7f-b3c482d3b72c"],
+Cell[CellGroupData[{
+Cell[19151, 554, 533, 13, 47, "Input",ExpressionUUID->"c85cdf99-1fe3-d84d-b954-8f80d4cfb08d"],
+Cell[19687, 569, 246, 5, 32, "Output",ExpressionUUID->"4f25c236-1ef5-1b43-b392-23b5f15cf303"]
+}, Open  ]],
+Cell[19948, 577, 217, 5, 33, "Text",ExpressionUUID->"ff513361-fdcf-d04c-a54f-7a8723298eb6"],
+Cell[CellGroupData[{
+Cell[20190, 586, 295, 5, 28, "Input",ExpressionUUID->"219dec98-4237-e840-8d34-09ba9f4113bd"],
+Cell[20488, 593, 252, 4, 32, "Output",ExpressionUUID->"f32f725d-57a5-b14b-94c3-929292917c53"]
+}, Open  ]]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[20789, 603, 161, 3, 43, "Subsubsection",ExpressionUUID->"09bfe180-d421-5842-aa46-e71e0ccc5d07"],
+Cell[20953, 608, 246, 4, 33, "Text",ExpressionUUID->"db829188-7445-3c4e-9ff5-133357e87925"],
+Cell[CellGroupData[{
+Cell[21224, 616, 183, 2, 28, "Input",ExpressionUUID->"35caead0-1a07-cb4e-9c52-44a2fd1cdd8c"],
+Cell[21410, 620, 715, 13, 51, "Output",ExpressionUUID->"ce447250-9ad0-d244-9dc6-e17d5aec9166"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[22162, 638, 182, 2, 28, "Input",ExpressionUUID->"7256cfbc-b074-234a-9727-c51e9faf742c"],
+Cell[22347, 642, 306, 6, 32, "Output",ExpressionUUID->"5ed520c6-1369-e74f-b1b8-5a844d4bfda2"]
+}, Open  ]],
+Cell[22668, 651, 387, 8, 33, "Text",ExpressionUUID->"9d011246-7f16-d745-a408-c47c04cc5b41"],
+Cell[23058, 661, 311, 6, 33, "Text",ExpressionUUID->"5c0246b5-437c-2d49-bc36-28c145fa73d2"],
+Cell[CellGroupData[{
+Cell[23394, 671, 306, 6, 28, "Input",ExpressionUUID->"36ba0a72-adba-f948-8344-ddc493e23191"],
+Cell[23703, 679, 225, 3, 32, "Output",ExpressionUUID->"14ed603c-91e5-7e49-b18e-d5d6dcd36a33"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[23965, 687, 266, 4, 28, "Input",ExpressionUUID->"54dac98d-f5f8-8349-a93b-82a41ce00cd1"],
+Cell[24234, 693, 218, 3, 32, "Output",ExpressionUUID->"c42999de-5ca3-1c4c-ad84-c9ce090888c8"]
+}, Open  ]],
+Cell[24467, 699, 240, 4, 33, "Text",ExpressionUUID->"2bacbb24-d506-0441-93e3-e8c00abe01d9"],
+Cell[CellGroupData[{
+Cell[24732, 707, 267, 4, 28, "Input",ExpressionUUID->"93889cfb-dce7-4a4b-b5ca-88cdeb784ca2"],
+Cell[25002, 713, 276, 4, 32, "Output",ExpressionUUID->"a0479ec6-35fd-0948-a9ab-4369441317e7"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[25315, 722, 270, 4, 28, "Input",ExpressionUUID->"d9701135-f830-3545-a5f3-fa5d717e9545"],
+Cell[25588, 728, 274, 4, 32, "Output",ExpressionUUID->"e82e33ef-ec93-d142-9c44-c808f30700f7"]
+}, Open  ]],
+Cell[25877, 735, 211, 4, 33, "Text",ExpressionUUID->"23cf3b20-e5e1-4144-918e-69af7ff1f02e"],
+Cell[CellGroupData[{
+Cell[26113, 743, 235, 3, 28, "Input",ExpressionUUID->"ba22555e-87e1-dd45-8284-fe9eac0910ec"],
+Cell[26351, 748, 326, 6, 32, "Output",ExpressionUUID->"39cda9d4-72e5-7346-809c-4261387cb3a4"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[26714, 759, 234, 3, 28, "Input",ExpressionUUID->"cfc4ab99-1f13-3544-afc8-65d546e67965"],
+Cell[26951, 764, 321, 6, 32, "Output",ExpressionUUID->"526e3a4b-a1c8-6442-b7ce-82a69fdda0e6"]
+}, Open  ]]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[27321, 776, 178, 3, 43, "Subsubsection",ExpressionUUID->"f18a7074-a8b7-0e43-977f-8a6dd6466374"],
+Cell[27502, 781, 435, 12, 35, "Text",ExpressionUUID->"4cc658a0-99dd-5e48-b359-c6d361801628"],
+Cell[27940, 795, 218, 5, 33, "Text",ExpressionUUID->"22be7297-a768-c546-aeb8-e90abbe0b986"],
+Cell[28161, 802, 271, 5, 28, "Input",ExpressionUUID->"1d038084-257b-fb42-83d5-0d32fbcc685a"],
+Cell[28435, 809, 175, 3, 33, "Text",ExpressionUUID->"140c68dc-1ccf-3140-9214-07fd264710f8"],
+Cell[CellGroupData[{
+Cell[28635, 816, 280, 4, 28, "Input",ExpressionUUID->"ea926087-ce72-2840-b246-5bde4042dff4"],
+Cell[28918, 822, 376, 6, 32, "Output",ExpressionUUID->"7755d291-36da-4647-8366-30b43bc78510"]
+}, Open  ]],
+Cell[29309, 831, 193, 3, 33, "Text",ExpressionUUID->"6150f13f-1c48-0647-9e54-2fc9f7f17ad1"],
+Cell[29505, 836, 222, 4, 28, "Input",ExpressionUUID->"28a17c32-90e0-cb49-b809-4edc8d610eed"],
+Cell[CellGroupData[{
+Cell[29752, 844, 300, 5, 28, "Input",ExpressionUUID->"34561fb7-d839-294b-b3de-1d5a09a7a5c4"],
+Cell[30055, 851, 274, 4, 32, "Output",ExpressionUUID->"75270975-7f88-f449-8be5-fb42ecf2f022"]
+}, Open  ]],
+Cell[30344, 858, 161, 3, 33, "Text",ExpressionUUID->"bda92637-cb28-2341-8e92-1f9204fcfb94"],
+Cell[CellGroupData[{
+Cell[30530, 865, 212, 3, 28, "Input",ExpressionUUID->"a5108836-cfd0-d04e-9087-d6cf06274358"],
+Cell[30745, 870, 324, 6, 32, "Output",ExpressionUUID->"943828fd-4b5f-6047-83e8-28f1ee80898f"]
+}, Open  ]]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[31118, 882, 161, 3, 43, "Subsubsection",ExpressionUUID->"ae5c2eb0-8008-ba4b-bad4-25e954c7b1f5"],
+Cell[31282, 887, 220, 5, 33, "Text",ExpressionUUID->"50e52e93-2db7-124b-b273-e1b92109f4be"],
+Cell[CellGroupData[{
+Cell[31527, 896, 285, 6, 28, "Input",ExpressionUUID->"f61ada6b-99de-b740-a017-0457f9488a2b"],
+Cell[31815, 904, 355, 9, 32, "Output",ExpressionUUID->"1c14c686-9a65-1649-ba24-d178134be90a"]
+}, Open  ]],
+Cell[32185, 916, 189, 3, 33, "Text",ExpressionUUID->"37ebd1f2-0315-5445-be7b-2b2b3823edb5"],
+Cell[32377, 921, 409, 11, 28, "Input",ExpressionUUID->"f6bd4f44-4999-9a49-8845-e3111130d7e6"],
+Cell[CellGroupData[{
+Cell[32811, 936, 298, 5, 28, "Input",ExpressionUUID->"041fbc3a-11d0-7d4c-9378-6f33e4774a6d"],
+Cell[33112, 943, 299, 4, 32, "Output",ExpressionUUID->"2b69200c-74d8-ba44-a6a1-a7e63eafd044"]
+}, Open  ]],
+Cell[33426, 950, 175, 3, 33, "Text",ExpressionUUID->"77a06258-e035-f844-bbe7-75bd19b379a2"],
+Cell[CellGroupData[{
+Cell[33626, 957, 285, 6, 28, "Input",ExpressionUUID->"d5e62434-8d92-6c4c-9f98-cda73fcb3085"],
+Cell[33914, 965, 377, 9, 32, "Output",ExpressionUUID->"6461d66a-b398-3148-a655-735cdb351d4f"]
+}, Open  ]]
+}, Open  ]]
+}, Closed]],
+Cell[CellGroupData[{
+Cell[34352, 981, 172, 3, 37, "Subsection",ExpressionUUID->"55eed171-a5a0-6741-b019-2a7000a0e6a5"],
+Cell[CellGroupData[{
+Cell[34549, 988, 168, 3, 43, "Subsubsection",ExpressionUUID->"c417ec40-f00f-0242-88e5-78f203c0d026"],
+Cell[34720, 993, 188, 3, 33, "Text",ExpressionUUID->"f936391f-ea83-a042-824f-b6d6c89451d8"],
+Cell[CellGroupData[{
+Cell[34933, 1000, 197, 2, 28, "Input",ExpressionUUID->"7b9604a2-98e5-2545-9512-1b3e40077c5e"],
+Cell[35133, 1004, 520, 9, 32, "Output",ExpressionUUID->"5fd6b692-5293-a546-9950-9f43fcbc21ba"]
+}, Open  ]],
+Cell[35668, 1016, 180, 3, 33, "Text",ExpressionUUID->"e80ac9e5-cd38-3449-9d7b-103220c96c82"],
+Cell[CellGroupData[{
+Cell[35873, 1023, 350, 7, 28, "Input",ExpressionUUID->"d0fffcdf-d8a1-4540-acda-1b7834dc64e6"],
+Cell[36226, 1032, 198, 3, 32, "Output",ExpressionUUID->"ae599177-46ec-3d43-88db-e8e86045cd3d"]
+}, Open  ]],
+Cell[36439, 1038, 193, 3, 33, "Text",ExpressionUUID->"1f64094e-04b9-7646-8162-ed0a503dd275"],
+Cell[36635, 1043, 318, 7, 47, "Input",ExpressionUUID->"a9e0af4e-6949-704f-8da1-aad87daa9d78"],
+Cell[36956, 1052, 174, 3, 33, "Text",ExpressionUUID->"28818c86-57c0-d144-a8c3-9fc61bed5cc5"],
+Cell[CellGroupData[{
+Cell[37155, 1059, 180, 3, 28, "Input",ExpressionUUID->"98f96aa3-3b87-d24d-9653-ed7c1148a29d"],
+Cell[37338, 1064, 609, 12, 32, "Output",ExpressionUUID->"f06eaa7f-0684-3640-9e77-5c0b906ab92f"]
+}, Open  ]],
+Cell[37962, 1079, 254, 6, 33, "Text",ExpressionUUID->"c37fd837-3f3d-4c4e-b5ad-26f929dcefa5"],
+Cell[CellGroupData[{
+Cell[38241, 1089, 423, 7, 28, "Input",ExpressionUUID->"a5dc7b8f-e4da-8e4e-b063-e293991a8fd2"],
+Cell[38667, 1098, 224, 3, 32, "Output",ExpressionUUID->"efc76b0a-b601-5a4c-bbd0-fcae85c9a131"]
+}, Open  ]]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[38940, 1107, 171, 3, 43, "Subsubsection",ExpressionUUID->"1ef41ecf-3410-304a-b3e9-8fd616a1a313"],
+Cell[39114, 1112, 228, 5, 33, "Text",ExpressionUUID->"969fcb63-9d8e-ca42-9c9c-1c225b0a37a3"],
+Cell[39345, 1119, 156, 3, 33, "Text",ExpressionUUID->"b13f8781-09fc-c344-a6b8-86adcec15ee0"],
+Cell[CellGroupData[{
+Cell[39526, 1126, 344, 9, 28, "Input",ExpressionUUID->"b6327725-fc7e-d544-a16f-deb870793ac6"],
+Cell[39873, 1137, 246, 4, 32, "Output",ExpressionUUID->"2e88cf14-d1d5-d64e-a06e-6f0290a23b91"]
+}, Open  ]],
+Cell[40134, 1144, 156, 3, 33, "Text",ExpressionUUID->"dc4022c0-3426-4943-97fd-6705a682c03c"],
+Cell[CellGroupData[{
+Cell[40315, 1151, 434, 10, 28, "Input",ExpressionUUID->"1f0359d2-4849-8d45-8b33-6995a03aa562"],
+Cell[40752, 1163, 285, 6, 32, "Output",ExpressionUUID->"2c7d89bb-2cfb-9648-920f-517be3206ced"]
+}, Open  ]],
+Cell[41052, 1172, 385, 13, 34, "Text",ExpressionUUID->"7cb03bf7-8198-6b47-b9e0-ba586b04a576"],
+Cell[CellGroupData[{
+Cell[41462, 1189, 435, 10, 28, "Input",ExpressionUUID->"ca5d15fa-09c3-2a4f-8732-4874fa4ffc4b"],
+Cell[41900, 1201, 257, 5, 32, "Output",ExpressionUUID->"e5d15c4e-4f9e-8844-8d82-b1f78a815217"]
+}, Open  ]],
+Cell[42172, 1209, 170, 3, 33, "Text",ExpressionUUID->"52220eab-2d70-aa43-b77d-101c95e10b25"],
+Cell[CellGroupData[{
+Cell[42367, 1216, 507, 11, 28, "Input",ExpressionUUID->"fe51cde7-f373-1f4e-9f62-44e646686e4f"],
+Cell[42877, 1229, 420, 10, 32, "Output",ExpressionUUID->"b425f7c5-642a-2749-b14e-d1f89dbe7abc"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[43334, 1244, 452, 10, 28, "Input",ExpressionUUID->"52e6a6fb-c9ba-8240-82a0-1e87b675309c"],
+Cell[43789, 1256, 396, 9, 32, "Output",ExpressionUUID->"61820d6a-dc18-0744-9759-28b8e0d06fca"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[44222, 1270, 400, 10, 28, "Input",ExpressionUUID->"318136fb-7346-7049-b2e9-a7b85ad23f49"],
+Cell[44625, 1282, 369, 9, 32, "Output",ExpressionUUID->"8b4fbdb1-c932-4a44-aadb-d9001076dc53"]
+}, Open  ]]
+}, Open  ]]
+}, Closed]],
+Cell[CellGroupData[{
+Cell[45055, 1298, 183, 3, 37, "Subsection",ExpressionUUID->"4b314d53-84b7-9e41-95b9-9991d589b7a1"],
+Cell[CellGroupData[{
+Cell[45263, 1305, 168, 3, 43, "Subsubsection",ExpressionUUID->"5e938029-22e7-6248-b6e1-2b6ab68d4567"],
+Cell[45434, 1310, 160, 3, 33, "Text",ExpressionUUID->"79e46723-262b-5343-afa1-137d81d1da4f"],
+Cell[CellGroupData[{
+Cell[45619, 1317, 203, 3, 28, "Input",ExpressionUUID->"d623c2cc-7af8-6241-a5bb-889b140ecc04"],
+Cell[45825, 1322, 16450, 371, 392, "Output",ExpressionUUID->"e037ea7f-8ea0-8b44-9e9f-5c219a3ce19e"]
+}, Open  ]],
+Cell[62290, 1696, 193, 3, 33, "Text",ExpressionUUID->"718889d3-97f6-d647-ba3a-672cd22a57de"],
+Cell[62486, 1701, 318, 7, 47, "Input",ExpressionUUID->"4809cdf1-c8d0-194b-99e1-7fdeaadeaac6"],
+Cell[62807, 1710, 161, 3, 33, "Text",ExpressionUUID->"1a94caa7-0644-c444-bb3c-c093fd135f2e"],
+Cell[62971, 1715, 222, 4, 28, "Input",ExpressionUUID->"e076b79f-1ded-3f45-a227-e13ccebe8e06"],
+Cell[63196, 1721, 166, 3, 33, "Text",ExpressionUUID->"cf1b5303-193f-c64b-b034-b7ab57fc3e48"],
+Cell[CellGroupData[{
+Cell[63387, 1728, 309, 5, 28, "Input",ExpressionUUID->"45a78396-8bd6-0f48-b7e5-3f26787a4e7a"],
+Cell[63699, 1735, 203, 3, 32, "Output",ExpressionUUID->"bf82b040-5d39-3c47-a8c4-bf52055b7254"]
+}, Open  ]],
+Cell[63917, 1741, 276, 4, 33, "Text",ExpressionUUID->"54cf1535-5681-0b46-b992-d481a057823f"],
+Cell[CellGroupData[{
+Cell[64218, 1749, 327, 6, 28, "Input",ExpressionUUID->"57fe032a-5096-f942-a5b9-9cbf94ce4786"],
+Cell[64548, 1757, 175, 2, 32, "Output",ExpressionUUID->"9ff9c4a9-e693-7f45-9a2d-e431433186a2"]
+}, Open  ]]
+}, Closed]],
+Cell[CellGroupData[{
+Cell[64772, 1765, 171, 3, 35, "Subsubsection",ExpressionUUID->"2e4b09ec-2136-2944-a7e6-91fa2f1efb60"],
+Cell[64946, 1770, 301, 7, 33, "Text",ExpressionUUID->"bfb2a7b5-f990-7c4e-bf5f-8e96f4dee6ce"],
+Cell[65250, 1779, 156, 3, 33, "Text",ExpressionUUID->"b175c447-7808-ac43-9724-8d3dc52af536"],
+Cell[CellGroupData[{
+Cell[65431, 1786, 344, 9, 28, "Input",ExpressionUUID->"ac3c5afc-c261-0440-af73-35f1d67e8e26"],
+Cell[65778, 1797, 237, 4, 32, "Output",ExpressionUUID->"a1b7d72e-3f50-b645-9c1c-01a353387bb6"]
+}, Open  ]],
+Cell[66030, 1804, 385, 13, 34, "Text",ExpressionUUID->"5c55ac59-829d-e54e-a3e2-fafd22ca6747"],
+Cell[CellGroupData[{
+Cell[66440, 1821, 435, 10, 28, "Input",ExpressionUUID->"003a704e-717e-0541-a597-c64bf93c5800"],
+Cell[66878, 1833, 238, 4, 32, "Output",ExpressionUUID->"538492f3-14f9-764b-8253-06e27c6de828"]
+}, Open  ]],
+Cell[67131, 1840, 170, 3, 33, "Text",ExpressionUUID->"e16babd4-b921-5846-83cc-ba575546176e"],
+Cell[CellGroupData[{
+Cell[67326, 1847, 507, 11, 28, "Input",ExpressionUUID->"a89b9d11-9185-7d42-be2e-f1971301d5ac"],
+Cell[67836, 1860, 297, 6, 32, "Output",ExpressionUUID->"c7a9ee0f-5007-2541-9ba2-0591f7cfb5aa"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[68170, 1871, 452, 10, 28, "Input",ExpressionUUID->"d9530367-fafd-0b41-8feb-40fa078325a0"],
+Cell[68625, 1883, 310, 7, 32, "Output",ExpressionUUID->"4441e9a0-9bb5-e646-b65c-947d5144aa48"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[68972, 1895, 400, 10, 28, "Input",ExpressionUUID->"6ee8700f-1084-dd47-a12f-2b3577b80f83"],
+Cell[69375, 1907, 281, 6, 32, "Output",ExpressionUUID->"547dc351-76a4-9c4f-ab69-e0e5e6a0e5e3"]
+}, Open  ]]
+}, Closed]]
+}, Closed]],
+Cell[CellGroupData[{
+Cell[69717, 1920, 233, 4, 37, "Subsection",ExpressionUUID->"8119f742-60ec-044c-be68-8cff9af1db26"],
+Cell[CellGroupData[{
+Cell[69975, 1928, 168, 3, 43, "Subsubsection",ExpressionUUID->"acab1bd3-be50-f74e-b866-3cb6d4ba3088"],
+Cell[70146, 1933, 160, 3, 33, "Text",ExpressionUUID->"9e69619d-8ca7-8a4a-bee0-090c8f1beccd"],
+Cell[CellGroupData[{
+Cell[70331, 1940, 253, 4, 28, "Input",ExpressionUUID->"4cd9b183-c95e-704a-b153-75b7a54bde20"],
+Cell[70587, 1946, 15674, 361, 265, "Output",ExpressionUUID->"0abdbcf6-8f03-ae4b-8283-c7867f306e3a"]
+}, Open  ]],
+Cell[86276, 2310, 193, 3, 33, "Text",ExpressionUUID->"d8bc1091-3725-e446-9c4b-bcf5542e912a"],
+Cell[86472, 2315, 318, 7, 47, "Input",ExpressionUUID->"ecb1df1b-3f37-ed4b-ae49-b29f1509b256"],
+Cell[86793, 2324, 166, 3, 33, "Text",ExpressionUUID->"93266eb8-c622-484e-9c15-d6a69f3e4563"],
+Cell[CellGroupData[{
+Cell[86984, 2331, 416, 8, 28, "Input",ExpressionUUID->"43771224-ba79-0643-9c2b-df86249813d2"],
+Cell[87403, 2341, 202, 3, 32, "Output",ExpressionUUID->"4e5d3e94-b96a-874b-acae-30e8581bf541"]
+}, Open  ]]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[87654, 2350, 171, 3, 43, "Subsubsection",ExpressionUUID->"7d1b524a-b3b6-8948-87c8-a3def0b19514"],
+Cell[87828, 2355, 301, 7, 33, "Text",ExpressionUUID->"64bfd057-be5c-6640-8879-c9a9703de545"],
+Cell[88132, 2364, 156, 3, 33, "Text",ExpressionUUID->"f39a2572-8f0c-4943-a15c-c89b1591b7c7"],
+Cell[CellGroupData[{
+Cell[88313, 2371, 344, 9, 28, "Input",ExpressionUUID->"af07d677-242d-4342-95ea-d80409ec9073"],
+Cell[88660, 2382, 326, 6, 32, "Output",ExpressionUUID->"f7d21b95-93f3-a643-bd6b-150cc80ab930"]
+}, Open  ]],
+Cell[89001, 2391, 385, 13, 34, "Text",ExpressionUUID->"f59d36e9-0e9a-a84d-9537-2ebf90ccd6f3"],
+Cell[CellGroupData[{
+Cell[89411, 2408, 435, 10, 28, "Input",ExpressionUUID->"3c1e59ca-cdce-7f4a-bd2f-4994263185aa"],
+Cell[89849, 2420, 277, 5, 32, "Output",ExpressionUUID->"c5ea9e81-eb02-2247-9c28-15e5f809a2fe"]
+}, Open  ]],
+Cell[90141, 2428, 170, 3, 33, "Text",ExpressionUUID->"1dd53380-30ab-c746-a972-07176838228c"],
+Cell[CellGroupData[{
+Cell[90336, 2435, 507, 11, 28, "Input",ExpressionUUID->"677180b8-db17-9246-a6e3-2a2eebb0e2b8"],
+Cell[90846, 2448, 395, 9, 32, "Output",ExpressionUUID->"6fadced9-2a15-154e-8b37-7452a0c68456"]
+}, Open  ]],
+Cell[91256, 2460, 338, 7, 33, "Text",ExpressionUUID->"ca67bcca-66da-9d4d-8018-24265d26ac7a"],
+Cell[CellGroupData[{
+Cell[91619, 2471, 452, 10, 28, "Input",ExpressionUUID->"70147591-efa6-7447-9674-1894348407e3"],
+Cell[92074, 2483, 432, 10, 32, "Output",ExpressionUUID->"0c3d4374-f4ec-174d-8592-192e7abbd576"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[92543, 2498, 400, 10, 28, "Input",ExpressionUUID->"5a71c7a6-1dd7-9d4a-93fe-856389e430dc"],
+Cell[92946, 2510, 407, 10, 32, "Output",ExpressionUUID->"20ebb939-c208-574c-aefe-c971e0b428b8"]
+}, Open  ]]
+}, Open  ]]
+}, Open  ]]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[93426, 2528, 235, 4, 66, "Section",ExpressionUUID->"300e36f5-96d4-7448-a096-d4466ef6108b"],
+Cell[CellGroupData[{
+Cell[93686, 2536, 165, 3, 53, "Subsection",ExpressionUUID->"2cd9df07-2f0a-5543-82d3-26f9b4af1396"],
+Cell[93854, 2541, 228, 3, 33, "Text",ExpressionUUID->"01c8c2cc-825b-eb4c-b63e-ce11393959df"],
+Cell[CellGroupData[{
+Cell[94107, 2548, 210, 3, 28, "Input",ExpressionUUID->"f31a4e64-eae8-3948-a38b-6fb860cf5665"],
+Cell[94320, 2553, 16063, 368, 265, "Output",ExpressionUUID->"4df6abf8-d2bf-7040-9cf5-0d33476e55ff"]
+}, Open  ]],
+Cell[110398, 2924, 220, 4, 33, "Text",ExpressionUUID->"782eb179-a0e9-2c4a-b377-b00b8610ec85"],
+Cell[110621, 2930, 291, 5, 28, "Input",ExpressionUUID->"1e340abf-efbc-fd47-94fd-bada8c89f729"],
+Cell[110915, 2937, 214, 4, 33, "Text",ExpressionUUID->"cab4f832-16ae-a948-add1-5fd5adc4e113"],
+Cell[CellGroupData[{
+Cell[111154, 2945, 222, 3, 28, "Input",ExpressionUUID->"810cdc5a-e405-bf40-a71c-c3f4b75668a8"],
+Cell[111379, 2950, 559, 11, 32, "Output",ExpressionUUID->"5fbe2be7-d5d7-c84a-b54a-7a61ed9b9852"]
+}, Open  ]],
+Cell[111953, 2964, 245, 4, 33, "Text",ExpressionUUID->"7c2083ac-5a3d-5c47-9946-c3d1291c7d9c"],
+Cell[CellGroupData[{
+Cell[112223, 2972, 479, 7, 28, "Input",ExpressionUUID->"a1e40d32-2a55-1a4a-8d6e-2162bc57a261"],
+Cell[112705, 2981, 222, 3, 32, "Output",ExpressionUUID->"b853e12f-575a-5c44-9781-31baedaba275"]
+}, Open  ]]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[112976, 2990, 168, 3, 53, "Subsection",ExpressionUUID->"152f7bfb-6cb8-8d48-80ed-9e55aa1b145d"],
+Cell[113147, 2995, 292, 7, 33, "Text",ExpressionUUID->"8725f70d-3213-7748-b0e5-3f4b4a08ea57"],
+Cell[CellGroupData[{
+Cell[113464, 3006, 214, 3, 28, "Input",ExpressionUUID->"035bf1e4-bbc7-4545-be3f-66efc648a589"],
+Cell[113681, 3011, 19170, 424, 290, "Output",ExpressionUUID->"0e86e0ba-14b3-d240-ac69-68ee52e7c429"]
+}, Open  ]],
+Cell[132866, 3438, 214, 4, 33, "Text",ExpressionUUID->"172c0d5b-224d-7f4c-a343-e87ff53c6e0c"],
+Cell[CellGroupData[{
+Cell[133105, 3446, 335, 7, 28, "Input",ExpressionUUID->"8bb7c3ef-3b64-a749-bb57-63b3870e37f4"],
+Cell[133443, 3455, 1562, 36, 51, "Output",ExpressionUUID->"05b12ae8-7cac-8045-b6db-f85b141ac3d0"]
+}, Open  ]],
+Cell[135020, 3494, 287, 7, 33, "Text",ExpressionUUID->"072f48a9-f568-df49-939a-9662f9d43076"],
+Cell[CellGroupData[{
+Cell[135332, 3505, 520, 12, 28, "Input",ExpressionUUID->"e1527eaa-2c4c-0a48-8ab0-d1d488ca678d"],
+Cell[135855, 3519, 329, 7, 32, "Output",ExpressionUUID->"b6e881ac-bc74-c64e-b815-a11fcd5e56f8"]
+}, Open  ]]
+}, Open  ]]
+}, Open  ]]
+}, Open  ]]
+}
+]
+*)
+
