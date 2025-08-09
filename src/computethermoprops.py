@@ -1,17 +1,29 @@
 import numpy as np
 from scipy.optimize import root_scalar
+from math import pi
+from scipy.integrate import quad
+import numpy as np
 
 R = 8.31451  # Universal gas constant (J K^-1 mol^-1)
+DEBYE3_INF = (pi**4)/15.0
 
+def _debye_integrand(t):
+    if t < 1e-6:
+        # series for t^3/(exp(t)-1) ~ t^2 - t^3/2 + t^4/12
+        return t*t * (1.0 - 0.5*t + (t*t)/12.0)
+    if t > 40.0:
+        # denominator ~ exp(t)
+        return t**3 * np.exp(-t)
+    return t**3 / np.expm1(t)
 
 def Debye3(x):
-    from scipy.integrate import quad
-    if x == 0:
-        return 0
-
-    def integrand(t): return t**3 / (np.exp(t) - 1)
-    integral, _ = quad(integrand, 0, x)
-    return 3 / x**3 * integral
+    #  ∫0^x t^3/(e^t-1) dt ; for x→∞, → π^4/15 ≈ 6.4939394
+    if x <= 0:
+        return 0.0
+    x_eff = min(x, 60.0)  # cap to avoid crazy overflow
+    integral, _ = quad(_debye_integrand, 0.0, x_eff, limit=200)
+    # tail beyond 60 is negligible; skip or approximate by 0
+    return integral
 
 
 def Debye3D(x):
