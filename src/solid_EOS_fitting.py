@@ -300,7 +300,7 @@ def extract_datasets(data):
     T_H_sub = data['heatsub']['Temperature']
     p_H_sub = np.array([psub(T, NEON_P_t, NEON_T_t) for T in T_H_sub])
     delta_H_sub = data['heatsub']['Change in Enthalpy']
-    H_fluid_sub = np.full(5, 5000) # TODO
+    H_fluid_sub = data['heatsub']['Enthalpy']
 
     # Enthalpy Melting #TODO
     T_H_melt = T_H_sub
@@ -482,45 +482,31 @@ Vm_melt = neon_data["cell_volume_melt"]["Cell Volume"]
 Year_Vm_melt = neon_data["cell_volume_melt"]["Year"]
 Author_Vm_melt = neon_data["cell_volume_melt"]["Author"]
 
-# Now plot
-plot_fitted_vs_data(
-    T_Vm_sub, Vm_sub, Year_Vm_sub, Author_Vm_sub,
-    T_Vm_melt, Vm_melt, Year_Vm_melt, Author_Vm_melt,
-    params_fit, CUSTOMMARKERS, CUSTOMCOLORS
-)
+PARAM_LABELS = [
+    ("c1", "MPa"),
+    ("c2", "MPa"),
+    ("c3", "MPa"),
+    ("Theta_D,0", "K"),
+    ("gamma_D,0", ""),
+    ("q_D", ""),
+    ("b1", ""),
+    ("b2", ""),
+    ("b3", ""),
+    ("S_m(g, T_t, p_t)", "J mol-1 K-1"),
+]
 
-# 3. Heat Capacity (cp)
-T_cp_sub = neon_data["heat_capacity"]["Temperature"]
-cp_sub = neon_data["heat_capacity"]["Heat Capacity"]
-Year_cp_sub = neon_data["heat_capacity"]["Year"]
-Author_cp_sub = neon_data["heat_capacity"]["Author"]
+# If your vector is longer/shorter, we’ll truncate/pad labels to match length:
+n = len(params_fit)
+labels = PARAM_LABELS[:n] if len(PARAM_LABELS) >= n else PARAM_LABELS + [
+    ("param_"+str(i+1), "") for i in range(len(PARAM_LABELS), n)]
 
-plot_property_vs_temp(
-    T_cp_sub, cp_sub, "cp", params_fit, psub, compute_thermo_props,
-    Year_cp_sub, Author_cp_sub, CUSTOMMARKERS, CUSTOMCOLORS, 4,
-    "Heat Capacity vs Temperature", "Heat Capacity [J/mol/K]"
-)
+df_params = pd.DataFrame({
+    "Parameter": [lbl for (lbl, _) in labels],
+    "Value": [float(v) for v in params_fit[:len(labels)]],
+    "Unit": [unit for (_, unit) in labels]
+})
 
-plot_property_deviation(
-    T_cp_sub, cp_sub, params_fit, psub, compute_thermo_props, 4,
-    Year_cp_sub, Author_cp_sub, CUSTOMMARKERS, CUSTOMCOLORS,
-    "cp Deviation", "100·(cp_exp - cp_calc) / cp_calc [%]"
-)
-
-# 4. Thermal Expansion (alpha)
-T_alpha_sub = neon_data["thermal_coeff"]["Temperature"]
-alpha_sub = neon_data["thermal_coeff"]["Thermal Expansion Coefficient"]
-Year_alpha_sub = neon_data["thermal_coeff"]["Year"]
-Author_alpha_sub = neon_data["thermal_coeff"]["Author"]
-
-plot_property_vs_temp(
-    T_alpha_sub, alpha_sub, "alpha", params_fit, psub, compute_thermo_props,
-    Year_alpha_sub, Author_alpha_sub, CUSTOMMARKERS, CUSTOMCOLORS, 3,
-    "Thermal Expansion vs Temperature", "Thermal Expansion [1/K]"
-)
-
-plot_property_deviation(
-    T_alpha_sub, alpha_sub, params_fit, psub, compute_thermo_props, 3,
-    Year_alpha_sub, Author_alpha_sub, CUSTOMMARKERS, CUSTOMCOLORS,
-    "alpha Deviation", "100·(alpha_exp - alpha_calc) / alpha_calc [%]"
-)
+# Nice formatting (no scientific notation unless needed)
+with pd.option_context('display.float_format', lambda x: f"{x:.6g}"):
+    print("\nOptimized parameter values for the solid EOS\n")
+    print(df_params.to_string(index=False))
