@@ -7,23 +7,16 @@ from read import load_all_gas_data
 from thermal_script import plot_all_gas_properties
 from computethermoprops import *
 from p_functions import pmelt,psub
-from constants import CUSTOMCOLORS, CUSTOMMARKERS, PARAMS_INIT, LOWER_BOUND, UPPER_BOUND, KRYPTON_P_t, KRYPTON_T_t, KRYPTON_REFERENCE_ENTROPY, KRYPTON_REFERENCE_ENTHALPY
+from constants import CUSTOMCOLORS, CUSTOMMARKERS, PARAMS_INIT, LOWER_BOUND, UPPER_BOUND, KRYPTON_P_t, KRYPTON_T_t, KRYPTON_REFERENCE_ENTROPY, KRYPTON_REFERENCE_ENTHALPY, PARAM_LABELS
 from scipy.integrate import quad
+from fitting_helper import rms , _mean_sq
 
 
-# Constantsn 
+# Constants
 St_REFPROP = KRYPTON_REFERENCE_ENTROPY  # Reference Entropy
 Ht_REFPROP = KRYPTON_REFERENCE_ENTHALPY
 Tt = KRYPTON_T_t
 pt = KRYPTON_P_t
-
-
-# solid_EOS_fitting.py
-def rms(x):
-    x = np.asarray(x, float)
-    x = x[np.isfinite(x)]
-    n = x.size
-    return 0.0 if n == 0 else np.sqrt(np.sum(x*x) / n)
 
 
 # Optimisation Options
@@ -157,191 +150,6 @@ def combined_cost_function(params, *datasets):
     }
     return total_deviation
 
-
-# === Weights from the thesis table ===
-W_VM_SUB = 55
-W_CP_LOW = 30     # T <= 12 K
-W_CP_HIGH = 210    # T > 12 K
-W_ALPHA = 50
-W_KT = 20
-W_KS = 20
-W_DH_SUB = 25
-W_PSUB = 2
-
-W_VM_MELT = 35
-W_DH_MELT = 2
-W_PMELT_LO = 5      # T <= 500 K
-W_PMELT_HI = 25     # T > 500 K
-
-W_VM_HIGHP = 1
-W_LOW = 3.5    # low-T behaviour penalty
-
-PARAM_LABELS = [
-    ("c1", "MPa"),
-    ("c2", "MPa"),
-    ("c3", "MPa"),
-    ("Theta_D,0", "K"),
-    ("gamma_D,0", ""),
-    ("q_D", ""),
-    ("b1", ""),
-    ("b2", ""),
-    ("b3", ""),
-    ("S_m(g, T_t, p_t)", "J mol-1 K-1"),
-]
-
-
-def _mean_sq(x):
-    x = np.asarray(x, float)
-    x = x[np.isfinite(x)]
-    return 0.0 if x.size == 0 else np.mean(x*x)
-
-# Optimisation Options
-
-
-def combined_cost_function2(params, *datasets):
-    # Unpack all datasets (unchanged)
-    (T_Vm_sub, p_Vm_sub, Vm_sub,
-     T_Vm_melt, p_Vm_melt, Vm_melt,
-     T_Vm_highp, p_Vm_highp, Vm_highp,
-     T_cp_sub, p_cp_sub, cp_sub,
-     T_alpha_sub, p_alpha_sub, alpha_sub,
-     T_BetaT_sub, p_BetaT_sub, BetaT_sub,
-     T_BetaS_sub, p_BetaS_sub, BetaS_sub,
-     T_sub, p_sub, Year_sub, G_fluid_sub, V_fluid_sub,
-     T_melt, p_melt, G_fluid_melt, V_fluid_melt,
-     T_H_sub, p_H_sub, delta_H_sub, H_fluid_sub,
-     T_H_melt, p_H_melt, delta_H_melt, H_fluid_melt) = datasets
-
-    # Reference offsets at the triple point
-    deltaS_triple = params[30] - St_REFPROP
-    props_Triple = compute_thermo_props(Tt, pt, params)
-    Ht_fitted = props_Triple[11] + Tt * params[30]
-    deltaH_triple = Ht_fitted - Ht_REFPROP
-
-    # ---------- Relative deviations (arrays) ----------
-    # Vm on sublimation/melting/high-p
-    Vm_sub_fit = np.array([compute_thermo_props(T, p, params)[0]
-                          for T, p in zip(T_Vm_sub,  p_Vm_sub)])
-    Vm_melt_fit = np.array([compute_thermo_props(T, p, params)[0]
-                           for T, p in zip(T_Vm_melt, p_Vm_melt)])
-    Vm_highp_fit = np.array([compute_thermo_props(T, p, params)[0]
-                            for T, p in zip(T_Vm_highp, p_Vm_highp)])
-
-    rel_Vm_sub = (Vm_sub - Vm_sub_fit) / Vm_sub
-    rel_Vm_melt = (Vm_melt - Vm_melt_fit) / Vm_melt
-    rel_Vm_highp = (Vm_highp - Vm_highp_fit) / Vm_highp
-
-    # cp on sublimation, split at 12 K
-    cp_fit = np.array([compute_thermo_props(T, p, params)[4]
-                      for T, p in zip(T_cp_sub, p_cp_sub)])
-    rel_cp = (cp_sub - cp_fit) / cp_sub
-    mask_cp_low = np.asarray(T_cp_sub) <= 12.0
-    mask_cp_high = ~mask_cp_low
-
-    # alpha, BetaT (KT), BetaS (KS)
-    alpha_fit = np.array([compute_thermo_props(T, p, params)[3]
-                         for T, p in zip(T_alpha_sub, p_alpha_sub)])
-    rel_alpha = (alpha_sub - alpha_fit) / alpha_sub
-
-    KT_fit = np.array([compute_thermo_props(T, p, params)[1]
-                      for T, p in zip(T_BetaT_sub, p_BetaT_sub)])
-    rel_KT = (BetaT_sub - KT_fit) / BetaT_sub
-
-    KS_fit = np.array([compute_thermo_props(T, p, params)[2]
-                      for T, p in zip(T_BetaS_sub, p_BetaS_sub)])
-    rel_KS = (BetaS_sub - KS_fit) / BetaS_sub
-
-    # ΔH sublimation & melting (solid enthalpy inferred from fluid – ΔH)
-    H_solid_sub = H_fluid_sub - 1000.0 * delta_H_sub
-    H_solid_sub_fit = np.array([compute_thermo_props(T, p, params)[
-                               10] for T, p in zip(T_H_sub,  p_H_sub)]) - deltaH_triple
-    rel_DH_sub = (H_solid_sub - H_solid_sub_fit) / H_solid_sub_fit
-
-    H_solid_melt = H_fluid_melt - 1000.0 * delta_H_melt
-    H_solid_melt_fit = np.array([compute_thermo_props(T, p, params)[
-                                10] for T, p in zip(T_H_melt, p_H_melt)]) - deltaH_triple
-    rel_DH_melt = (H_solid_melt - H_solid_melt_fit) / H_solid_melt_fit
-
-    # p_sub (in Pa in data; model comparison via ΔG closure)
-    p_fitted_sub = []
-    for T, pPa, Gf, Vf in zip(T_sub, p_sub, G_fluid_sub, V_fluid_sub):
-        props = compute_thermo_props(T, pPa/1e6, params)   # MPa
-        delta_G = Gf - props[11] + deltaH_triple - T*deltaS_triple
-        pfPa = pPa - (delta_G / (Vf - props[0])) * 1e6
-        p_fitted_sub.append(pfPa)
-    p_fitted_sub = np.asarray(p_fitted_sub)
-    rel_psub = (np.asarray(p_sub) - p_fitted_sub) / np.asarray(p_sub)
-
-    # p_melt (split at 500 K)
-    p_fitted_melt = []
-    for T, pM, Gf, Vf in zip(T_melt, p_melt, G_fluid_melt, V_fluid_melt):
-        props = compute_thermo_props(T, pM, params)
-        delta_G = Gf - props[11] + deltaH_triple - T*deltaS_triple
-        pfM = pM - (delta_G / (Vf - props[0]))
-        p_fitted_melt.append(pfM)
-    p_fitted_melt = np.asarray(p_fitted_melt)
-    rel_pmelt = (np.asarray(p_melt) - p_fitted_melt) / np.asarray(p_melt)
-    mask_pm_lo = np.asarray(T_melt) <= 500.0
-    mask_pm_hi = ~mask_pm_lo
-
-    # ---------- Low-T behaviour penalty (γ slope etc.) ----------
-    T6 = np.array([0.0001] + list(range(2, 84, 2)) + [83.806])
-    p6 = np.array([psub(T, pt, Tt) for T in T6])
-    Gamma_T6 = np.array([compute_thermo_props(T, p, params)[6]
-                        for T, p in zip(T6, p6)])
-    Vm_T6 = np.array([compute_thermo_props(T, p, params)[0]
-                     for T, p in zip(T6, p6)])
-    slopes = np.diff(Gamma_T6) / np.diff(Vm_T6)
-
-    # penalize positive slopes and excursions
-    gam_pen = []
-    gmean = np.mean(Gamma_T6)
-    for i, s in enumerate(slopes):
-        if s > 0:
-            gam_pen.append(45.0 + abs(200.0*(Gamma_T6[i+1]-gmean)/gmean))
-        else:
-            gam_pen.append(50.0 * (Gamma_T6[i+1]-gmean)/gmean)
-    gam_pen = np.asarray(gam_pen, float)
-    lowT_penalty = _mean_sq(gam_pen)   # use mean square so it's χ²-like
-
-    # ---------- χ² objective with thesis weights ----------
-    chi2 = 0.0
-    chi2 += W_VM_SUB * _mean_sq(rel_Vm_sub)
-    chi2 += W_VM_MELT * _mean_sq(rel_Vm_melt)
-    chi2 += W_VM_HIGHP * _mean_sq(rel_Vm_highp)
-
-    chi2 += W_CP_LOW * _mean_sq(rel_cp[mask_cp_low])
-    chi2 += W_CP_HIGH * _mean_sq(rel_cp[mask_cp_high])
-
-    chi2 += W_ALPHA * _mean_sq(rel_alpha)
-    chi2 += W_KT * _mean_sq(rel_KT)
-    chi2 += W_KS * _mean_sq(rel_KS)
-
-    chi2 += W_DH_SUB * _mean_sq(rel_DH_sub)
-    chi2 += W_DH_MELT * _mean_sq(rel_DH_melt)
-
-    chi2 += W_PSUB * _mean_sq(rel_psub)
-    chi2 += W_PMELT_LO * _mean_sq(rel_pmelt[mask_pm_lo])
-    chi2 += W_PMELT_HI * _mean_sq(rel_pmelt[mask_pm_hi])
-
-    chi2 += W_LOW * lowT_penalty
-
-    return chi2
-
-
-def run_optimization2(params_init, bounds, datasets):
-    print("Lens:", len(PARAMS_INIT), len(LOWER_BOUND), len(UPPER_BOUND))
-    assert len(PARAMS_INIT) == len(LOWER_BOUND) == len(UPPER_BOUND)
-
-    result = minimize(
-        fun=combined_cost_function2,
-        x0=np.asarray(params_init, float),
-        args=datasets,
-        method='L-BFGS-B',
-        bounds=bounds,
-        options={'disp': True, 'maxiter': 500, 'ftol': 1e-9}
-    )
-    return result.x, result.fun
 def run_optimization(params_init, bounds, datasets):
     print("Lens:", len(PARAMS_INIT), len(LOWER_BOUND), len(UPPER_BOUND))
     assert len(PARAMS_INIT) == len(LOWER_BOUND) == len(UPPER_BOUND)
@@ -355,66 +163,6 @@ def run_optimization(params_init, bounds, datasets):
         options={'disp': True, 'maxiter': 20, 'ftol': 1e-5}
     )
     return result.x, result.fun
-
-
-def plot_fitted_vs_data(T_Vm_sub, Vm_sub, Year_Vm_sub, Author_Vm_sub,
-                        T_Vm_melt, Vm_melt, Year_Vm_melt, Author_Vm_melt,
-                        params_fit, mymarker, mycolor, fontsize=13.5, markersize=7, linewidth=0.9):
-    """
-    Plot fitted and experimental molar volume data for sublimation and melting.
-    """
-    # Calculate fitted properties across temperature range
-    T_plot_calc = np.arange(1, 401)
-    p_plot_calc = np.array([psub(T, pt, Tt) if T < 83.806 else pmelt(T, pt, Tt)
-                           for T in T_plot_calc])
-    fitted_props = np.array([compute_thermo_props(T, p, params_fit)
-                            for T, p in zip(T_plot_calc, p_plot_calc)])
-
-    # === Group data by Year and Author ===
-    def group_by_reference(T_vals, V_vals, Year, Author):
-        groups = []
-        start_idx = 0
-        for i in range(1, len(T_vals)):
-            if Year[i] != Year[start_idx] or Author[i] != Author[start_idx]:
-                groups.append((start_idx, i))
-                start_idx = i
-        groups.append((start_idx, len(T_vals)))
-        return groups
-
-    sub_groups = group_by_reference(
-        T_Vm_sub, Vm_sub, Year_Vm_sub, Author_Vm_sub)
-    melt_groups = group_by_reference(
-        T_Vm_melt, Vm_melt, Year_Vm_melt, Author_Vm_melt)
-
-    # === Plot ===
-    plt.figure(figsize=(10, 6))
-    for i, (start, end) in enumerate(sub_groups):
-        plt.plot(T_Vm_sub[start:end], Vm_sub[start:end],
-                 marker=mymarker[i % len(mymarker)],
-                 markersize=markersize, linewidth=linewidth,
-                 color=mycolor[i % len(mycolor)],
-                 label=f"{Year_Vm_sub[start]}-{Author_Vm_sub[start]}")
-
-    for i, (start, end) in enumerate(melt_groups):
-        plt.plot(T_Vm_melt[start:end], Vm_melt[start:end],
-                 marker=mymarker[(i + len(sub_groups)) % len(mymarker)],
-                 markersize=markersize, linewidth=linewidth,
-                 color=mycolor[(i + len(sub_groups)) % len(mycolor)],
-                 label=f"{Year_Vm_melt[start]}-{Author_Vm_melt[start]}")
-
-    # Plot fitted curve
-    plt.plot(T_plot_calc, fitted_props[:, 0],
-             'k--', linewidth=2.0, label='Fitted Vm')
-
-    plt.xlabel("Temperature [K]", fontsize=fontsize)
-    plt.ylabel("Molar Volume [cm³/mol]", fontsize=fontsize)
-    plt.title("Experimental and Fitted Molar Volume vs Temperature",
-              fontsize=fontsize + 1)
-    plt.grid(True)
-    plt.legend(fontsize=fontsize - 2)
-    plt.tight_layout()
-    plt.show()
-
 
 def extract_datasets(data):
     """
@@ -474,7 +222,7 @@ def extract_datasets(data):
     V_fluid_melt = data['melting']['Volume']
 
     # Sublimation
-    T_sub = data['sublimation']['Temperature']
+    T_sub = data['sublimation']['Temperature']    
     p_sub = data['sublimation']['Pressure']
     G_fluid_sub = data['sublimation']['Gibbs Energy']
     V_fluid_sub = data['sublimation']['Volume']
@@ -484,7 +232,7 @@ def extract_datasets(data):
     delta_H_sub = data['heatsub']['Change in Enthalpy']
     H_fluid_sub = data['heatsub']['Enthalpy']
 
-    # Enthalpy Melting #TODO
+    # Enthalpy Melting
     T_H_melt = data['fusion']['Temperature']
     p_H_melt = data['fusion']['Pressure']
     delta_H_melt = data['fusion']['Change in Enthalpy']
@@ -511,135 +259,6 @@ def extract_datasets(data):
     assert len(datasets) == 38
     return datasets
 
-
-def plot_vm_vs_temp(T_Vm_sub, Vm_sub, Year_Vm_sub, Author_Vm_sub,
-                    T_Vm_melt, Vm_melt, Year_Vm_melt, Author_Vm_melt,
-                    params_fit, compute_thermo_props,
-                    CUSTOMMARKERS, CUSTOMCOLORS, fontsize=13.5, markersize=7, linewidth=0.9):
-    T_plot_calc = np.arange(1, 401)
-    p_plot_calc = np.array([psub(T, pt, Tt) if T < 83.806 else pmelt(T, pt, Tt)
-                           for T in T_plot_calc])
-    fitted_props = np.array([compute_thermo_props(T, p, params_fit)
-                            for T, p in zip(T_plot_calc, p_plot_calc)])
-
-    plt.figure(figsize=(10, 6))
-    for i in range(len(T_Vm_sub)):
-        plt.plot(T_Vm_sub[i], Vm_sub[i], marker=CUSTOMMARKERS[i % len(CUSTOMMARKERS)],
-                 color=CUSTOMCOLORS[i % len(
-                     CUSTOMCOLORS)], markersize=markersize, linestyle='None',
-                 label=f"{Year_Vm_sub[i]}-{Author_Vm_sub[i]}" if i == 0 else "")
-    for i in range(len(T_Vm_melt)):
-        plt.plot(T_Vm_melt[i], Vm_melt[i], marker=CUSTOMMARKERS[(i + len(T_Vm_sub)) % len(CUSTOMMARKERS)],
-                 color=CUSTOMCOLORS[(i + len(T_Vm_sub)) % len(CUSTOMCOLORS)
-                                    ], markersize=markersize, linestyle='None',
-                 label=f"{Year_Vm_melt[i]}-{Author_Vm_melt[i]}" if i == 0 else "")
-    plt.plot(T_plot_calc, fitted_props[:, 0],
-             'k--', linewidth=2.0, label='Fitted Vm')
-    plt.xlabel("Temperature [K]", fontsize=fontsize)
-    plt.ylabel("Molar Volume [cm³/mol]", fontsize=fontsize)
-    plt.title("Experimental and Fitted Molar Volume vs Temperature",
-              fontsize=fontsize + 1)
-    plt.grid(True)
-    plt.legend(fontsize=fontsize - 2)
-    plt.tight_layout()
-    plt.show()
-
-
-def plot_vm_deviation(T_Vm, Vm, params_fit, p_func, compute_thermo_props, Year, Author, CUSTOMMARKERS, CUSTOMCOLORS, title):
-    p_Vm = np.array([p_func(T) for T in T_Vm])
-    Vm_calc = np.array([compute_thermo_props(T, p, params_fit)[0]
-                       for T, p in zip(T_Vm, p_Vm)])
-    deviation = 100 * (Vm - Vm_calc) / Vm
-    plt.figure(figsize=(10, 6))
-    for i in range(len(T_Vm)):
-        plt.plot(T_Vm[i], deviation[i], marker=CUSTOMMARKERS[i % len(CUSTOMMARKERS)],
-                 color=CUSTOMCOLORS[i % len(CUSTOMCOLORS)], markersize=7, linestyle='None',
-                 label=f"{Year[i]}-{Author[i]}" if i == 0 else "")
-    plt.axhline(0, color='k', linewidth=0.7)
-    plt.xlabel("Temperature [K]")
-    plt.ylabel("100·(Vm_exp - Vm_calc) / Vm_calc [%]")
-    plt.title(title)
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
-
-
-def plot_vm_highp(T_Vm_highp, Vm_highp, p_Vm_highp, Year_Vm_highp, Author_Vm_highp,
-                  params_fit, compute_thermo_props, CUSTOMMARKERS, CUSTOMCOLORS):
-    plt.figure(figsize=(10, 6))
-    for i in range(len(T_Vm_highp)):
-        plt.plot(p_Vm_highp[i], Vm_highp[i], marker=CUSTOMMARKERS[i % len(CUSTOMMARKERS)],
-                 color=CUSTOMCOLORS[i % len(CUSTOMCOLORS)], markersize=7, linestyle='None',
-                 label=f"{Year_Vm_highp[i]}-{Author_Vm_highp[i]}-{T_Vm_highp[i]:.1f}K" if i == 0 else "")
-        p_range = np.linspace(min(p_Vm_highp[i]), max(p_Vm_highp[i]), 50)
-        Vm_fit = [compute_thermo_props(T_Vm_highp[i], p, params_fit)[
-            0] for p in p_range]
-        plt.plot(p_range, Vm_fit, color=CUSTOMCOLORS[i % len(
-            CUSTOMCOLORS)], linestyle='--')
-    plt.xlabel("Pressure [MPa]")
-    plt.ylabel("Molar Volume [cm³/mol]")
-    plt.title("High Pressure Cell Volume")
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
-
-
-def plot_vm_highp_deviation(T_Vm_highp, Vm_highp, p_Vm_highp, params_fit, compute_thermo_props, Year, Author, CUSTOMMARKERS, CUSTOMCOLORS, title):
-    Vm_calc = np.array([compute_thermo_props(T, p, params_fit)[0]
-                       for T, p in zip(T_Vm_highp, p_Vm_highp)])
-    deviation = 100 * (Vm_highp - Vm_calc) / Vm_highp
-    plt.figure(figsize=(10, 6))
-    for i in range(len(T_Vm_highp)):
-        plt.plot(p_Vm_highp[i], deviation[i], marker=CUSTOMMARKERS[i % len(CUSTOMMARKERS)],
-                 color=CUSTOMCOLORS[i % len(CUSTOMCOLORS)], markersize=7, linestyle='None',
-                 label=f"{Year[i]}-{Author[i]}" if i == 0 else "")
-    plt.axhline(0, color='k', linewidth=0.7)
-    plt.xlabel("Pressure [MPa]")
-    plt.ylabel("100·(Vm_exp - Vm_calc) / Vm_calc [%]")
-    plt.title(title)
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
-
-
-def plot_property_vs_temp(T, prop_exp, prop_name, params_fit, p_func, compute_thermo_props, Year, Author, CUSTOMMARKERS, CUSTOMCOLORS, prop_index, title, ylabel):
-    T_plot_calc = np.arange(1, 401)
-    p_plot_calc = np.array([p_func(T) for T in T_plot_calc])
-    fitted_props = np.array([compute_thermo_props(T, p, params_fit)
-                            for T, p in zip(T_plot_calc, p_plot_calc)])
-    plt.figure(figsize=(10, 6))
-    for i in range(len(T)):
-        plt.plot(T[i], prop_exp[i], marker=CUSTOMMARKERS[i % len(CUSTOMMARKERS)],
-                 color=CUSTOMCOLORS[i % len(CUSTOMCOLORS)], markersize=7, linestyle='None',
-                 label=f"{Year[i]}-{Author[i]}" if i == 0 else "")
-    plt.plot(T_plot_calc, fitted_props[:, prop_index],
-             'k--', linewidth=2.0, label=f'Fitted {prop_name}')
-    plt.xlabel("Temperature [K]")
-    plt.ylabel(ylabel)
-    plt.title(title)
-    plt.grid(True)
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
-
-
-def plot_property_deviation(T, prop_exp, params_fit, p_func, compute_thermo_props, prop_index, Year, Author, CUSTOMMARKERS, CUSTOMCOLORS, title, ylabel):
-    p_vals = np.array([p_func(Ti) for Ti in T])
-    prop_calc = np.array([compute_thermo_props(Ti, pi, params_fit)[
-                         prop_index] for Ti, pi in zip(T, p_vals)])
-    deviation = 100 * (prop_exp - prop_calc) / prop_exp
-    plt.figure(figsize=(10, 6))
-    for i in range(len(T)):
-        plt.plot(T[i], deviation[i], marker=CUSTOMMARKERS[i % len(CUSTOMMARKERS)],
-                 color=CUSTOMCOLORS[i % len(CUSTOMCOLORS)], markersize=7, linestyle='None',
-                 label=f"{Year[i]}-{Author[i]}" if i == 0 else "")
-    plt.axhline(0, color='k', linewidth=0.7)
-    plt.xlabel("Temperature [K]")
-    plt.ylabel(ylabel)
-    plt.title(title)
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
 # Read all data into 1 dataframe
 krypton_data = load_all_gas_data('krypton', read_from_excel=False)
 # xenon_data = load_all_gas_data('xenon', read_from_excel=False)

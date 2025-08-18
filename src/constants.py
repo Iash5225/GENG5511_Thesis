@@ -18,6 +18,18 @@ READ_FROM_EXCEL = False  # Flag to read data from Excel files
 # READ_FROM_TXT = True  # Flag to read data from text files
 DISPLAY_PLOTS = True  # Flag to display plots
 
+PARAM_LABELS = [
+    ("c1", "MPa"),
+    ("c2", "MPa"),
+    ("c3", "MPa"),
+    ("Theta_D,0", "K"),
+    ("gamma_D,0", ""),
+    ("q_D", ""),
+    ("b1", ""),
+    ("b2", ""),
+    ("b3", ""),
+    ("S_m(g, T_t, p_t)", "J mol-1 K-1"),
+]
 
 # Machine-dependent constants
 SMALLEST_POSITIVE = 2.2251E-308  # Smallest positive number
@@ -34,8 +46,8 @@ XENON_REFERENCE_ENTHALPY = 761.63  # kJ/kg
 
 
 # Constants for melting pressure equation
-KRYPTON_P_t = 0.072954
-KRYPTON_T_t = 115.8
+KRYPTON_P_t = 0.072954 # MPa
+KRYPTON_T_t = 115.8     # K
 XENON_P_t = 0.08177
 XENON_T_t = 161.405
 NEON_P_t = 0.043332
