@@ -9,7 +9,7 @@ from p_functions import pmelt,psub
 from constants import PARAMS_INIT, LOWER_BOUND, UPPER_BOUND, KRYPTON_P_t, KRYPTON_T_t, KRYPTON_REFERENCE_ENTROPY, KRYPTON_REFERENCE_ENTHALPY, PARAM_LABELS, PERCENT_SCALE, GAMMA_POS_SLOPE_MULT, GAMMA_POS_SLOPE_OFFSET, GAMMA_NEG_SLOPE_MULT, T6, CP_TEMP_THRESHOLD_K, CP_WEIGHT_BELOW, CP_WEIGHT_ABOVE, PMELT_EXTRA_WEIGHT_T_K, PMELT_EXTRA_FACTOR
 from fitting_helper import rms , _mean_sq
 
-BIG = 1e8
+BIG = 1e4
 # Constants
 St_REFPROP = KRYPTON_REFERENCE_ENTROPY  # Reference Entropy
 Ht_REFPROP = KRYPTON_REFERENCE_ENTHALPY
@@ -17,6 +17,32 @@ Tt = KRYPTON_T_t
 pt = KRYPTON_P_t
 
 # --- cost function that returns (total, deviations) ---
+# ----- cost function with explicit masks and penalties -----
+
+
+def rms_percent(y_true, y_pred, scale=PERCENT_SCALE):
+    y_true = np.asarray(y_true, float)
+    y_pred = np.asarray(y_pred, float)
+    mask = np.isfinite(y_true) & np.isfinite(y_pred) & (y_true != 0.0)
+    if not np.any(mask):
+        return BIG
+    err = scale * (y_true[mask] - y_pred[mask]) / y_true[mask]
+    err = err[np.isfinite(err)]
+    return BIG if err.size == 0 else float(np.sqrt(np.mean(err*err)))
+
+
+def _safe_props_vector(T_arr, p_arr, params, idx):
+    """Return model property vector (same length) with NaN where compute fails."""
+    out = np.full_like(np.asarray(T_arr, float), np.nan, dtype=float)
+    for i, (T, p) in enumerate(zip(T_arr, p_arr)):
+        try:
+            props = compute_thermo_props(float(T), float(p), params)
+            if np.all(np.isfinite(props)):
+                out[i] = props[idx]
+        except Exception:
+            pass
+    return out
+
 def combined_cost_function(params, *datasets):
     (T_Vm_sub, p_Vm_sub, Vm_sub,
      T_Vm_melt, p_Vm_melt, Vm_melt,
@@ -30,96 +56,164 @@ def combined_cost_function(params, *datasets):
      T_H_sub, p_H_sub, delta_H_sub, H_fluid_sub,
      T_H_melt, p_H_melt, delta_H_melt, H_fluid_melt) = datasets
 
-    # triple-point adjustments
-    deltaS_triple = params[30] - St_REFPROP
-    props_Triple = compute_thermo_props(Tt, pt, params)
-    Ht_fitted = props_Triple[11] + Tt * params[30]
-    deltaH_triple = Ht_fitted - Ht_REFPROP
+    tp = compute_thermo_props(Tt, pt, params)
 
-    # ---- deviations (mirror your MATLAB) ----
-    Vm_sub_dev = rms(PERCENT_SCALE * (Vm_sub - np.array([compute_thermo_props(T, p, params)[0]
-                                               for T, p in zip(T_Vm_sub, p_Vm_sub)])) / Vm_sub)
+    if isinstance(tp, tuple) and len(tp) == 2 and isinstance(tp[1], dict):
+        triple_props, triple_meta = tp
+        # pulled directly from compute_thermo_props
+        deltaH_triple = float(triple_meta.get("deltaH_triple"))
+        deltaS_triple = float(triple_meta.get("deltaS_triple"))
+    else:
+        # backward compatibility (old API returned only the 12-length props array)
+        triple_props = np.asarray(tp, float)
+        # S* at triple is params[30]; REFPROP values are global constants
+        deltaS_triple = params[30] - St_REFPROP
+        Ht_fitted = triple_props[11] + Tt * params[30]
+        deltaH_triple = Ht_fitted - Ht_REFPROP
 
-    Vm_melt_dev = rms(PERCENT_SCALE * (Vm_melt - np.array([compute_thermo_props(T, p, params)[0]
-                                                 for T, p in zip(T_Vm_melt, p_Vm_melt)])) / Vm_melt)
+    # ====== BLOCKS ======
 
-    Vm_highp_dev = rms(PERCENT_SCALE * (Vm_highp - np.array([compute_thermo_props(T, p, params)[0]
-                                                   for T, p in zip(T_Vm_highp, p_Vm_highp)])) / Vm_highp)
+    # Vm (sublimation): T <= Tt
+    m = (np.isfinite(T_Vm_sub) & np.isfinite(p_Vm_sub)
+         & np.isfinite(Vm_sub) & (T_Vm_sub <= Tt))
+    Vm_sub_dev = BIG
+    if np.any(m):
+        model = _safe_props_vector(T_Vm_sub[m], p_Vm_sub[m], params, idx=0)
+        Vm_sub_dev = rms_percent(Vm_sub[m], model)
 
-    cp_sub_dev_terms = []
-    for T, p, cp in zip(T_cp_sub, p_cp_sub, cp_sub):
-        model_cp = compute_thermo_props(T, p, params)[4]
-        # MATLAB: weight 100 below 12 K, 700 above/equal
-        w = CP_WEIGHT_BELOW if T < CP_TEMP_THRESHOLD_K else CP_WEIGHT_ABOVE
-        cp_sub_dev_terms.append(w * (cp - model_cp) / cp)
-    cp_sub_dev = rms(cp_sub_dev_terms)
+    # Vm (melting): T >= Tt
+    m = (np.isfinite(T_Vm_melt) & np.isfinite(p_Vm_melt)
+         & np.isfinite(Vm_melt) & (T_Vm_melt >= Tt))
+    Vm_melt_dev = BIG
+    if np.any(m):
+        model = _safe_props_vector(T_Vm_melt[m], p_Vm_melt[m], params, idx=0)
+        Vm_melt_dev = rms_percent(Vm_melt[m], model)
 
-    alpha_sub_dev = rms(PERCENT_SCALE * (alpha_sub - np.array([compute_thermo_props(T, p, params)[3]
-                                                     for T, p in zip(T_alpha_sub, p_alpha_sub)])) / alpha_sub)
+    # Vm (high-p): no phase constraint (already experimental p)
+    m = (np.isfinite(T_Vm_highp) & np.isfinite(
+        p_Vm_highp) & np.isfinite(Vm_highp))
+    Vm_highp_dev = BIG
+    if np.any(m):
+        model = _safe_props_vector(T_Vm_highp[m], p_Vm_highp[m], params, idx=0)
+        Vm_highp_dev = rms_percent(Vm_highp[m], model)
 
-    BetaT_sub_dev = rms(PERCENT_SCALE * (BetaT_sub - np.array([compute_thermo_props(T, p, params)[1]
-                                                     for T, p in zip(T_BetaT_sub, p_BetaT_sub)])) / BetaT_sub)
+    # cp (sublimation)
+    m = (np.isfinite(T_cp_sub) & np.isfinite(p_cp_sub)
+         & np.isfinite(cp_sub) & (T_cp_sub <= Tt))
+    cp_sub_dev = BIG
+    if np.any(m):
+        model = _safe_props_vector(T_cp_sub[m], p_cp_sub[m], params, idx=4)
+        # temperature-dependent weighting, but still penalize empties
+        terms = []
+        for Ti, cpi, cpm in zip(T_cp_sub[m], cp_sub[m], model):
+            if np.isfinite(cpm) and cpi != 0:
+                w = CP_WEIGHT_BELOW if Ti < CP_TEMP_THRESHOLD_K else CP_WEIGHT_ABOVE
+                terms.append(w * (cpi - cpm) / cpi)
+        cp_sub_dev = rms(np.array(terms))
 
-    BetaS_sub_dev = rms(PERCENT_SCALE * (BetaS_sub - np.array([compute_thermo_props(T, p, params)[2]
-                                                     for T, p in zip(T_BetaS_sub, p_BetaS_sub)])) / BetaS_sub)
+    # alpha (sublimation)
+    m = (np.isfinite(T_alpha_sub) & np.isfinite(p_alpha_sub)
+         & np.isfinite(alpha_sub) & (T_alpha_sub <= Tt))
+    alpha_sub_dev = BIG
+    if np.any(m):
+        model = _safe_props_vector(
+            T_alpha_sub[m], p_alpha_sub[m], params, idx=3)
+        alpha_sub_dev = rms_percent(alpha_sub[m], model)
 
-    # Enthalpy (sublimation)
-    H_solid_sub = (H_fluid_sub * 1000.0) - (delta_H_sub * 1000.0)  # → J/mol
-    H_solid_sub_fitted = np.array([compute_thermo_props(T, p, params)[10]
-                                   for T, p in zip(T_H_sub, p_H_sub)]) - deltaH_triple
-    H_solid_sub_dev = rms(
-        PERCENT_SCALE * (H_solid_sub - H_solid_sub_fitted) / H_solid_sub_fitted)
+    # BetaT (sublimation)
+    m = (np.isfinite(T_BetaT_sub) & np.isfinite(p_BetaT_sub)
+         & np.isfinite(BetaT_sub) & (T_BetaT_sub <= Tt))
+    BetaT_sub_dev = BIG
+    if np.any(m):
+        model = _safe_props_vector(
+            T_BetaT_sub[m], p_BetaT_sub[m], params, idx=1)
+        BetaT_sub_dev = rms_percent(BetaT_sub[m], model)
 
-    # Enthalpy (melting)
-    H_solid_melt = (H_fluid_melt * 1000.0) - (delta_H_melt * 1000.0)  # → J/mol
-    H_solid_melt_fitted = np.array([compute_thermo_props(T, p, params)[10]
-                                    for T, p in zip(T_H_melt, p_H_melt)]) - deltaH_triple
-    H_solid_melt_dev = rms(
-        PERCENT_SCALE * (H_solid_melt - H_solid_melt_fitted) / H_solid_melt_fitted)
+    # BetaS (sublimation) – note your finite count is only 25/74
+    m = (np.isfinite(T_BetaS_sub) & np.isfinite(p_BetaS_sub)
+         & np.isfinite(BetaS_sub) & (T_BetaS_sub <= Tt))
+    BetaS_sub_dev = BIG
+    if np.any(m):
+        model = _safe_props_vector(
+            T_BetaS_sub[m], p_BetaS_sub[m], params, idx=2)
+        BetaS_sub_dev = rms_percent(BetaS_sub[m], model)
 
-    # Sublimation pressure (experimental p in MPa; solid model in MPa)
-    p_fitted_sub = []
-    for T, pPa, Gf, Vf in zip(T_sub, p_sub, G_fluid_sub, V_fluid_sub):
-        props = compute_thermo_props(T, pPa, params)
-        delta_G = Gf - props[11] + deltaH_triple - T * deltaS_triple
-        pf = pPa - (delta_G / (Vf - props[0]))
-        p_fitted_sub.append(pf)
-    p_sub_dev = rms(PERCENT_SCALE * (np.array(p_sub) -
-                    np.array(p_fitted_sub)) / p_sub)
+    # Enthalpy of sublimation: kJ/mol (no unit juggling)
+    m = (np.isfinite(T_H_sub) & np.isfinite(p_H_sub) &
+         np.isfinite(delta_H_sub) & np.isfinite(H_fluid_sub) & (T_H_sub <= Tt))
+    H_solid_sub_dev = BIG
+    if np.any(m):
+        H_solid_sub = H_fluid_sub[m] - delta_H_sub[m] * 1.0  # both kJ/mol
+        modelH = _safe_props_vector(
+            T_H_sub[m], p_H_sub[m], params, idx=10) - deltaH_triple
+        H_solid_sub_dev = rms_percent(H_solid_sub, modelH)
 
-    # Melting pressure (MPa)
-    p_fitted_melt = []
-    for T, pM, Gf, Vf in zip(T_melt, p_melt, G_fluid_melt, V_fluid_melt):
-        props = compute_thermo_props(T, pM, params)
-        delta_G = Gf - props[11] + deltaH_triple - T * deltaS_triple
-        pf = pM - (delta_G / (Vf - props[0]))
-        # MATLAB: extra weight for T > 500 K (implemented as scaling pf diff)
-        if T > PMELT_EXTRA_WEIGHT_T_K:
-            pf = pM - (delta_G / (Vf - props[0])) * PMELT_EXTRA_FACTOR
-        p_fitted_melt.append(pf)
-    p_melt_dev = rms(
-        PERCENT_SCALE * (np.array(p_melt) - np.array(p_fitted_melt)) / p_melt)
+    # Enthalpy of melting: kJ/mol
+    m = (np.isfinite(T_H_melt) & np.isfinite(p_H_melt) &
+         np.isfinite(delta_H_melt) & np.isfinite(H_fluid_melt) & (T_H_melt >= Tt))
+    H_solid_melt_dev = BIG
+    if np.any(m):
+        H_solid_melt = H_fluid_melt[m] - delta_H_melt[m] * 1.0
+        modelH = _safe_props_vector(
+            T_H_melt[m], p_H_melt[m], params, idx=10) - deltaH_triple
+        H_solid_melt_dev = rms_percent(H_solid_melt, modelH)
 
-    # Gamma-T penalty on a temperature grid
-    
-    # note: your psub signature uses (T, pt, Tt)
-    p6 = np.array([psub(T, pt, Tt) for T in T6])
-    Gamma_T6 = np.array([compute_thermo_props(T, p, params)[6]
-                        for T, p in zip(T6, p6)])
-    Vm_T6 = np.array([compute_thermo_props(T, p, params)[0]
-                     for T, p in zip(T6, p6)])
-    slopes = np.diff(Gamma_T6) / np.diff(Vm_T6)
+    # Sublimation pressure (all MPa)
+    m = (np.isfinite(T_sub) & np.isfinite(p_sub) &
+         np.isfinite(G_fluid_sub) & np.isfinite(V_fluid_sub) & (T_sub <= Tt))
+    p_sub_dev = BIG
+    if np.any(m):
+        pf = np.full_like(p_sub[m], np.nan, dtype=float)
+        for i, (T, pM, Gf, Vf) in enumerate(zip(T_sub[m], p_sub[m], G_fluid_sub[m], V_fluid_sub[m])):
+            props = compute_thermo_props(T, pM, params)
+            if np.all(np.isfinite(props)) and np.isfinite(Vf) and (Vf != props[0]):
+                dG = Gf - props[11] + deltaH_triple - T * deltaS_triple
+                pf[i] = pM - dG / (Vf - props[0])  # MPa
+        p_sub_dev = rms_percent(p_sub[m], pf)
 
-    Gamma_dev_terms = []
-    mu = Gamma_T6.mean()
-    for i, s in enumerate(slopes, start=1):
-        if s > 0:
-            Gamma_dev_terms.append(
-                GAMMA_POS_SLOPE_OFFSET + abs(GAMMA_POS_SLOPE_MULT * (Gamma_T6[i] - mu) / mu))
-        else:
-            Gamma_dev_terms.append(
-                GAMMA_NEG_SLOPE_MULT * (Gamma_T6[i] - mu) / mu)
-    Gamma_T6_dev = rms(Gamma_dev_terms)
+    # Melting pressure (all MPa; extra weight above threshold via factor)
+    m = (np.isfinite(T_melt) & np.isfinite(p_melt) &
+         np.isfinite(G_fluid_melt) & np.isfinite(V_fluid_melt) & (T_melt >= Tt))
+    p_melt_dev = BIG
+    if np.any(m):
+        pf = np.full_like(p_melt[m], np.nan, dtype=float)
+        for i, (T, pM, Gf, Vf) in enumerate(zip(T_melt[m], p_melt[m], G_fluid_melt[m], V_fluid_melt[m])):
+            props = compute_thermo_props(T, pM, params)
+            if np.all(np.isfinite(props)) and np.isfinite(Vf) and (Vf != props[0]):
+                fac = PMELT_EXTRA_FACTOR if T > PMELT_EXTRA_WEIGHT_T_K else 1.0
+                dG = Gf - props[11] + deltaH_triple - T * deltaS_triple
+                pf[i] = pM - fac * (dG / (Vf - props[0]))
+        p_melt_dev = rms_percent(p_melt[m], pf)
+
+    # Gamma-T smoothness penalty along a subl. grid (T<=Tt)
+    T6 = np.array([0.0001] + list(range(2, 84, 2)) + [83.806])
+    T6 = T6[T6 <= Tt]
+    p6 = np.full_like(T6, np.nan, dtype=float)
+    G6 = np.full_like(T6, np.nan, dtype=float)
+    V6 = np.full_like(T6, np.nan, dtype=float)
+    for i, T in enumerate(T6):
+        p6[i] = psub(T, pt, Tt)
+        pr = compute_thermo_props(T, p6[i], params)
+        if np.all(np.isfinite(pr)):
+            G6[i] = pr[6]   # Gruneisen
+            V6[i] = pr[0]
+    # finite pairs only
+    mk = np.isfinite(G6) & np.isfinite(V6)
+    Gamma_T6_dev = BIG
+    if np.sum(mk) >= 3:
+        Gm, Vm = G6[mk], V6[mk]
+        slopes = np.diff(Gm) / np.diff(Vm)
+        mu = np.nanmean(Gm)
+        terms = []
+        for i, s in enumerate(slopes, start=1):
+            if not np.isfinite(s):
+                continue
+            if s > 0:
+                terms.append(GAMMA_POS_SLOPE_OFFSET +
+                             abs(GAMMA_POS_SLOPE_MULT * (Gm[i] - mu) / mu))
+            else:
+                terms.append(GAMMA_NEG_SLOPE_MULT * (Gm[i] - mu) / mu)
+        Gamma_T6_dev = rms(np.array(terms))
 
     # Weighted total (your MATLAB weights)
     total_deviation = (
