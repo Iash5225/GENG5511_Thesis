@@ -28,12 +28,12 @@ if __name__ == "__main__":
         # kr_fusion_data = read_fusion_data(
         #     KR_DATA_FILEPATH, FUSION_SHEETNAME)
 
-        # ne_heatsub_data = read_fusion_data(
-        #     NE_DATA_FILEPATH, HEAT_OF_SUBLIMATION_SHEETNAME)
-        # xe_heatsub_data = read_fusion_data(
-        #     XE_DATA_FILEPATH, HEAT_OF_SUBLIMATION_SHEETNAME)
-        # kr_heatsub_data = read_fusion_data(
-        #     KR_DATA_FILEPATH, HEAT_OF_SUBLIMATION_SHEETNAME)
+        ne_heatsub_data = read_fusion_data(
+            NE_DATA_FILEPATH, HEAT_OF_SUBLIMATION_SHEETNAME)
+        xe_heatsub_data = read_fusion_data(
+            XE_DATA_FILEPATH, HEAT_OF_SUBLIMATION_SHEETNAME)
+        kr_heatsub_data = read_fusion_data(
+            KR_DATA_FILEPATH, HEAT_OF_SUBLIMATION_SHEETNAME)
 
         # ne_thermal_coeff_data = read_thermal_coeff_data(
         #     NE_DATA_FILEPATH, THERMAL_COEFFICIENT_SHEETNAME)
@@ -58,12 +58,12 @@ if __name__ == "__main__":
         #     KR_DATA_FILEPATH, BULK_MODULUS_SHEETNAME)
 
         # Cell Volume
-        ne_cell_volume_sub_data, ne_cell_volume_melt_data = read_cell_volume_data(
-            NE_DATA_FILEPATH, CELL_VOLUME_SHEETNAME)
-        xe_cell_volume_sub_data, xe_cell_volume_melt_data = read_cell_volume_data(
-            XE_DATA_FILEPATH, CELL_VOLUME_SHEETNAME)
-        kr_cell_volume_sub_data, kr_cell_volume_melt_data = read_cell_volume_data(
-            KR_DATA_FILEPATH, CELL_VOLUME_SHEETNAME)
+        # ne_cell_volume_sub_data, ne_cell_volume_melt_data = read_cell_volume_data(
+        #     NE_DATA_FILEPATH, CELL_VOLUME_SHEETNAME)
+        # xe_cell_volume_sub_data, xe_cell_volume_melt_data = read_cell_volume_data(
+        #     XE_DATA_FILEPATH, CELL_VOLUME_SHEETNAME)
+        # kr_cell_volume_sub_data, kr_cell_volume_melt_data = read_cell_volume_data(
+        #     KR_DATA_FILEPATH, CELL_VOLUME_SHEETNAME)
 
     else:
         # Read the txt files into DataFrames

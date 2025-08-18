@@ -7,15 +7,15 @@ from read import load_all_gas_data
 from thermal_script import plot_all_gas_properties
 from computethermoprops import *
 from p_functions import pmelt,psub
-from constants import CUSTOMCOLORS, CUSTOMMARKERS, PARAMS_INIT, LOWER_BOUND, UPPER_BOUND, NEON_P_t, NEON_T_t
+from constants import CUSTOMCOLORS, CUSTOMMARKERS, PARAMS_INIT, LOWER_BOUND, UPPER_BOUND, KRYPTON_P_t, KRYPTON_T_t, KRYPTON_REFERENCE_ENTROPY, KRYPTON_REFERENCE_ENTHALPY
 from scipy.integrate import quad
 
 
 # Constantsn 
-St_REFPROP = 131.1500
-Ht_REFPROP = 1689.10
-Tt = NEON_T_t
-pt = NEON_P_t
+St_REFPROP = KRYPTON_REFERENCE_ENTROPY  # Reference Entropy
+Ht_REFPROP = KRYPTON_REFERENCE_ENTHALPY
+Tt = KRYPTON_T_t
+pt = KRYPTON_P_t
 
 
 # solid_EOS_fitting.py
@@ -107,7 +107,7 @@ def combined_cost_function(params, *datasets):
 
     # === Gamma slope penalty ===
     T6 = np.array([0.0001] + list(range(2, 84, 2)) + [83.806])
-    p6 = np.array([psub(T, NEON_P_t, NEON_T_t) for T in T6])
+    p6 = np.array([psub(T, pt, Tt) for T in T6])
     Gamma_T6 = np.array([compute_thermo_props(T, p, params)[6]
                         for T, p in zip(T6, p6)])
     Vm_T6 = np.array([compute_thermo_props(T, p, params)[0]
@@ -158,6 +158,177 @@ def combined_cost_function(params, *datasets):
     return total_deviation
 
 
+# === Weights from the thesis table ===
+W_VM_SUB = 55
+W_CP_LOW = 30     # T <= 12 K
+W_CP_HIGH = 210    # T > 12 K
+W_ALPHA = 50
+W_KT = 20
+W_KS = 20
+W_DH_SUB = 25
+W_PSUB = 2
+
+W_VM_MELT = 35
+W_DH_MELT = 2
+W_PMELT_LO = 5      # T <= 500 K
+W_PMELT_HI = 25     # T > 500 K
+
+W_VM_HIGHP = 1
+W_LOW = 3.5    # low-T behaviour penalty
+
+
+def _mean_sq(x):
+    x = np.asarray(x, float)
+    x = x[np.isfinite(x)]
+    return 0.0 if x.size == 0 else np.mean(x*x)
+
+# Optimisation Options
+
+
+def combined_cost_function2(params, *datasets):
+    # Unpack all datasets (unchanged)
+    (T_Vm_sub, p_Vm_sub, Vm_sub,
+     T_Vm_melt, p_Vm_melt, Vm_melt,
+     T_Vm_highp, p_Vm_highp, Vm_highp,
+     T_cp_sub, p_cp_sub, cp_sub,
+     T_alpha_sub, p_alpha_sub, alpha_sub,
+     T_BetaT_sub, p_BetaT_sub, BetaT_sub,
+     T_BetaS_sub, p_BetaS_sub, BetaS_sub,
+     T_sub, p_sub, Year_sub, G_fluid_sub, V_fluid_sub,
+     T_melt, p_melt, G_fluid_melt, V_fluid_melt,
+     T_H_sub, p_H_sub, delta_H_sub, H_fluid_sub,
+     T_H_melt, p_H_melt, delta_H_melt, H_fluid_melt) = datasets
+
+    # Reference offsets at the triple point
+    deltaS_triple = params[30] - St_REFPROP
+    props_Triple = compute_thermo_props(Tt, pt, params)
+    Ht_fitted = props_Triple[11] + Tt * params[30]
+    deltaH_triple = Ht_fitted - Ht_REFPROP
+
+    # ---------- Relative deviations (arrays) ----------
+    # Vm on sublimation/melting/high-p
+    Vm_sub_fit = np.array([compute_thermo_props(T, p, params)[0]
+                          for T, p in zip(T_Vm_sub,  p_Vm_sub)])
+    Vm_melt_fit = np.array([compute_thermo_props(T, p, params)[0]
+                           for T, p in zip(T_Vm_melt, p_Vm_melt)])
+    Vm_highp_fit = np.array([compute_thermo_props(T, p, params)[0]
+                            for T, p in zip(T_Vm_highp, p_Vm_highp)])
+
+    rel_Vm_sub = (Vm_sub - Vm_sub_fit) / Vm_sub
+    rel_Vm_melt = (Vm_melt - Vm_melt_fit) / Vm_melt
+    rel_Vm_highp = (Vm_highp - Vm_highp_fit) / Vm_highp
+
+    # cp on sublimation, split at 12 K
+    cp_fit = np.array([compute_thermo_props(T, p, params)[4]
+                      for T, p in zip(T_cp_sub, p_cp_sub)])
+    rel_cp = (cp_sub - cp_fit) / cp_sub
+    mask_cp_low = np.asarray(T_cp_sub) <= 12.0
+    mask_cp_high = ~mask_cp_low
+
+    # alpha, BetaT (KT), BetaS (KS)
+    alpha_fit = np.array([compute_thermo_props(T, p, params)[3]
+                         for T, p in zip(T_alpha_sub, p_alpha_sub)])
+    rel_alpha = (alpha_sub - alpha_fit) / alpha_sub
+
+    KT_fit = np.array([compute_thermo_props(T, p, params)[1]
+                      for T, p in zip(T_BetaT_sub, p_BetaT_sub)])
+    rel_KT = (BetaT_sub - KT_fit) / BetaT_sub
+
+    KS_fit = np.array([compute_thermo_props(T, p, params)[2]
+                      for T, p in zip(T_BetaS_sub, p_BetaS_sub)])
+    rel_KS = (BetaS_sub - KS_fit) / BetaS_sub
+
+    # ΔH sublimation & melting (solid enthalpy inferred from fluid – ΔH)
+    H_solid_sub = H_fluid_sub - 1000.0 * delta_H_sub
+    H_solid_sub_fit = np.array([compute_thermo_props(T, p, params)[
+                               10] for T, p in zip(T_H_sub,  p_H_sub)]) - deltaH_triple
+    rel_DH_sub = (H_solid_sub - H_solid_sub_fit) / H_solid_sub_fit
+
+    H_solid_melt = H_fluid_melt - 1000.0 * delta_H_melt
+    H_solid_melt_fit = np.array([compute_thermo_props(T, p, params)[
+                                10] for T, p in zip(T_H_melt, p_H_melt)]) - deltaH_triple
+    rel_DH_melt = (H_solid_melt - H_solid_melt_fit) / H_solid_melt_fit
+
+    # p_sub (in Pa in data; model comparison via ΔG closure)
+    p_fitted_sub = []
+    for T, pPa, Gf, Vf in zip(T_sub, p_sub, G_fluid_sub, V_fluid_sub):
+        props = compute_thermo_props(T, pPa/1e6, params)   # MPa
+        delta_G = Gf - props[11] + deltaH_triple - T*deltaS_triple
+        pfPa = pPa - (delta_G / (Vf - props[0])) * 1e6
+        p_fitted_sub.append(pfPa)
+    p_fitted_sub = np.asarray(p_fitted_sub)
+    rel_psub = (np.asarray(p_sub) - p_fitted_sub) / np.asarray(p_sub)
+
+    # p_melt (split at 500 K)
+    p_fitted_melt = []
+    for T, pM, Gf, Vf in zip(T_melt, p_melt, G_fluid_melt, V_fluid_melt):
+        props = compute_thermo_props(T, pM, params)
+        delta_G = Gf - props[11] + deltaH_triple - T*deltaS_triple
+        pfM = pM - (delta_G / (Vf - props[0]))
+        p_fitted_melt.append(pfM)
+    p_fitted_melt = np.asarray(p_fitted_melt)
+    rel_pmelt = (np.asarray(p_melt) - p_fitted_melt) / np.asarray(p_melt)
+    mask_pm_lo = np.asarray(T_melt) <= 500.0
+    mask_pm_hi = ~mask_pm_lo
+
+    # ---------- Low-T behaviour penalty (γ slope etc.) ----------
+    T6 = np.array([0.0001] + list(range(2, 84, 2)) + [83.806])
+    p6 = np.array([psub(T, pt, Tt) for T in T6])
+    Gamma_T6 = np.array([compute_thermo_props(T, p, params)[6]
+                        for T, p in zip(T6, p6)])
+    Vm_T6 = np.array([compute_thermo_props(T, p, params)[0]
+                     for T, p in zip(T6, p6)])
+    slopes = np.diff(Gamma_T6) / np.diff(Vm_T6)
+
+    # penalize positive slopes and excursions
+    gam_pen = []
+    gmean = np.mean(Gamma_T6)
+    for i, s in enumerate(slopes):
+        if s > 0:
+            gam_pen.append(45.0 + abs(200.0*(Gamma_T6[i+1]-gmean)/gmean))
+        else:
+            gam_pen.append(50.0 * (Gamma_T6[i+1]-gmean)/gmean)
+    gam_pen = np.asarray(gam_pen, float)
+    lowT_penalty = _mean_sq(gam_pen)   # use mean square so it's χ²-like
+
+    # ---------- χ² objective with thesis weights ----------
+    chi2 = 0.0
+    chi2 += W_VM_SUB * _mean_sq(rel_Vm_sub)
+    chi2 += W_VM_MELT * _mean_sq(rel_Vm_melt)
+    chi2 += W_VM_HIGHP * _mean_sq(rel_Vm_highp)
+
+    chi2 += W_CP_LOW * _mean_sq(rel_cp[mask_cp_low])
+    chi2 += W_CP_HIGH * _mean_sq(rel_cp[mask_cp_high])
+
+    chi2 += W_ALPHA * _mean_sq(rel_alpha)
+    chi2 += W_KT * _mean_sq(rel_KT)
+    chi2 += W_KS * _mean_sq(rel_KS)
+
+    chi2 += W_DH_SUB * _mean_sq(rel_DH_sub)
+    chi2 += W_DH_MELT * _mean_sq(rel_DH_melt)
+
+    chi2 += W_PSUB * _mean_sq(rel_psub)
+    chi2 += W_PMELT_LO * _mean_sq(rel_pmelt[mask_pm_lo])
+    chi2 += W_PMELT_HI * _mean_sq(rel_pmelt[mask_pm_hi])
+
+    chi2 += W_LOW * lowT_penalty
+
+    return chi2
+
+
+def run_optimization2(params_init, bounds, datasets):
+    print("Lens:", len(PARAMS_INIT), len(LOWER_BOUND), len(UPPER_BOUND))
+    assert len(PARAMS_INIT) == len(LOWER_BOUND) == len(UPPER_BOUND)
+
+    result = minimize(
+        fun=combined_cost_function2,
+        x0=np.asarray(params_init, float),
+        args=datasets,
+        method='L-BFGS-B',
+        bounds=bounds,
+        options={'disp': True, 'maxiter': 500, 'ftol': 1e-9}
+    )
+    return result.x, result.fun
 def run_optimization(params_init, bounds, datasets):
     print("Lens:", len(PARAMS_INIT), len(LOWER_BOUND), len(UPPER_BOUND))
     assert len(PARAMS_INIT) == len(LOWER_BOUND) == len(UPPER_BOUND)
@@ -181,7 +352,7 @@ def plot_fitted_vs_data(T_Vm_sub, Vm_sub, Year_Vm_sub, Author_Vm_sub,
     """
     # Calculate fitted properties across temperature range
     T_plot_calc = np.arange(1, 401)
-    p_plot_calc = np.array([psub(T, NEON_P_t, NEON_T_t) if T < 83.806 else pmelt(T, NEON_P_t, NEON_T_t)
+    p_plot_calc = np.array([psub(T, pt, Tt) if T < 83.806 else pmelt(T, pt, Tt)
                            for T in T_plot_calc])
     fitted_props = np.array([compute_thermo_props(T, p, params_fit)
                             for T, p in zip(T_plot_calc, p_plot_calc)])
@@ -238,8 +409,6 @@ def extract_datasets(data):
 
     Parameters:
         data (dict): Dictionary containing sub-dictionaries of thermodynamic property data.
-        psub (callable): Function to calculate sublimation pressure from temperature.
-        pmelt (callable): Function to calculate melting pressure from temperature.
 
     Returns:
         tuple: A tuple containing arrays for all datasets in the specified order.
@@ -247,12 +416,12 @@ def extract_datasets(data):
 
     # Cell Volume Sublimation
     T_Vm_sub = data["cell_volume_sub"]['Temperature']
-    p_Vm_sub = np.array([psub(T, NEON_P_t, NEON_T_t) for T in T_Vm_sub])
+    p_Vm_sub = np.array([psub(T, pt, Tt) for T in T_Vm_sub])
     Vm_sub = data['cell_volume_sub']['Cell Volume']
 
     # Cell Volume Melting
     T_Vm_melt = data['cell_volume_melt']['Temperature']
-    p_Vm_melt = np.array([pmelt(T, NEON_P_t, NEON_T_t) for T in T_Vm_melt])
+    p_Vm_melt = np.array([pmelt(T, pt, Tt) for T in T_Vm_melt])
     Vm_melt = data['cell_volume_melt']['Cell Volume']
 
     # High Pressure Cell Volume (safe defaults if missing)
@@ -267,12 +436,12 @@ def extract_datasets(data):
 
     # Heat Capacity Sublimation
     T_cp_sub = data['heat_capacity']['Temperature']
-    p_cp_sub = np.array([psub(T, NEON_P_t, NEON_T_t) for T in T_cp_sub])
+    p_cp_sub = np.array([psub(T, pt, Tt) for T in T_cp_sub])
     cp_sub = data['heat_capacity']['Heat Capacity']
 
     # Thermal Expansion Sublimation
     T_alpha_sub = data['thermal_coeff']['Temperature']
-    p_alpha_sub = np.array([psub(T, NEON_P_t, NEON_T_t) for T in T_alpha_sub])
+    p_alpha_sub = np.array([psub(T, pt, Tt) for T in T_alpha_sub])
     alpha_sub = data['thermal_coeff']['Thermal Expansion Coefficient']
 
     # Bulk Modulus (S)
@@ -298,7 +467,7 @@ def extract_datasets(data):
     V_fluid_sub = data['sublimation']['Volume']
     # Enthalpy Sublimation
     T_H_sub = data['heatsub']['Temperature']
-    p_H_sub = np.array([psub(T, NEON_P_t, NEON_T_t) for T in T_H_sub])
+    p_H_sub = np.array([psub(T, pt, Tt) for T in T_H_sub])
     delta_H_sub = data['heatsub']['Change in Enthalpy']
     H_fluid_sub = data['heatsub']['Enthalpy']
 
@@ -335,7 +504,7 @@ def plot_vm_vs_temp(T_Vm_sub, Vm_sub, Year_Vm_sub, Author_Vm_sub,
                     params_fit, compute_thermo_props,
                     CUSTOMMARKERS, CUSTOMCOLORS, fontsize=13.5, markersize=7, linewidth=0.9):
     T_plot_calc = np.arange(1, 401)
-    p_plot_calc = np.array([psub(T, NEON_P_t, NEON_T_t) if T < 83.806 else pmelt(T, NEON_P_t, NEON_T_t)
+    p_plot_calc = np.array([psub(T, pt, Tt) if T < 83.806 else pmelt(T, pt, Tt)
                            for T in T_plot_calc])
     fitted_props = np.array([compute_thermo_props(T, p, params_fit)
                             for T, p in zip(T_plot_calc, p_plot_calc)])
@@ -467,7 +636,7 @@ neon_data = load_all_gas_data('neon', read_from_excel=False)
 bounds = list(zip(LOWER_BOUND, UPPER_BOUND))
 datasets = extract_datasets(neon_data)
 
-params_fit, fval = run_optimization(PARAMS_INIT, bounds, datasets)
+params_fit, fval = run_optimization2(PARAMS_INIT, bounds, datasets)
 
 print("Optimized parameters:", params_fit)
 print("Final objective value:", fval)
