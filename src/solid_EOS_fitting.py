@@ -9,7 +9,7 @@ from p_functions import pmelt,psub
 from constants import PARAMS_INIT, LOWER_BOUND, UPPER_BOUND, KRYPTON_P_t, KRYPTON_T_t, KRYPTON_REFERENCE_ENTROPY, KRYPTON_REFERENCE_ENTHALPY, PARAM_LABELS, PERCENT_SCALE, GAMMA_POS_SLOPE_MULT, GAMMA_POS_SLOPE_OFFSET, GAMMA_NEG_SLOPE_MULT, T6, CP_TEMP_THRESHOLD_K, CP_WEIGHT_BELOW, CP_WEIGHT_ABOVE, PMELT_EXTRA_WEIGHT_T_K, PMELT_EXTRA_FACTOR
 from fitting_helper import rms , _mean_sq
 
-
+BIG = 1e8
 # Constants
 St_REFPROP = KRYPTON_REFERENCE_ENTROPY  # Reference Entropy
 Ht_REFPROP = KRYPTON_REFERENCE_ENTHALPY
@@ -157,21 +157,48 @@ def combined_cost_function(params, *datasets):
 def run_optimization(params_init, bounds, datasets):
     print("Lens:", len(PARAMS_INIT), len(LOWER_BOUND), len(UPPER_BOUND))
     assert len(PARAMS_INIT) == len(LOWER_BOUND) == len(UPPER_BOUND)
+    assert len(params_init) == len(
+        bounds), "params_init/bounds length mismatch"
 
     callback = _make_outfun(*datasets)
 
+    # 0) make sure these are python lists/tuples, not a mis-shaped numpy array
+    bounds = [(lo, hi) for lo, hi in zip(LOWER_BOUND, UPPER_BOUND)]
+
+    # 1) dimensions must match
+    print("len(params_init) =", len(params_init))
+    print("len(bounds)      =", len(bounds))
+    assert len(params_init) == len(bounds), "params_init/bounds length mismatch"
+
+    # 2) show SciPy what it will actually receive
+    print("bounds[0:5] =", bounds[:5])
+
+    # 3) does the initial cost look sensible (non-zero, finite)?
+    total0, dev0 = combined_cost_function(params_init, *datasets)
+    print("initial total cost =", total0)
+    if not np.isfinite(total0):
+        raise RuntimeError("Initial cost is not finite")
+    
+    tot0, dev0 = combined_cost_function(params_init, *datasets)
+
+
+    print("initial total =", tot0)
+    for k, v in dev0.items():
+        print(f"  {k}: {v}")
+
     result = minimize(
         fun=_cost_only,
-        x0=params_init,
-        args=datasets,
+        x0=np.asarray(params_init, dtype=float),
+        args=datasets,                 # datasets is already a tuple → OK
         method='L-BFGS-B',
         bounds=bounds,
-        callback=callback,
+        callback=callback,             # expects cb(xk)
         options={
             'disp': True,
-            # choose your rigor; these are modest defaults:
-            'maxiter': 200,     # bump this up for serious runs
-            'ftol': 1e-8
+            'maxiter': 200,
+            'ftol': 1e-8,              # function tolerance
+            'gtol': 1e-6,              # projected gradient tol (stopping)
+            'maxls': 40,               # line-search steps (stability)
         }
     )
     return result.x, result.fun
@@ -271,9 +298,13 @@ def extract_datasets(data):
     assert len(datasets) == 38
     return datasets
 
+
 def _cost_only(params, *datasets):
-    total, _ = combined_cost_function(params, *datasets)
-    return total
+    try:
+        total, _ = combined_cost_function(params, *datasets)
+        return float(total) if np.isfinite(total) else BIG
+    except Exception:
+        return BIG
 
 def _make_outfun(*datasets):
     def outfun(xk):
@@ -293,6 +324,68 @@ def _make_outfun(*datasets):
         print(f"Gamma T deviation: {dev['Gamma_T']:.6g}")
         # return None to continue (SciPy callback can’t stop like MATLAB's `stop`)
     return outfun
+
+
+def debug_datasets(datasets, Tt):
+    (T_Vm_sub, p_Vm_sub, Vm_sub,
+     T_Vm_melt, p_Vm_melt, Vm_melt,
+     T_Vm_highp, p_Vm_highp, Vm_highp,
+     T_cp_sub, p_cp_sub, cp_sub,
+     T_alpha_sub, p_alpha_sub, alpha_sub,
+     T_BetaT_sub, p_BetaT_sub, BetaT_sub,
+     T_BetaS_sub, p_BetaS_sub, BetaS_sub,
+     T_sub, p_sub, Year_sub, G_fluid_sub, V_fluid_sub,
+     T_melt, p_melt, G_fluid_melt, V_fluid_melt,
+     T_H_sub, p_H_sub, delta_H_sub, H_fluid_sub,
+     T_H_melt, p_H_melt, delta_H_melt, H_fluid_melt) = datasets
+
+    def _cnt(name, arr):
+        arr = np.asarray(arr)
+        print(f"{name:16s} n={arr.size}  finite={np.isfinite(arr).sum()}")
+
+    print("=== DATASET COUNTS ===")
+    _cnt("T_Vm_sub", T_Vm_sub)
+    _cnt("p_Vm_sub", p_Vm_sub)
+    _cnt("Vm_sub", Vm_sub)
+    _cnt("T_Vm_melt", T_Vm_melt)
+    _cnt("p_Vm_melt", p_Vm_melt)
+    _cnt("Vm_melt", Vm_melt)
+    _cnt("T_cp_sub", T_cp_sub)
+    _cnt("p_cp_sub", p_cp_sub)
+    _cnt("cp_sub", cp_sub)
+    _cnt("T_alpha_sub", T_alpha_sub)
+    _cnt("p_alpha_sub", p_alpha_sub)
+    _cnt("alpha_sub", alpha_sub)
+    _cnt("T_BetaT_sub", T_BetaT_sub)
+    _cnt("p_BetaT_sub", p_BetaT_sub)
+    _cnt("BetaT_sub", BetaT_sub)
+    _cnt("T_BetaS_sub", T_BetaS_sub)
+    _cnt("p_BetaS_sub", p_BetaS_sub)
+    _cnt("BetaS_sub", BetaS_sub)
+    _cnt("T_sub", T_sub)
+    _cnt("p_sub", p_sub)
+    _cnt("G_fluid_sub", G_fluid_sub)
+    _cnt("V_fluid_sub", V_fluid_sub)
+    _cnt("T_melt", T_melt)
+    _cnt("p_melt", p_melt)
+    _cnt("G_fluid_melt", G_fluid_melt)
+    _cnt("V_fluid_melt", V_fluid_melt)
+    _cnt("T_H_sub", T_H_sub)
+    _cnt("p_H_sub", p_H_sub)
+    _cnt("delta_H_sub", delta_H_sub)
+    _cnt("H_fluid_sub", H_fluid_sub)
+    _cnt("T_H_melt", T_H_melt)
+    _cnt("p_H_melt", p_H_melt)
+    _cnt("delta_H_melt", delta_H_melt)
+    _cnt("H_fluid_melt", H_fluid_melt)
+
+    # Phase coverage checks
+    print("\n=== PHASE COVERAGE ===")
+    print("sublimation (T<=Tt):", np.sum(
+        np.asarray(T_sub) <= Tt), "of", len(T_sub))
+    print("melting     (T>=Tt):", np.sum(
+        np.asarray(T_melt) >= Tt), "of", len(T_melt))
+
 def main():
     krypton_data = load_all_gas_data('krypton', read_from_excel=False)
     # xenon_data = load_all_gas_data('xenon', read_from_excel=False)
@@ -300,6 +393,7 @@ def main():
 
     bounds = list(zip(LOWER_BOUND, UPPER_BOUND))
     datasets = extract_datasets(krypton_data)
+    debug_datasets(datasets, Tt)
 
     params_fit, fval = run_optimization(PARAMS_INIT, bounds, datasets)
 

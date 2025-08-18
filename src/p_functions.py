@@ -4,49 +4,43 @@ import numpy as np
 
 
 def psub(
-    T,
-    pt,
-    Tt,
-    coeffs=(-10.763, -1.526, -0.4245),
-    *,
-    clip_exp=700.0,   # |exponent| cap to avoid exp overflow
-    ratio_cap=1e6     # cap for Tt/T to avoid overflow warnings at tiny T
+    T, pt, Tt, coeffs=(-10.763, -1.526, -0.4245),
+    *, clip_exp=700.0, ratio_cap=1e6, T_floor=1e-12
 ):
-    """
-    Sublimation pressure P_sub (MPa) at temperature T (K).
-    Returns NaN where T > Tt (outside sublimation domain).
-    """
-    # Preserve scalar behavior
+    import numpy as np
     was_scalar = np.isscalar(T)
-
     T = np.asarray(T, dtype=float)
-    P = np.full_like(T, np.nan, dtype=float)  # default NaN out-of-domain
 
-    # Physical domain mask (sublimation only below/at triple point)
-    m = T <= Tt
-    if not np.any(m):
+    # Only compute in physical domain: T <= Tt
+    mask = T <= Tt
+    P = np.full_like(T, np.nan, dtype=float)
+    if not np.any(mask):
         return P.item() if was_scalar else P
 
-    Tm = T[m]
-    tiny = np.finfo(float).tiny
-    Tm_safe = np.maximum(Tm, tiny)
+    Tm = T[mask]
+    Tm_safe = np.maximum(Tm, T_floor)
 
-    # Safe, warning-free ratio = Tt/T
-    ratio = np.empty_like(Tm_safe)
-    np.divide(Tt, Tm_safe, out=ratio)             # no divide warnings
+    # Build Tt/T without performing a dangerous divide
+    invT = np.empty_like(Tm_safe)
+    invT.fill(0.0)
+    good = Tm_safe > T_floor
+    invT[good] = 1.0 / Tm_safe[good]
+    invT[~good] = 1.0 / T_floor
+
+    ratio = Tt * invT
     np.clip(ratio, -ratio_cap, ratio_cap, out=ratio)
 
     e1, e2, e3 = coeffs
     theta = 1.0 - (Tm_safe / Tt)
-    theta_pos = np.clip(theta, 0.0, None)         # keep fractional powers real
+    theta_pos = np.clip(theta, 0.0, None)
 
-    expo = ratio * (e1*theta_pos
-                    + e2*np.power(theta_pos, 1.5)
-                    + e3*np.power(theta_pos, 5.0))
-    np.clip(expo, -clip_exp, clip_exp, out=expo)  # avoid exp overflow
+    expo = ratio * (e1*theta_pos + e2*np.power(theta_pos,
+                    1.5) + e3*np.power(theta_pos, 5.0))
+    np.clip(expo, -clip_exp, clip_exp, out=expo)
 
-    P[m] = pt * np.exp(expo)
+    P[mask] = pt * np.exp(expo)
     return P.item() if was_scalar else P
+
 
 
 # ---- Melting (safe) ----
