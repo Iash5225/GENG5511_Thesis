@@ -176,6 +176,19 @@ W_PMELT_HI = 25     # T > 500 K
 W_VM_HIGHP = 1
 W_LOW = 3.5    # low-T behaviour penalty
 
+PARAM_LABELS = [
+    ("c1", "MPa"),
+    ("c2", "MPa"),
+    ("c3", "MPa"),
+    ("Theta_D,0", "K"),
+    ("gamma_D,0", ""),
+    ("q_D", ""),
+    ("b1", ""),
+    ("b2", ""),
+    ("b3", ""),
+    ("S_m(g, T_t, p_t)", "J mol-1 K-1"),
+]
+
 
 def _mean_sq(x):
     x = np.asarray(x, float)
@@ -467,15 +480,15 @@ def extract_datasets(data):
     V_fluid_sub = data['sublimation']['Volume']
     # Enthalpy Sublimation
     T_H_sub = data['heatsub']['Temperature']
-    p_H_sub = np.array([psub(T, pt, Tt) for T in T_H_sub])
+    p_H_sub = data['heatsub']['Pressure']
     delta_H_sub = data['heatsub']['Change in Enthalpy']
     H_fluid_sub = data['heatsub']['Enthalpy']
 
     # Enthalpy Melting #TODO
-    T_H_melt = T_H_sub
-    p_H_melt = p_H_sub
-    delta_H_melt = delta_H_sub
-    H_fluid_melt = H_fluid_sub
+    T_H_melt = data['fusion']['Temperature']
+    p_H_melt = data['fusion']['Pressure']
+    delta_H_melt = data['fusion']['Change in Enthalpy']
+    H_fluid_melt = data['fusion']['Enthalpy']
 
     Year_sub = np.array([])   # <-- add this
 
@@ -628,41 +641,30 @@ def plot_property_deviation(T, prop_exp, params_fit, p_func, compute_thermo_prop
     plt.tight_layout()
     plt.show()
 # Read all data into 1 dataframe
-# krypton_data = load_all_gas_data('krypton', read_from_excel=False)
+krypton_data = load_all_gas_data('krypton', read_from_excel=False)
 # xenon_data = load_all_gas_data('xenon', read_from_excel=False)
-neon_data = load_all_gas_data('neon', read_from_excel=False)
+# neon_data = load_all_gas_data('neon', read_from_excel=False)
 
 
 bounds = list(zip(LOWER_BOUND, UPPER_BOUND))
-datasets = extract_datasets(neon_data)
+datasets = extract_datasets(krypton_data)
 
-params_fit, fval = run_optimization2(PARAMS_INIT, bounds, datasets)
+params_fit, fval = run_optimization(PARAMS_INIT, bounds, datasets)
 
 print("Optimized parameters:", params_fit)
 print("Final objective value:", fval)
 # datasets["T"]
-T_Vm_sub = neon_data["cell_volume_sub"]["Temperature"]
-Vm_sub = neon_data["cell_volume_sub"]["Cell Volume"]
-Year_Vm_sub = neon_data["cell_volume_sub"]["Year"]
-Author_Vm_sub = neon_data["cell_volume_sub"]["Author"]
+# T_Vm_sub = neon_data["cell_volume_sub"]["Temperature"]
+# Vm_sub = neon_data["cell_volume_sub"]["Cell Volume"]
+# Year_Vm_sub = neon_data["cell_volume_sub"]["Year"]
+# Author_Vm_sub = neon_data["cell_volume_sub"]["Author"]
 
-T_Vm_melt = neon_data["cell_volume_melt"]["Temperature"]
-Vm_melt = neon_data["cell_volume_melt"]["Cell Volume"]
-Year_Vm_melt = neon_data["cell_volume_melt"]["Year"]
-Author_Vm_melt = neon_data["cell_volume_melt"]["Author"]
+# T_Vm_melt = neon_data["cell_volume_melt"]["Temperature"]
+# Vm_melt = neon_data["cell_volume_melt"]["Cell Volume"]
+# Year_Vm_melt = neon_data["cell_volume_melt"]["Year"]
+# Author_Vm_melt = neon_data["cell_volume_melt"]["Author"]
 
-PARAM_LABELS = [
-    ("c1", "MPa"),
-    ("c2", "MPa"),
-    ("c3", "MPa"),
-    ("Theta_D,0", "K"),
-    ("gamma_D,0", ""),
-    ("q_D", ""),
-    ("b1", ""),
-    ("b2", ""),
-    ("b3", ""),
-    ("S_m(g, T_t, p_t)", "J mol-1 K-1"),
-]
+
 
 # If your vector is longer/shorter, we’ll truncate/pad labels to match length:
 n = len(params_fit)

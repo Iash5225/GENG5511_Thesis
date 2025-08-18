@@ -49,7 +49,8 @@ def load_all_gas_data(gas_name, read_from_excel=True):
         data['melting'] = pd.read_csv(txt(gas_name, 'melting_data_for_fitting'), sep='\t')
         data['sublimation'] = pd.read_csv(
             txt(gas_name, 'sublimation_data_for_fitting'), sep='\t')
-        data['fusion'] = pd.read_csv(txt(gas_name, 'fusion_data'), sep='\t')
+        data['fusion'] = pd.read_csv(
+            txt(gas_name, 'fusion_data_for_fitting'), sep='\t')
         data['heatsub'] = pd.read_csv(
             txt(gas_name, 'heat_of_sublimation_data_for_fitting'), sep='\t')
         data['thermal_coeff'] = pd.read_csv(
