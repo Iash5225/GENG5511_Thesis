@@ -77,12 +77,12 @@ def combined_cost_function(params, *datasets):
     H_solid_melt_dev = rms(
         PERCENT_SCALE * (H_solid_melt - H_solid_melt_fitted) / H_solid_melt_fitted)
 
-    # Sublimation pressure (experimental p in Pa; solid model in MPa)
+    # Sublimation pressure (experimental p in MPa; solid model in MPa)
     p_fitted_sub = []
     for T, pPa, Gf, Vf in zip(T_sub, p_sub, G_fluid_sub, V_fluid_sub):
-        props = compute_thermo_props(T, pPa / 1e6, params)
+        props = compute_thermo_props(T, pPa, params)
         delta_G = Gf - props[11] + deltaH_triple - T * deltaS_triple
-        pf = pPa - (delta_G / (Vf - props[0])) * 1e6
+        pf = pPa - (delta_G / (Vf - props[0]))
         p_fitted_sub.append(pf)
     p_sub_dev = rms(PERCENT_SCALE * (np.array(p_sub) -
                     np.array(p_fitted_sub)) / p_sub)
