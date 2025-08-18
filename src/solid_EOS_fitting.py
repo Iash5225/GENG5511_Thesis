@@ -4,11 +4,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from pathlib import Path
 from read import load_all_gas_data
-from thermal_script import plot_all_gas_properties
 from computethermoprops import *
 from p_functions import pmelt,psub
-from constants import CUSTOMCOLORS, CUSTOMMARKERS, PARAMS_INIT, LOWER_BOUND, UPPER_BOUND, KRYPTON_P_t, KRYPTON_T_t, KRYPTON_REFERENCE_ENTROPY, KRYPTON_REFERENCE_ENTHALPY, PARAM_LABELS
-from scipy.integrate import quad
+from constants import PARAMS_INIT, LOWER_BOUND, UPPER_BOUND, KRYPTON_P_t, KRYPTON_T_t, KRYPTON_REFERENCE_ENTROPY, KRYPTON_REFERENCE_ENTHALPY, PARAM_LABELS
 from fitting_helper import rms , _mean_sq
 
 
@@ -19,9 +17,8 @@ Tt = KRYPTON_T_t
 pt = KRYPTON_P_t
 
 
-# Optimisation Options
+# --- cost function that returns (total, deviations) ---
 def combined_cost_function(params, *datasets):
-    # Unpack all datasets
     (T_Vm_sub, p_Vm_sub, Vm_sub,
      T_Vm_melt, p_Vm_melt, Vm_melt,
      T_Vm_highp, p_Vm_highp, Vm_highp,
@@ -33,91 +30,96 @@ def combined_cost_function(params, *datasets):
      T_melt, p_melt, G_fluid_melt, V_fluid_melt,
      T_H_sub, p_H_sub, delta_H_sub, H_fluid_sub,
      T_H_melt, p_H_melt, delta_H_melt, H_fluid_melt) = datasets
-    
+
+    # triple-point adjustments
     deltaS_triple = params[30] - St_REFPROP
     props_Triple = compute_thermo_props(Tt, pt, params)
     Ht_fitted = props_Triple[11] + Tt * params[30]
     deltaH_triple = Ht_fitted - Ht_REFPROP
 
-    # === Deviation functions (as helper lambdas) ===
-    # def rms(x): return np.sqrt(np.sum(np.square(x)) / len(x))
+    # ---- deviations (mirror your MATLAB) ----
+    Vm_sub_dev = rms(100 * (Vm_sub - np.array([compute_thermo_props(T, p, params)[0]
+                                               for T, p in zip(T_Vm_sub, p_Vm_sub)])) / Vm_sub)
 
-    # === Calculate individual deviations ===
-    Vm_sub_dev = rms(100 * (Vm_sub - np.array([compute_thermo_props(
-        T, p, params)[0] for T, p in zip(T_Vm_sub, p_Vm_sub)])) / Vm_sub)
-    Vm_melt_dev = rms(100 * (Vm_melt - np.array([compute_thermo_props(T, p, params)[
-                      0] for T, p in zip(T_Vm_melt, p_Vm_melt)])) / Vm_melt)
-    Vm_highp_dev = rms(100 * (Vm_highp - np.array([compute_thermo_props(T, p, params)[
-                       0] for T, p in zip(T_Vm_highp, p_Vm_highp)])) / Vm_highp)
-    
-    cp_sub_dev = []
+    Vm_melt_dev = rms(100 * (Vm_melt - np.array([compute_thermo_props(T, p, params)[0]
+                                                 for T, p in zip(T_Vm_melt, p_Vm_melt)])) / Vm_melt)
+
+    Vm_highp_dev = rms(100 * (Vm_highp - np.array([compute_thermo_props(T, p, params)[0]
+                                                   for T, p in zip(T_Vm_highp, p_Vm_highp)])) / Vm_highp)
+
+    cp_sub_dev_terms = []
     for T, p, cp in zip(T_cp_sub, p_cp_sub, cp_sub):
         model_cp = compute_thermo_props(T, p, params)[4]
-        factor = 700 if T >= 12 else 100
-        cp_sub_dev.append(factor * (cp - model_cp) / cp)
-    cp_sub_dev = rms(cp_sub_dev)
+        # MATLAB: weight 100 below 12 K, 700 above/equal
+        w = 100 if T < 12 else 700
+        cp_sub_dev_terms.append(w * (cp - model_cp) / cp)
+    cp_sub_dev = rms(cp_sub_dev_terms)
 
-    alpha_sub_dev = rms(100 * (alpha_sub - np.array([compute_thermo_props(
-        T, p, params)[3] for T, p in zip(T_alpha_sub, p_alpha_sub)])) / alpha_sub)
-    BetaT_sub_dev = rms(100 * (BetaT_sub - np.array([compute_thermo_props(
-        T, p, params)[1] for T, p in zip(T_BetaT_sub, p_BetaT_sub)])) / BetaT_sub)
-    BetaS_sub_dev = rms(100 * (BetaS_sub - np.array([compute_thermo_props(
-        T, p, params)[2] for T, p in zip(T_BetaS_sub, p_BetaS_sub)])) / BetaS_sub)
+    alpha_sub_dev = rms(100 * (alpha_sub - np.array([compute_thermo_props(T, p, params)[3]
+                                                     for T, p in zip(T_alpha_sub, p_alpha_sub)])) / alpha_sub)
 
-    # === Enthalpy of sublimation and melting ===
+    BetaT_sub_dev = rms(100 * (BetaT_sub - np.array([compute_thermo_props(T, p, params)[1]
+                                                     for T, p in zip(T_BetaT_sub, p_BetaT_sub)])) / BetaT_sub)
+
+    BetaS_sub_dev = rms(100 * (BetaS_sub - np.array([compute_thermo_props(T, p, params)[2]
+                                                     for T, p in zip(T_BetaS_sub, p_BetaS_sub)])) / BetaS_sub)
+
+    # Enthalpy (sublimation)
     H_solid_sub = H_fluid_sub - 1000 * delta_H_sub
-    H_solid_sub_fitted = np.array([compute_thermo_props(T, p, params)[
-                                  10] for T, p in zip(T_H_sub, p_H_sub)]) - deltaH_triple
+    H_solid_sub_fitted = np.array([compute_thermo_props(T, p, params)[10]
+                                   for T, p in zip(T_H_sub, p_H_sub)]) - deltaH_triple
     H_solid_sub_dev = rms(
         100 * (H_solid_sub - H_solid_sub_fitted) / H_solid_sub_fitted)
-    
+
+    # Enthalpy (melting)
     H_solid_melt = H_fluid_melt - 1000 * delta_H_melt
-    H_solid_melt_fitted = np.array([compute_thermo_props(T, p, params)[
-                                   10] for T, p in zip(T_H_melt, p_H_melt)]) - deltaH_triple
+    H_solid_melt_fitted = np.array([compute_thermo_props(T, p, params)[10]
+                                    for T, p in zip(T_H_melt, p_H_melt)]) - deltaH_triple
     H_solid_melt_dev = rms(
         100 * (H_solid_melt - H_solid_melt_fitted) / H_solid_melt_fitted)
 
-    # === Sublimation pressure deviation ===
+    # Sublimation pressure (experimental p in Pa; solid model in MPa)
     p_fitted_sub = []
-    for T, p, Gf, Vf in zip(T_sub, p_sub, G_fluid_sub, V_fluid_sub):
-        props = compute_thermo_props(T, p / 1e6, params)  # Convert Pa -> MPa
+    for T, pPa, Gf, Vf in zip(T_sub, p_sub, G_fluid_sub, V_fluid_sub):
+        props = compute_thermo_props(T, pPa / 1e6, params)
         delta_G = Gf - props[11] + deltaH_triple - T * deltaS_triple
-        pf = p - delta_G / (Vf - props[0]) * 1e6  # Pa
+        pf = pPa - (delta_G / (Vf - props[0])) * 1e6
         p_fitted_sub.append(pf)
     p_sub_dev = rms(100 * (np.array(p_sub) - np.array(p_fitted_sub)) / p_sub)
 
-    # === Melting pressure deviation ===
+    # Melting pressure (MPa)
     p_fitted_melt = []
-    for T, p, Gf, Vf in zip(T_melt, p_melt, G_fluid_melt, V_fluid_melt):
-        props = compute_thermo_props(T, p, params)
+    for T, pM, Gf, Vf in zip(T_melt, p_melt, G_fluid_melt, V_fluid_melt):
+        props = compute_thermo_props(T, pM, params)
         delta_G = Gf - props[11] + deltaH_triple - T * deltaS_triple
-        pf = p - delta_G / (Vf - props[0])
+        pf = pM - (delta_G / (Vf - props[0]))
+        # MATLAB: extra weight for T > 500 K (implemented as scaling pf diff)
         if T > 500:
-            pf = p - delta_G / (Vf - props[0]) * 5
+            pf = pM - (delta_G / (Vf - props[0])) * 5
         p_fitted_melt.append(pf)
     p_melt_dev = rms(
         100 * (np.array(p_melt) - np.array(p_fitted_melt)) / p_melt)
 
-    # === Gamma slope penalty ===
+    # Gamma-T penalty on a temperature grid
     T6 = np.array([0.0001] + list(range(2, 84, 2)) + [83.806])
+    # note: your psub signature uses (T, pt, Tt)
     p6 = np.array([psub(T, pt, Tt) for T in T6])
     Gamma_T6 = np.array([compute_thermo_props(T, p, params)[6]
                         for T, p in zip(T6, p6)])
     Vm_T6 = np.array([compute_thermo_props(T, p, params)[0]
                      for T, p in zip(T6, p6)])
-
     slopes = np.diff(Gamma_T6) / np.diff(Vm_T6)
-    Gamma_dev = []
-    for i, s in enumerate(slopes):
-        if s > 0:
-            Gamma_dev.append(
-                45 + abs(200 * (Gamma_T6[i + 1] - Gamma_T6.mean()) / Gamma_T6.mean()))
-        else:
-            Gamma_dev.append(
-                50 * (Gamma_T6[i + 1] - Gamma_T6.mean()) / Gamma_T6.mean())
-    Gamma_T6_dev = rms(Gamma_dev)
 
-    # === Weighted total deviation ===
+    Gamma_dev_terms = []
+    mu = Gamma_T6.mean()
+    for i, s in enumerate(slopes, start=1):
+        if s > 0:
+            Gamma_dev_terms.append(45 + abs(200 * (Gamma_T6[i] - mu) / mu))
+        else:
+            Gamma_dev_terms.append(50 * (Gamma_T6[i] - mu) / mu)
+    Gamma_T6_dev = rms(Gamma_dev_terms)
+
+    # Weighted total (your MATLAB weights)
     total_deviation = (
         Vm_sub_dev * 55 +
         Vm_melt_dev * 35 +
@@ -133,34 +135,42 @@ def combined_cost_function(params, *datasets):
         Gamma_T6_dev * 3.5
     )
 
-    # Save individual deviations for tracking
     deviations = {
-        'Vm_sub': Vm_sub_dev,
-        'Vm_melt': Vm_melt_dev,
-        'Vm_highp': Vm_highp_dev,
-        'cp_sub': cp_sub_dev,
-        'alpha_sub': alpha_sub_dev,
-        'BetaT_sub': BetaT_sub_dev,
-        'BetaS_sub': BetaS_sub_dev,
-        'H_solid_sub': H_solid_sub_dev,
-        'H_solid_melt': H_solid_melt_dev,
-        'p_sub': p_sub_dev,
-        'p_melt': p_melt_dev,
-        'Gamma_T': Gamma_T6_dev
+        "Vm_sub": Vm_sub_dev,
+        "Vm_melt": Vm_melt_dev,
+        "Vm_highp": Vm_highp_dev,
+        "cp_sub": cp_sub_dev,
+        "alpha_sub": alpha_sub_dev,
+        "BetaT_sub": BetaT_sub_dev,
+        "BetaS_sub": BetaS_sub_dev,
+        "H_solid_sub": H_solid_sub_dev,
+        "H_solid_melt": H_solid_melt_dev,
+        "p_sub": p_sub_dev,
+        "p_melt": p_melt_dev,
+        "Gamma_T": Gamma_T6_dev,
     }
-    return total_deviation
+    return total_deviation, deviations
 
+# --- run_optimization using the callback ---
 def run_optimization(params_init, bounds, datasets):
     print("Lens:", len(PARAMS_INIT), len(LOWER_BOUND), len(UPPER_BOUND))
     assert len(PARAMS_INIT) == len(LOWER_BOUND) == len(UPPER_BOUND)
 
+    callback = _make_outfun(*datasets)
+
     result = minimize(
-        fun=combined_cost_function,
+        fun=_cost_only,
         x0=params_init,
         args=datasets,
         method='L-BFGS-B',
         bounds=bounds,
-        options={'disp': True, 'maxiter': 20, 'ftol': 1e-5}
+        callback=callback,
+        options={
+            'disp': True,
+            # choose your rigor; these are modest defaults:
+            'maxiter': 200,     # bump this up for serious runs
+            'ftol': 1e-8
+        }
     )
     return result.x, result.fun
 
@@ -259,44 +269,61 @@ def extract_datasets(data):
     assert len(datasets) == 38
     return datasets
 
-# Read all data into 1 dataframe
-krypton_data = load_all_gas_data('krypton', read_from_excel=False)
-# xenon_data = load_all_gas_data('xenon', read_from_excel=False)
-# neon_data = load_all_gas_data('neon', read_from_excel=False)
+# --- callback that prints deviations each iteration (MATLAB outfun style) ---
+
+# --- scalar-only wrapper for SciPy ---
 
 
-bounds = list(zip(LOWER_BOUND, UPPER_BOUND))
-datasets = extract_datasets(krypton_data)
+def _cost_only(params, *datasets):
+    total, _ = combined_cost_function(params, *datasets)
+    return total
 
-params_fit, fval = run_optimization(PARAMS_INIT, bounds, datasets)
+def _make_outfun(*datasets):
+    def outfun(xk):
+        total, dev = combined_cost_function(xk, *datasets)
+        print(f"Current total_deviation: {total:.6g}")
+        print(f"Vm_sub deviation: {dev['Vm_sub']:.6g}")
+        print(f"Vm_melt deviation: {dev['Vm_melt']:.6g}")
+        print(f"Vm_highp deviation: {dev['Vm_highp']:.6g}")
+        print(f"cp deviation: {dev['cp_sub']:.6g}")
+        print(f"alpha_sub deviation: {dev['alpha_sub']:.6g}")
+        print(f"BetaT_sub deviation: {dev['BetaT_sub']:.6g}")
+        print(f"BetaS_sub deviation: {dev['BetaS_sub']:.6g}")
+        print(f"H_solid_sub deviation: {dev['H_solid_sub']:.6g}")
+        print(f"H_solid_melt deviation: {dev['H_solid_melt']:.6g}")
+        print(f"p_sub deviation: {dev['p_sub']:.6g}")
+        print(f"p_melt deviation: {dev['p_melt']:.6g}")
+        print(f"Gamma T deviation: {dev['Gamma_T']:.6g}")
+        # return None to continue (SciPy callback can’t stop like MATLAB's `stop`)
+    return outfun
+def main():
+    # Read all data into 1 dataframe
+    krypton_data = load_all_gas_data('krypton', read_from_excel=False)
+    # xenon_data = load_all_gas_data('xenon', read_from_excel=False)
+    # neon_data = load_all_gas_data('neon', read_from_excel=False)
 
-print("Optimized parameters:", params_fit)
-print("Final objective value:", fval)
-# datasets["T"]
-# T_Vm_sub = neon_data["cell_volume_sub"]["Temperature"]
-# Vm_sub = neon_data["cell_volume_sub"]["Cell Volume"]
-# Year_Vm_sub = neon_data["cell_volume_sub"]["Year"]
-# Author_Vm_sub = neon_data["cell_volume_sub"]["Author"]
+    bounds = list(zip(LOWER_BOUND, UPPER_BOUND))
+    datasets = extract_datasets(krypton_data)
 
-# T_Vm_melt = neon_data["cell_volume_melt"]["Temperature"]
-# Vm_melt = neon_data["cell_volume_melt"]["Cell Volume"]
-# Year_Vm_melt = neon_data["cell_volume_melt"]["Year"]
-# Author_Vm_melt = neon_data["cell_volume_melt"]["Author"]
+    params_fit, fval = run_optimization(PARAMS_INIT, bounds, datasets)
 
+    print("Optimized parameters:", params_fit)
+    print("Final objective value:", fval)
 
+    # If your vector is longer/shorter, we’ll truncate/pad labels to match length:
+    n = len(params_fit)
+    labels = PARAM_LABELS[:n] if len(PARAM_LABELS) >= n else PARAM_LABELS + [
+        ("param_"+str(i+1), "") for i in range(len(PARAM_LABELS), n)]
 
-# If your vector is longer/shorter, we’ll truncate/pad labels to match length:
-n = len(params_fit)
-labels = PARAM_LABELS[:n] if len(PARAM_LABELS) >= n else PARAM_LABELS + [
-    ("param_"+str(i+1), "") for i in range(len(PARAM_LABELS), n)]
+    # df_params = pd.DataFrame({
+    #     "Parameter": [lbl for (lbl, _) in labels],
+    #     "Value": [float(v) for v in params_fit[:len(labels)]],
+    #     "Unit": [unit for (_, unit) in labels]
+    # })
 
-df_params = pd.DataFrame({
-    "Parameter": [lbl for (lbl, _) in labels],
-    "Value": [float(v) for v in params_fit[:len(labels)]],
-    "Unit": [unit for (_, unit) in labels]
-})
+    # # Nice formatting (no scientific notation unless needed)
+    # with pd.option_context('display.float_format', lambda x: f"{x:.6g}"):
+    #     print("\nOptimized parameter values for the solid EOS\n")
+    #     print(df_params.to_string(index=False))
 
-# Nice formatting (no scientific notation unless needed)
-with pd.option_context('display.float_format', lambda x: f"{x:.6g}"):
-    print("\nOptimized parameter values for the solid EOS\n")
-    print(df_params.to_string(index=False))
+main()

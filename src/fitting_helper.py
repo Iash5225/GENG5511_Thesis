@@ -24,3 +24,4 @@ def _mean_sq(x):
     x = np.asarray(x, float)
     x = x[np.isfinite(x)]
     return 0.0 if x.size == 0 else np.mean(x*x)
+
