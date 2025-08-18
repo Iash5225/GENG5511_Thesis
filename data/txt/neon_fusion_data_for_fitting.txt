@@ -1,0 +1,2 @@
+Year	Author	Temperature	Pressure	Change in Enthalpy	Molar Density	Enthalpy
+1977.	Pollack	24.55	0.043332	0.3351384	61935.810161742746	-0.09656320838446304

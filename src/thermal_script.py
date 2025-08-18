@@ -711,3 +711,77 @@ def plot_all_gas_properties(data, gas_name):
                       'Melting and Sublimation Curve', r'$V$', r'$\mathrm{cm}^3/\mathrm{mol}$')
     except Exception:
         print("Warning: Could not combine melt + sublimation cell volume data.")
+
+
+def add_psub_column(data: pd.DataFrame, gas_name: str) -> pd.DataFrame:
+    """
+    Adds sublimation pressure (MPa) column to the given DataFrame
+    based on the gas type and its empirical constants.
+    
+    Args:
+        data (pd.DataFrame): must have 'Temperature' column
+        gas_name (str): 'krypton', 'xenon', or 'neon'
+    
+    Returns:
+        pd.DataFrame: input data with a new 'P_sub' column (MPa)
+    """
+    if gas_name == 'krypton':
+        P_sub = sublimation_pressure_equation(
+            data['Temperature'],
+            KRYPTON_E_1_SUB, KRYPTON_E_2_SUB, KRYPTON_E_3_SUB,
+            KRYPTON_T_t, KRYPTON_P_t
+        )
+    elif gas_name == "xenon":
+        P_sub = sublimation_pressure_equation(
+            data['Temperature'],
+            XENON_E_1_SUB, XENON_E_2_SUB, XENON_E_3_SUB,
+            XENON_T_t, XENON_P_t
+        )
+    else:  # default = neon
+        P_sub = sublimation_pressure_equation(
+            data['Temperature'],
+            NEON_E_1_SUB, NEON_E_2_SUB, NEON_E_3_SUB,
+            NEON_T_t, NEON_P_t
+        )
+
+    # Add new column (MPa)
+    data = data.copy()
+    data['Pressure'] = P_sub
+    return data
+
+
+def add_pmelt_column(data: pd.DataFrame, gas_name: str) -> pd.DataFrame:
+    """
+    Adds melting pressure (MPa) column to the given DataFrame
+    based on the gas type and its empirical constants.
+
+    Args:
+        data (pd.DataFrame): must have 'Temperature' column
+        gas_name (str): 'krypton', 'xenon', or 'neon'
+
+    Returns:
+        pd.DataFrame: input data with a new 'P_melt' column (MPa)
+    """
+    if gas_name == 'krypton':
+        P_melt = melting_pressure_equation(
+            data['Temperature'],
+            KRYPTON_E_4, KRYPTON_E_5, KRYPTON_E_6, KRYPTON_E_7,
+            KRYPTON_T_t, KRYPTON_P_t
+        )
+    elif gas_name == "xenon":
+        P_melt = melting_pressure_equation(
+            data['Temperature'],
+            XENON_E_4, XENON_E_5, XENON_E_6, XENON_E_7,
+            XENON_T_t, XENON_P_t
+        )
+    else:  # default = neon
+        P_melt = melting_pressure_equation(
+            data['Temperature'],
+            NEON_E_4, NEON_E_5, NEON_E_6, NEON_E_7,
+            NEON_T_t, NEON_P_t
+        )
+
+    # Add new column (MPa)
+    data = data.copy()
+    data['Pressure'] = P_melt
+    return data
