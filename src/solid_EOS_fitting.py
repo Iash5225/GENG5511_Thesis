@@ -6,8 +6,9 @@ from pathlib import Path
 from read import load_all_gas_data
 from computethermoprops import *
 from p_functions import pmelt,psub
-from constants import PARAMS_INIT, LOWER_BOUND, UPPER_BOUND, KRYPTON_P_t, KRYPTON_T_t, KRYPTON_REFERENCE_ENTROPY, KRYPTON_REFERENCE_ENTHALPY, PARAM_LABELS, PERCENT_SCALE, GAMMA_POS_SLOPE_MULT, GAMMA_POS_SLOPE_OFFSET, GAMMA_NEG_SLOPE_MULT, T6, CP_TEMP_THRESHOLD_K, CP_WEIGHT_BELOW, CP_WEIGHT_ABOVE, PMELT_EXTRA_WEIGHT_T_K, PMELT_EXTRA_FACTOR
+from constants import PARAMS_INIT, LOWER_BOUND, UPPER_BOUND, KRYPTON_P_t, KRYPTON_T_t, KRYPTON_REFERENCE_ENTROPY, KRYPTON_REFERENCE_ENTHALPY, PARAM_LABELS, PERCENT_SCALE, GAMMA_POS_SLOPE_MULT, GAMMA_POS_SLOPE_OFFSET, GAMMA_NEG_SLOPE_MULT, T6, CP_TEMP_THRESHOLD_K, CP_WEIGHT_BELOW, CP_WEIGHT_ABOVE, PMELT_EXTRA_WEIGHT_T_K, PMELT_EXTRA_FACTOR, FUNCTION_TOL,GRADIENT_TOL,MAX_ITERATIONS
 from fitting_helper import rms , _mean_sq
+import math
 
 BIG = 1e4
 # Constants
@@ -19,6 +20,101 @@ pt = KRYPTON_P_t
 # --- cost function that returns (total, deviations) ---
 # ----- cost function with explicit masks and penalties -----
 
+# global storage for deviations
+history = {
+    "total": [],
+    "Vm_sub": [],
+    "Vm_melt": [],
+    "Vm_highp": [],
+    "cp_sub": [],
+    "alpha_sub": [],
+    "BetaT_sub": [],
+    "BetaS_sub": [],
+    "H_solid_sub": [],
+    "H_solid_melt": [],
+    "p_sub": [],
+    "p_melt": [],
+    "Gamma_T": []
+}
+
+
+# --- keep only THIS version of _make_outfun ---
+# --- keep only THIS version of _make_outfun ---
+def _make_outfun(*datasets):
+    def outfun(xk):
+        total, dev = combined_cost_function(xk, *datasets)
+        # record values
+        history["total"].append(total)
+        for k in dev:
+            history[k].append(dev[k])
+        # optional: still print
+        print(f"Current total_deviation: {total:.6g}")
+        for k, v in dev.items():
+            print(f"  {k}: {v:.6g}")
+    return outfun
+
+
+def reset_history():
+    """Clear deviation history before starting a new optimization."""
+    for k in history:
+        history[k].clear()
+
+
+def plot_deviation_history():
+    """Make two figures:
+       1) total deviation vs iteration
+       2) grid of per-metric deviations vs iteration
+    """
+    # ---- Figure 1: total deviation ----
+    if len(history["total"]) == 0:
+        print("No history recorded (total). Did the callback run?")
+    else:
+        fig1, ax1 = plt.subplots(figsize=(9, 5))
+        ax1.plot(history["total"], label="total")
+        ax1.set_yscale("log")
+        ax1.set_xlabel("Iteration")
+        ax1.set_ylabel("Total deviation")
+        ax1.set_title("Total Deviation per Iteration")
+        ax1.legend()
+        plt.tight_layout()
+
+    # ---- Figure 2: grid of per-metric deviations ----
+    metric_keys = [k for k in history.keys() if k != "total"]
+    # keep only metrics that actually have data
+    metric_keys = [k for k in metric_keys if len(history[k]) > 0]
+
+    if len(metric_keys) == 0:
+        print("No per-metric history recorded. Did the callback append to history?")
+        return
+
+    # choose a neat grid shape
+    n = len(metric_keys)
+    # 3 rows x 4 cols works nicely up to 12 metrics; compute general shape:
+    import math
+    cols = min(4, n)
+    rows = math.ceil(n / cols)
+
+    fig2, axes = plt.subplots(rows, cols, figsize=(
+        4*cols, 3.2*rows), squeeze=False)
+    ax_iter = 0
+    for r in range(rows):
+        for c in range(cols):
+            ax = axes[r][c]
+            if ax_iter < n:
+                key = metric_keys[ax_iter]
+                ax.plot(history[key])
+                ax.set_yscale("log")
+                ax.set_title(key)
+                ax.set_xlabel("Iteration")
+                ax.set_ylabel("Deviation")
+            else:
+                # hide unused axes
+                ax.axis("off")
+            ax_iter += 1
+
+    fig2.suptitle("Per-Metric Deviations per Iteration", y=1.02, fontsize=12)
+    plt.tight_layout()
+    plt.show()
 
 def rms_percent(y_true, y_pred, scale=PERCENT_SCALE):
     y_true = np.asarray(y_true, float)
@@ -289,9 +385,9 @@ def run_optimization(params_init, bounds, datasets):
         callback=callback,             # expects cb(xk)
         options={
             'disp': True,
-            'maxiter': 200,
-            'ftol': 1e-8,              # function tolerance
-            'gtol': 1e-6,              # projected gradient tol (stopping)
+            'maxiter': MAX_ITERATIONS,
+            'ftol': FUNCTION_TOL,              # function tolerance
+            'gtol': GRADIENT_TOL,              # projected gradient tol (stopping)
             'maxls': 40,               # line-search steps (stability)
         }
     )
@@ -400,24 +496,24 @@ def _cost_only(params, *datasets):
     except Exception:
         return BIG
 
-def _make_outfun(*datasets):
-    def outfun(xk):
-        total, dev = combined_cost_function(xk, *datasets)
-        print(f"Current total_deviation: {total:.6g}")
-        print(f"Vm_sub deviation: {dev['Vm_sub']:.6g}")
-        print(f"Vm_melt deviation: {dev['Vm_melt']:.6g}")
-        print(f"Vm_highp deviation: {dev['Vm_highp']:.6g}")
-        print(f"cp deviation: {dev['cp_sub']:.6g}")
-        print(f"alpha_sub deviation: {dev['alpha_sub']:.6g}")
-        print(f"BetaT_sub deviation: {dev['BetaT_sub']:.6g}")
-        print(f"BetaS_sub deviation: {dev['BetaS_sub']:.6g}")
-        print(f"H_solid_sub deviation: {dev['H_solid_sub']:.6g}")
-        print(f"H_solid_melt deviation: {dev['H_solid_melt']:.6g}")
-        print(f"p_sub deviation: {dev['p_sub']:.6g}")
-        print(f"p_melt deviation: {dev['p_melt']:.6g}")
-        print(f"Gamma T deviation: {dev['Gamma_T']:.6g}")
-        # return None to continue (SciPy callback can’t stop like MATLAB's `stop`)
-    return outfun
+# def _make_outfun(*datasets):
+#     def outfun(xk):
+#         total, dev = combined_cost_function(xk, *datasets)
+#         print(f"Current total_deviation: {total:.6g}")
+#         print(f"Vm_sub deviation: {dev['Vm_sub']:.6g}")
+#         print(f"Vm_melt deviation: {dev['Vm_melt']:.6g}")
+#         print(f"Vm_highp deviation: {dev['Vm_highp']:.6g}")
+#         print(f"cp deviation: {dev['cp_sub']:.6g}")
+#         print(f"alpha_sub deviation: {dev['alpha_sub']:.6g}")
+#         print(f"BetaT_sub deviation: {dev['BetaT_sub']:.6g}")
+#         print(f"BetaS_sub deviation: {dev['BetaS_sub']:.6g}")
+#         print(f"H_solid_sub deviation: {dev['H_solid_sub']:.6g}")
+#         print(f"H_solid_melt deviation: {dev['H_solid_melt']:.6g}")
+#         print(f"p_sub deviation: {dev['p_sub']:.6g}")
+#         print(f"p_melt deviation: {dev['p_melt']:.6g}")
+#         print(f"Gamma T deviation: {dev['Gamma_T']:.6g}")
+#         # return None to continue (SciPy callback can’t stop like MATLAB's `stop`)
+#     return outfun
 
 
 def debug_datasets(datasets, Tt):
@@ -480,6 +576,12 @@ def debug_datasets(datasets, Tt):
     print("melting     (T>=Tt):", np.sum(
         np.asarray(T_melt) >= Tt), "of", len(T_melt))
 
+
+def reset_history():
+    """Clear deviation history before starting a new optimization."""
+    for k in history:
+        history[k].clear()
+
 def main():
     krypton_data = load_all_gas_data('krypton', read_from_excel=False)
     # xenon_data = load_all_gas_data('xenon', read_from_excel=False)
@@ -488,9 +590,9 @@ def main():
     bounds = list(zip(LOWER_BOUND, UPPER_BOUND))
     datasets = extract_datasets(krypton_data)
     debug_datasets(datasets, Tt)
-
+    reset_history()
     params_fit, fval = run_optimization(PARAMS_INIT, bounds, datasets)
-
+    plot_deviation_history()
     print("Optimized parameters:", params_fit)
     print("Final objective value:", fval)
 
