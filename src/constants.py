@@ -199,6 +199,6 @@ PERCENT_SCALE = 100.0
 
 T6 = np.array([0.0001] + list(range(2, 84, 2)) + [83.806])
 
-FUNCTION_TOL = 1e-8
+FUNCTION_TOL = 1e-10
 GRADIENT_TOL = 1e-6
 MAX_ITERATIONS = 20

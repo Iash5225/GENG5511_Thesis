@@ -585,47 +585,83 @@ def reset_history():
     for k in history:
         history[k].clear()
 
+
 def main():
     krypton_data = load_all_gas_data('krypton', read_from_excel=False)
-    # xenon_data = load_all_gas_data('xenon', read_from_excel=False)
-    # neon_data = load_all_gas_data('neon', read_from_excel=False)
-
-    bounds = list(zip(LOWER_BOUND, UPPER_BOUND))
     datasets = extract_datasets(krypton_data)
-    # debug_datasets(datasets, Tt)
 
-    # << choose one: "Vm_sub", "Vm_melt", "cp_sub", "Alpha_sub", ...
-    metric = "Vm_sub"
-    cost_only, cb, quick_plots = make_single_metric_cost(
-        metric, datasets, Tt, compute_thermo_props)
-    x0 = np.asarray(PARAMS_INIT, dtype=float)
-    print("Initial single-metric RMS% =", cost_only(x0))
-    res = minimize(
-        fun=lambda x: cost_only(x),
-        x0=x0,
-        method="L-BFGS-B",
-        bounds=bounds,
-        callback=cb,
-        options=dict(maxiter=MAX_ITERATIONS, ftol=FUNCTION_TOL,
-                    gtol=GRADIENT_TOL, maxls=40, disp=True)
+    # -----------------------------
+    # Choose metric & FREE indices
+    # -----------------------------
+    metric = "Vm_sub"  # or "Vm_melt", "cp_sub", "Alpha_sub", ...
+    cost_only, cb_full, quick_plots = make_single_metric_cost(
+        metric, datasets, Tt, compute_thermo_props
     )
 
-    params_fit_single = res.x
+    # >>> PICK WHICH PARAMETERS TO FREE <<<
+    # Recommended first pass for Vm_sub: elastic-only
+    FREE = [0, 1, 2, 3]            # v00, a1, a2, a3
+    # Later you can try adding one thermal knob at a time, e.g.:
+    # FREE = [0, 1, 2, 3, 9]       # + Th[0]
+    # FREE = [0, 1, 2, 3, 9, 15]   # + g[0]
+    # (Indices follow your existing layout/comments.)
+
+    # -------------
+    # Pack/unpack
+    # -------------
+    x0_full = np.asarray(PARAMS_INIT, dtype=float)
+    LB_full = np.asarray(LOWER_BOUND, dtype=float)
+    UB_full = np.asarray(UPPER_BOUND, dtype=float)
+
+    def pack(x_full):
+        return np.asarray([x_full[i] for i in FREE], dtype=float)
+
+    def unpack(x_free, template_full):
+        x = np.array(template_full, dtype=float, copy=True)
+        for j, i in enumerate(FREE):
+            x[i] = float(x_free[j])
+        return x
+
+    # -------------
+    # Wrapped cost
+    # -------------
+    def cost_only_free(x_free):
+        x_full = unpack(x_free, x0_full)
+        return float(cost_only(x_full))
+
+    # Optional: wrapped callback so you still see RMS% per iter
+    it = {"i": 0}
+
+    def cb_free(x_free):
+        it["i"] += 1
+        x_full = unpack(x_free, x0_full)
+        val = cost_only(x_full)
+        print(f"[{metric}] iter={it['i']:3d}  RMS%={val:8.4f}")
+
+    # -------------
+    # Optimize only FREE
+    # -------------
+    x0_free = pack(x0_full)
+    bounds_free = [(LB_full[i], UB_full[i]) for i in FREE]
+
+    print("Initial single-metric RMS% =", cost_only(x0_full))
+    res = minimize(
+        fun=cost_only_free,
+        x0=x0_free,
+        method="L-BFGS-B",
+        bounds=bounds_free,
+        callback=cb_free, 
+        options=dict(maxiter=MAX_ITERATIONS, ftol=FUNCTION_TOL,
+                     gtol=GRADIENT_TOL, maxls=40, disp=True)
+    )
+
+    params_fit_single = unpack(res.x, x0_full)
     print("Final single-metric RMS% =", cost_only(params_fit_single))
 
+    # -------------
     # Quick sanity plots for this one dataset
+    # -------------
     quick_plots(params_fit_single, title_suffix="(single-metric fit)")
-    # cost_only, cb, quick_plots = make_single_metric_cost(
-    # metric, datasets, Tt, compute_thermo_props)
-    # reset_history()
-    # params_fit, fval = run_optimization(PARAMS_INIT, bounds, datasets)
-    # plot_deviation_history()
-    # print("Optimized parameters:", params_fit)
-    # print("Final objective value:", fval)
 
-    # # If your vector is longer/shorter, we’ll truncate/pad labels to match length:
-    # n = len(params_fit)
-    # labels = PARAM_LABELS[:n] if len(PARAM_LABELS) >= n else PARAM_LABELS + [
-    #     ("param_"+str(i+1), "") for i in range(len(PARAM_LABELS), n)]
 
 main()

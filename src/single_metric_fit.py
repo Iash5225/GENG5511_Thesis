@@ -82,9 +82,11 @@ def make_single_metric_cost(metric_key, datasets, Tt, compute_thermo_props):
     T, p, y_exp, prop_idx = make_single_metric_view(metric_key, datasets, Tt)
 
     def cost_only(params):
-        y_calc = _safe_model_vector(
-            T, p, params, prop_idx, compute_thermo_props)
-        return _rms_percent(y_exp, y_calc)
+        y_calc = _safe_model_vector(T, p, params, prop_idx, compute_thermo_props)
+        res = np.diff(y_calc)
+        penalty = np.sum(res < 0) * 100.0  # penalize non-monotone Vm(T)
+        return _rms_percent(y_exp, y_calc) + penalty
+
 
     # Lightweight callback for convergence trace
     it = {"i": 0}
