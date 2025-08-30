@@ -9,6 +9,7 @@ from p_functions import pmelt,psub
 from constants import PARAMS_INIT, LOWER_BOUND, UPPER_BOUND, KRYPTON_P_t, KRYPTON_T_t, KRYPTON_REFERENCE_ENTROPY, KRYPTON_REFERENCE_ENTHALPY, PARAM_LABELS, PERCENT_SCALE, GAMMA_POS_SLOPE_MULT, GAMMA_POS_SLOPE_OFFSET, GAMMA_NEG_SLOPE_MULT, T6, CP_TEMP_THRESHOLD_K, CP_WEIGHT_BELOW, CP_WEIGHT_ABOVE, PMELT_EXTRA_WEIGHT_T_K, PMELT_EXTRA_FACTOR, FUNCTION_TOL,GRADIENT_TOL,MAX_ITERATIONS
 from fitting_helper import rms , _mean_sq
 import math
+from single_metric_fit import make_single_metric_cost
 
 BIG = 1e4
 # Constants
@@ -16,6 +17,8 @@ St_REFPROP = KRYPTON_REFERENCE_ENTROPY  # Reference Entropy
 Ht_REFPROP = KRYPTON_REFERENCE_ENTHALPY
 Tt = KRYPTON_T_t
 pt = KRYPTON_P_t
+
+
 
 # --- cost function that returns (total, deviations) ---
 # ----- cost function with explicit masks and penalties -----
@@ -54,10 +57,10 @@ def _make_outfun(*datasets):
     return outfun
 
 
-def reset_history():
-    """Clear deviation history before starting a new optimization."""
-    for k in history:
-        history[k].clear()
+# def reset_history():
+#     """Clear deviation history before starting a new optimization."""
+#     for k in history:
+#         history[k].clear()
 
 
 def plot_deviation_history():
@@ -589,16 +592,40 @@ def main():
 
     bounds = list(zip(LOWER_BOUND, UPPER_BOUND))
     datasets = extract_datasets(krypton_data)
-    debug_datasets(datasets, Tt)
-    reset_history()
-    params_fit, fval = run_optimization(PARAMS_INIT, bounds, datasets)
-    plot_deviation_history()
-    print("Optimized parameters:", params_fit)
-    print("Final objective value:", fval)
+    # debug_datasets(datasets, Tt)
 
-    # If your vector is longer/shorter, we’ll truncate/pad labels to match length:
-    n = len(params_fit)
-    labels = PARAM_LABELS[:n] if len(PARAM_LABELS) >= n else PARAM_LABELS + [
-        ("param_"+str(i+1), "") for i in range(len(PARAM_LABELS), n)]
+    # << choose one: "Vm_sub", "Vm_melt", "cp_sub", "Alpha_sub", ...
+    metric = "Vm_sub"
+    cost_only, cb, quick_plots = make_single_metric_cost(
+        metric, datasets, Tt, compute_thermo_props)
+    x0 = np.asarray(PARAMS_INIT, dtype=float)
+    print("Initial single-metric RMS% =", cost_only(x0))
+    res = minimize(
+        fun=lambda x: cost_only(x),
+        x0=x0,
+        method="L-BFGS-B",
+        bounds=bounds,
+        callback=cb,
+        options=dict(maxiter=MAX_ITERATIONS, ftol=FUNCTION_TOL,
+                    gtol=GRADIENT_TOL, maxls=40, disp=True)
+    )
+
+    params_fit_single = res.x
+    print("Final single-metric RMS% =", cost_only(params_fit_single))
+
+    # Quick sanity plots for this one dataset
+    quick_plots(params_fit_single, title_suffix="(single-metric fit)")
+    # cost_only, cb, quick_plots = make_single_metric_cost(
+    # metric, datasets, Tt, compute_thermo_props)
+    # reset_history()
+    # params_fit, fval = run_optimization(PARAMS_INIT, bounds, datasets)
+    # plot_deviation_history()
+    # print("Optimized parameters:", params_fit)
+    # print("Final objective value:", fval)
+
+    # # If your vector is longer/shorter, we’ll truncate/pad labels to match length:
+    # n = len(params_fit)
+    # labels = PARAM_LABELS[:n] if len(PARAM_LABELS) >= n else PARAM_LABELS + [
+    #     ("param_"+str(i+1), "") for i in range(len(PARAM_LABELS), n)]
 
 main()
