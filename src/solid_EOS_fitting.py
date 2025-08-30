@@ -6,10 +6,10 @@ from pathlib import Path
 from read import load_all_gas_data
 from computethermoprops import *
 from p_functions import pmelt,psub
-from constants import PARAMS_INIT, LOWER_BOUND, UPPER_BOUND, KRYPTON_P_t, KRYPTON_T_t, KRYPTON_REFERENCE_ENTROPY, KRYPTON_REFERENCE_ENTHALPY, PARAM_LABELS, PERCENT_SCALE, GAMMA_POS_SLOPE_MULT, GAMMA_POS_SLOPE_OFFSET, GAMMA_NEG_SLOPE_MULT, T6, CP_TEMP_THRESHOLD_K, CP_WEIGHT_BELOW, CP_WEIGHT_ABOVE, PMELT_EXTRA_WEIGHT_T_K, PMELT_EXTRA_FACTOR, FUNCTION_TOL,GRADIENT_TOL,MAX_ITERATIONS
+from constants import *
 from fitting_helper import rms , _mean_sq
 import math
-from single_metric_fit import make_single_metric_cost
+from plot_eos import plot_all_overlays_grid
 
 BIG = 1e4
 # Constants
@@ -314,21 +314,22 @@ def combined_cost_function(params, *datasets):
                 terms.append(GAMMA_NEG_SLOPE_MULT * (Gm[i] - mu) / mu)
         Gamma_T6_dev = rms(np.array(terms))
 
-    # Weighted total (your MATLAB weights)
+
     total_deviation = (
-        Vm_sub_dev * 55 +
-        Vm_melt_dev * 35 +
-        Vm_highp_dev +
-        cp_sub_dev * 30 +
-        alpha_sub_dev * 50 +
-        BetaT_sub_dev * 20 +
-        BetaS_sub_dev * 30 +
-        H_solid_sub_dev * 25 +
-        H_solid_melt_dev * 2 +
-        p_sub_dev * 2 +
-        p_melt_dev * 5 +
-        Gamma_T6_dev * 3.5
+        Vm_sub_dev * W_VM_SUB +
+        Vm_melt_dev * W_VM_MELT +
+        Vm_highp_dev * W_VM_HIGHP +
+        cp_sub_dev * W_CP_SUB +
+        alpha_sub_dev * W_ALPHA_SUB +
+        BetaT_sub_dev * W_BETAT_SUB +
+        BetaS_sub_dev * W_BETAS_SUB +
+        H_solid_sub_dev * W_H_SOLID_SUB +
+        H_solid_melt_dev * W_H_SOLID_MELT +
+        p_sub_dev * W_P_SUB +
+        p_melt_dev * W_P_MELT +
+        Gamma_T6_dev * W_GAMMA_T
     )
+
 
     deviations = {
         "Vm_sub": Vm_sub_dev,
@@ -589,79 +590,21 @@ def reset_history():
 def main():
     krypton_data = load_all_gas_data('krypton', read_from_excel=False)
     datasets = extract_datasets(krypton_data)
-
-    # -----------------------------
-    # Choose metric & FREE indices
-    # -----------------------------
-    metric = "Vm_sub"  # or "Vm_melt", "cp_sub", "Alpha_sub", ...
-    cost_only, cb_full, quick_plots = make_single_metric_cost(
-        metric, datasets, Tt, compute_thermo_props
+    bounds= list(zip(LOWER_BOUND, UPPER_BOUND))
+    params_fit,fval = run_optimization(PARAMS_INIT, bounds, datasets)
+    plot_deviation_history()
+    plot_all_overlays_grid(
+        params=params_fit,
+        datasets=datasets,
+        Tt=KRYPTON_T_t,
+        pt=KRYPTON_P_t,
+        compute_thermo_props=compute_thermo_props,
+        St_REFPROP=KRYPTON_REFERENCE_ENTROPY,
+        Ht_REFPROP=KRYPTON_REFERENCE_ENTHALPY,
+        ncols=3,              # change to 2/4 if you like
+        figsize=(14, 10)
     )
-
-    # >>> PICK WHICH PARAMETERS TO FREE <<<
-    # Recommended first pass for Vm_sub: elastic-only
-    FREE = [0, 1, 2, 3]            # v00, a1, a2, a3
-    # Later you can try adding one thermal knob at a time, e.g.:
-    # FREE = [0, 1, 2, 3, 9]       # + Th[0]
-    # FREE = [0, 1, 2, 3, 9, 15]   # + g[0]
-    # (Indices follow your existing layout/comments.)
-
-    # -------------
-    # Pack/unpack
-    # -------------
-    x0_full = np.asarray(PARAMS_INIT, dtype=float)
-    LB_full = np.asarray(LOWER_BOUND, dtype=float)
-    UB_full = np.asarray(UPPER_BOUND, dtype=float)
-
-    def pack(x_full):
-        return np.asarray([x_full[i] for i in FREE], dtype=float)
-
-    def unpack(x_free, template_full):
-        x = np.array(template_full, dtype=float, copy=True)
-        for j, i in enumerate(FREE):
-            x[i] = float(x_free[j])
-        return x
-
-    # -------------
-    # Wrapped cost
-    # -------------
-    def cost_only_free(x_free):
-        x_full = unpack(x_free, x0_full)
-        return float(cost_only(x_full))
-
-    # Optional: wrapped callback so you still see RMS% per iter
-    it = {"i": 0}
-
-    def cb_free(x_free):
-        it["i"] += 1
-        x_full = unpack(x_free, x0_full)
-        val = cost_only(x_full)
-        print(f"[{metric}] iter={it['i']:3d}  RMS%={val:8.4f}")
-
-    # -------------
-    # Optimize only FREE
-    # -------------
-    x0_free = pack(x0_full)
-    bounds_free = [(LB_full[i], UB_full[i]) for i in FREE]
-
-    print("Initial single-metric RMS% =", cost_only(x0_full))
-    res = minimize(
-        fun=cost_only_free,
-        x0=x0_free,
-        method="L-BFGS-B",
-        bounds=bounds_free,
-        callback=cb_free, 
-        options=dict(maxiter=MAX_ITERATIONS, ftol=FUNCTION_TOL,
-                     gtol=GRADIENT_TOL, maxls=40, disp=True)
-    )
-
-    params_fit_single = unpack(res.x, x0_full)
-    print("Final single-metric RMS% =", cost_only(params_fit_single))
-
-    # -------------
-    # Quick sanity plots for this one dataset
-    # -------------
-    quick_plots(params_fit_single, title_suffix="(single-metric fit)")
-
-
+    print("Fitted parameters:")
+    print(params_fit)
+    print("Final cost:", fval)
 main()

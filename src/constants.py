@@ -158,11 +158,11 @@ AXIS_FONT_SIZE=14
 
 # Initial parameter guess (length = 31)
 PARAMS_INIT = np.array([
-    22.555, 2656.526, 7298.231, 10.2141, 0, 0, 0, 0, 0,
-    86.4362, 0, 0, 0, 0, 0,
-    2.6796, 0, 0, 0, 0, 0,
-    0.002422, 0, 0, 0, 0, 0,
-    0.01282, 0.3881, 7.8506, 130.372
+    22.555, 6743.10622, 9447.24378, 1046.14162, 0, 0, 0, 0, 0,
+    25.3970234, 0, 0, 0, 0, 0,
+    -5, 0, 0, 0, 0, 0,
+    -10, 0, 0, 0, 0, 0,
+   0, 100, 100, 51.0452205
 ])
 
 # Lower bounds
@@ -199,6 +199,20 @@ PERCENT_SCALE = 100.0
 
 T6 = np.array([0.0001] + list(range(2, 84, 2)) + [83.806])
 
-FUNCTION_TOL = 1e-10
+FUNCTION_TOL = 1e-8
 GRADIENT_TOL = 1e-6
-MAX_ITERATIONS = 20
+MAX_ITERATIONS = 100
+
+# --- Weights for each deviation term ---
+W_VM_SUB = 55.0
+W_VM_MELT = 35.0
+W_VM_HIGHP = 1e-7
+W_CP_SUB = 1e-7
+W_ALPHA_SUB = 1e-5
+W_BETAT_SUB = 0.1
+W_BETAS_SUB = 1e-10
+W_H_SOLID_SUB = 25.0
+W_H_SOLID_MELT = 2.0
+W_P_SUB = 2.0
+W_P_MELT = 5.0
+W_GAMMA_T = 3.5
