@@ -108,7 +108,7 @@ SUBLIMATION_SHEETNAME = "Sublimation"
 FUSION_SHEETNAME = "Heat of Fusion"
 HEAT_OF_SUBLIMATION_SHEETNAME = "Heat of Sublimation"
 
-
+EOS_FILEPATH = r"C:\Users\iashb\OneDrive - The University of Western Australia\UWA\05. Year 5\Semester 1\GENG5511 MPE Engineering Research Project\Project\Research_Project\GENG5511_Thesis\img\eos"
 
 # Define custom colors (normalized, excluding white)
 CUSTOMCOLORS = np.array([
@@ -157,12 +157,23 @@ MARKERSIZE=50
 AXIS_FONT_SIZE=14
 
 # Initial parameter guess (length = 31)
+# PARAMS_INIT = np.array([
+#     22.555, 6743.12, 9447.24378, 1046.14162, 0, 0, 0, 0, 0,
+#     81.43, 0, 0, 0, 0, 0,
+#     -4.72, 0, 0, 0, 0, 0,
+#     -10, 0, 0, 0, 0, 0,
+#    0, 100, 100, 100
+# ])
+
+# PARAMS_INIT = np.array([22.5550000000000, 2656.52642414977, 7298.23149507131, 10.2141048204410, 0, 0, 0, 0, 0, 86.4362106997872, 0, 0, 0, 0, 0, 2.67962223740954,
+#     0, 0, 0, 0, 0, 0.00242239049165781, 0, 0, 0, 0, 0, 0.0128218007844121, 0.388169436431343, 7.85061199420585, 130.371937461416])
+
 PARAMS_INIT = np.array([
-    22.555, 6743.12, 9447.24378, 1046.14162, 0, 0, 0, 0, 0,
-    81.43, 0, 0, 0, 0, 0,
-    -4.72, 0, 0, 0, 0, 0,
+    22.555, 6743.10622, 9447.24378, 1046.14162, 0, 0, 0, 0, 0,
+    25.3970234, 0, 0, 0, 0, 0,
+    -5, 0, 0, 0, 0, 0,
     -10, 0, 0, 0, 0, 0,
-   0, 100, 100, 94.15
+    0, 100, 100, 51.0452205
 ])
 
 # Lower bounds

@@ -1,5 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import datetime
+from constants import EOS_FILEPATH
+import os
 
 IDX = dict(Vm=0, KappaT=1, KappaS=2, Alpha=3, cp=4, H=10, G=11)
 
@@ -210,25 +213,37 @@ def plot_all_overlays_grid(params, datasets, Tt, pt,
                 pf[i] = pMi - dG / (Vfi - pr[IDX["Vm"]])
         panels.append(("Melting pressure", "T / K", "p (MPa)", T, pM, pf))
 
-    # ------- draw grid -------
-    n = len(panels)
-    if n == 0:
-        print("No panels to plot.")
-        return
-    ncols = max(1, int(ncols))
-    nrows = (n + ncols - 1) // ncols
-    fig, axes = plt.subplots(
-        nrows, ncols, figsize=figsize, squeeze=False, sharex=sharex)
-    k = 0
-    for r in range(nrows):
-        for c in range(ncols):
-            ax = axes[r, c]
-            if k < n:
-                title, xlab, ylab, T, y_exp, y_eos = panels[k]
-                _overlay_ax(ax, T, y_exp, y_eos, title, ylab, xlabel=xlab)
-            else:
-                ax.set_axis_off()
-            k += 1
-    fig.suptitle("Experimental vs EOS overlays", y=1.02, fontsize=12)
-    fig.tight_layout()
-    plt.show()
+
+        n = len(panels)
+        if n == 0:
+                print("No panels to plot.")
+                return
+
+        ncols = max(1, int(ncols))
+        nrows = (n + ncols - 1) // ncols
+        fig, axes = plt.subplots(
+            nrows, ncols, figsize=figsize, squeeze=False, sharex=sharex)
+
+        k = 0
+        for r in range(nrows):
+            for c in range(ncols):
+                ax = axes[r, c]
+                if k < n:
+                    title, xlab, ylab, T, y_exp, y_eos = panels[k]
+                    _overlay_ax(ax, T, y_exp, y_eos, title, ylab, xlabel=xlab)
+                else:
+                    ax.set_axis_off()
+                k += 1
+
+        fig.suptitle("Experimental vs EOS overlays", y=1.02, fontsize=12)
+        fig.tight_layout()
+
+        # --- save with timestamp in EOS_FILEPATH ---
+        os.makedirs(EOS_FILEPATH, exist_ok=True)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = os.path.join(
+            EOS_FILEPATH, f"experimental_vs_eos_{timestamp}.png")
+        fig.savefig(filename, dpi=300)
+        print(f"Figure saved to {filename}")
+
+        plt.close(fig)  # free memory

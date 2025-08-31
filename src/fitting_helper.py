@@ -13,6 +13,7 @@ from scipy.integrate import quad
 # solid_EOS_fitting.py
 
 
+
 def rms(x):
     x = np.asarray(x, float)
     x = x[np.isfinite(x)]

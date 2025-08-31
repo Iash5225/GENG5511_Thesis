@@ -35,6 +35,15 @@ def _make_outfun(*datasets):
     return outfun
 
 
+def rms_log(y_true, y_pred):
+    y_true = np.asarray(y_true, float)
+    y_pred = np.asarray(y_pred, float)
+    m = np.isfinite(y_true) & np.isfinite(y_pred) & (y_true > 0) & (y_pred > 0)
+    if not np.any(m):
+        return BIG
+    r = np.log(y_pred[m]) - np.log(y_true[m])
+    return float(np.sqrt(np.mean(r*r)))
+
 def plot_deviation_history():
     """Make two figures:
        1) total deviation vs iteration
@@ -252,7 +261,8 @@ def combined_cost_function(params, *datasets):
             if np.all(np.isfinite(props)) and np.isfinite(Vf) and (Vf != props[0]):
                 dG = Gf - props[11] + deltaH_triple - T * deltaS_triple
                 pf[i] = pM - dG / (Vf - props[0])  # MPa
-        p_sub_dev = rms_percent(p_sub[m], pf)
+        #p_sub_dev = rms_percent(p_sub[m], pf)
+        p_sub_dev = rms_log(p_sub[m], pf)
 
     # Melting pressure (all MPa; extra weight above threshold via factor)
     m = (np.isfinite(T_melt) & np.isfinite(p_melt) &
@@ -551,6 +561,30 @@ def reset_history():
         history[k].clear()
 
 
+def combined_cost_vm(params, *datasets):
+    (T_Vm_sub, p_Vm_sub, Vm_sub,
+     T_Vm_melt, p_Vm_melt, Vm_melt,
+     *rest) = datasets  # ignore the rest
+
+    Vm_sub_dev = BIG
+    m = (np.isfinite(T_Vm_sub) & np.isfinite(
+        Vm_sub) & (T_Vm_sub <= KRYPTON_T_t))
+    if np.any(m):
+        model = _safe_props_vector(T_Vm_sub[m], p_Vm_sub[m], params, idx=0)
+        Vm_sub_dev = rms_percent(Vm_sub[m], model)
+
+    Vm_melt_dev = BIG
+    m = (np.isfinite(T_Vm_melt) & np.isfinite(
+        Vm_melt) & (T_Vm_melt >= KRYPTON_T_t))
+    if np.any(m):
+        model = _safe_props_vector(T_Vm_melt[m], p_Vm_melt[m], params, idx=0)
+        Vm_melt_dev = rms_percent(Vm_melt[m], model)
+
+    total = Vm_sub_dev * 55 + Vm_melt_dev * 35
+    return total, {"Vm_sub": Vm_sub_dev, "Vm_melt": Vm_melt_dev}
+
+
+
 def main():
     krypton_data = load_all_gas_data('krypton', read_from_excel=False)
     datasets = extract_datasets(krypton_data)
@@ -572,5 +606,22 @@ def main():
     formatted = ", ".join(f"{p:.2f}" for p in params_fit)
     print("Fitted parameters:")
     print(formatted)
+    # --- pretty print parameters with names ---
+    param_names = [
+        r"$c_1$ / MPa",
+        r"$c_2$ / MPa",
+        r"$c_3$ / MPa",
+        r"$\theta_{D,0}$ / K",
+        r"$\gamma_{D,0}$",
+        r"$q_D$",
+        r"$b_1$",
+        r"$b_2$",
+        r"$b_3$",
+        r"$S_m(g,T_t,p_t)$ / (J mol$^{-1}$ K$^{-1}$)"
+    ]
+
+    print("\n=== Optimised Parameters ===")
+    for name, val in zip(param_names, params_fit[:len(param_names)]):
+        print(f"{name:25s}: {val:12.4f}")
     print("Final cost:", fval)
 main()
