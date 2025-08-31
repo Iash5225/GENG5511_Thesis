@@ -18,30 +18,8 @@ Ht_REFPROP = KRYPTON_REFERENCE_ENTHALPY
 Tt = KRYPTON_T_t
 pt = KRYPTON_P_t
 
+IDX = dict(Vm=0, KappaT=1, KappaS=2, Alpha=3, cp=4, H=10, G=11)
 
-
-# --- cost function that returns (total, deviations) ---
-# ----- cost function with explicit masks and penalties -----
-
-# global storage for deviations
-history = {
-    "total": [],
-    "Vm_sub": [],
-    "Vm_melt": [],
-    "Vm_highp": [],
-    "cp_sub": [],
-    "alpha_sub": [],
-    "BetaT_sub": [],
-    "BetaS_sub": [],
-    "H_solid_sub": [],
-    "H_solid_melt": [],
-    "p_sub": [],
-    "p_melt": [],
-    "Gamma_T": []
-}
-
-
-# --- keep only THIS version of _make_outfun ---
 # --- keep only THIS version of _make_outfun ---
 def _make_outfun(*datasets):
     def outfun(xk):
@@ -55,12 +33,6 @@ def _make_outfun(*datasets):
         for k, v in dev.items():
             print(f"  {k}: {v:.6g}")
     return outfun
-
-
-# def reset_history():
-#     """Clear deviation history before starting a new optimization."""
-#     for k in history:
-#         history[k].clear()
 
 
 def plot_deviation_history():
@@ -93,7 +65,6 @@ def plot_deviation_history():
     # choose a neat grid shape
     n = len(metric_keys)
     # 3 rows x 4 cols works nicely up to 12 metrics; compute general shape:
-    import math
     cols = min(4, n)
     rows = math.ceil(n / cols)
 
@@ -128,7 +99,6 @@ def rms_percent(y_true, y_pred, scale=PERCENT_SCALE):
     err = scale * (y_true[mask] - y_pred[mask]) / y_true[mask]
     err = err[np.isfinite(err)]
     return BIG if err.size == 0 else float(np.sqrt(np.mean(err*err)))
-
 
 def _safe_props_vector(T_arr, p_arr, params, idx):
     """Return model property vector (same length) with NaN where compute fails."""
@@ -197,18 +167,32 @@ def combined_cost_function(params, *datasets):
         Vm_highp_dev = rms_percent(Vm_highp[m], model)
 
     # cp (sublimation)
+    # m = (np.isfinite(T_cp_sub) & np.isfinite(p_cp_sub)
+    #      & np.isfinite(cp_sub) & (T_cp_sub <= Tt))
+    # cp_sub_dev = BIG
+    # if np.any(m):
+    #     model = _safe_props_vector(T_cp_sub[m], p_cp_sub[m], params, idx=4)
+    #     # temperature-dependent weighting, but still penalize empties
+    #     terms = []
+    #     for Ti, cpi, cpm in zip(T_cp_sub[m], cp_sub[m], model):
+    #         if np.isfinite(cpm) and cpi != 0:
+    #             w = CP_WEIGHT_BELOW if Ti < CP_TEMP_THRESHOLD_K else CP_WEIGHT_ABOVE
+    #             terms.append(w * (cpi - cpm) / cpi)
+    #     cp_sub_dev = rms(np.array(terms))
+
+    # cp (sublimation)
     m = (np.isfinite(T_cp_sub) & np.isfinite(p_cp_sub)
-         & np.isfinite(cp_sub) & (T_cp_sub <= Tt))
+        & np.isfinite(cp_sub) & (T_cp_sub <= Tt))
     cp_sub_dev = BIG
+
     if np.any(m):
         model = _safe_props_vector(T_cp_sub[m], p_cp_sub[m], params, idx=4)
-        # temperature-dependent weighting, but still penalize empties
-        terms = []
-        for Ti, cpi, cpm in zip(T_cp_sub[m], cp_sub[m], model):
-            if np.isfinite(cpm) and cpi != 0:
-                w = CP_WEIGHT_BELOW if Ti < CP_TEMP_THRESHOLD_K else CP_WEIGHT_ABOVE
-                terms.append(w * (cpi - cpm) / cpi)
-        cp_sub_dev = rms(np.array(terms))
+        # print("cp exp percentiles (J/mol-K):",
+        #       np.nanpercentile(cp_sub[m], [5, 50, 95]))
+        # print("cp model percentiles (J/mol-K):",
+        #   np.nanpercentile(model,  [5, 50, 95]))
+        cp_sub_dev = rms_percent(cp_sub[m], model)
+
 
     # alpha (sublimation)
     m = (np.isfinite(T_alpha_sub) & np.isfinite(p_alpha_sub)
@@ -462,14 +446,14 @@ def extract_datasets(data):
     # Enthalpy Sublimation
     T_H_sub = data['heatsub']['Temperature']
     p_H_sub = data['heatsub']['Pressure']
-    delta_H_sub = data['heatsub']['Change in Enthalpy']
-    H_fluid_sub = data['heatsub']['Enthalpy']
+    delta_H_sub = 1000.0 * data['heatsub']['Change in Enthalpy']  # kJ → J
+    H_fluid_sub = 1000.0 * data['heatsub']['Enthalpy']
 
     # Enthalpy Melting
     T_H_melt = data['fusion']['Temperature']
     p_H_melt = data['fusion']['Pressure']
-    delta_H_melt = data['fusion']['Change in Enthalpy']
-    H_fluid_melt = data['fusion']['Enthalpy']
+    delta_H_melt = 1000.0 * data['fusion']['Change in Enthalpy']
+    H_fluid_melt = 1000.0 * data['fusion']['Enthalpy']
 
     Year_sub = np.array([])   # <-- add this
 
@@ -499,26 +483,6 @@ def _cost_only(params, *datasets):
         return float(total) if np.isfinite(total) else BIG
     except Exception:
         return BIG
-
-# def _make_outfun(*datasets):
-#     def outfun(xk):
-#         total, dev = combined_cost_function(xk, *datasets)
-#         print(f"Current total_deviation: {total:.6g}")
-#         print(f"Vm_sub deviation: {dev['Vm_sub']:.6g}")
-#         print(f"Vm_melt deviation: {dev['Vm_melt']:.6g}")
-#         print(f"Vm_highp deviation: {dev['Vm_highp']:.6g}")
-#         print(f"cp deviation: {dev['cp_sub']:.6g}")
-#         print(f"alpha_sub deviation: {dev['alpha_sub']:.6g}")
-#         print(f"BetaT_sub deviation: {dev['BetaT_sub']:.6g}")
-#         print(f"BetaS_sub deviation: {dev['BetaS_sub']:.6g}")
-#         print(f"H_solid_sub deviation: {dev['H_solid_sub']:.6g}")
-#         print(f"H_solid_melt deviation: {dev['H_solid_melt']:.6g}")
-#         print(f"p_sub deviation: {dev['p_sub']:.6g}")
-#         print(f"p_melt deviation: {dev['p_melt']:.6g}")
-#         print(f"Gamma T deviation: {dev['Gamma_T']:.6g}")
-#         # return None to continue (SciPy callback can’t stop like MATLAB's `stop`)
-#     return outfun
-
 
 def debug_datasets(datasets, Tt):
     (T_Vm_sub, p_Vm_sub, Vm_sub,
@@ -590,8 +554,8 @@ def reset_history():
 def main():
     krypton_data = load_all_gas_data('krypton', read_from_excel=False)
     datasets = extract_datasets(krypton_data)
-    bounds= list(zip(LOWER_BOUND, UPPER_BOUND))
-    params_fit,fval = run_optimization(PARAMS_INIT, bounds, datasets)
+    bounds = list(zip(LOWER_BOUND, UPPER_BOUND))
+    params_fit, fval = run_optimization(PARAMS_INIT, bounds, datasets)
     plot_deviation_history()
     plot_all_overlays_grid(
         params=params_fit,
@@ -604,7 +568,9 @@ def main():
         ncols=3,              # change to 2/4 if you like
         figsize=(14, 10)
     )
+    # --- pretty print parameters ---
+    formatted = ", ".join(f"{p:.2f}" for p in params_fit)
     print("Fitted parameters:")
-    print(params_fit)
+    print(formatted)
     print("Final cost:", fval)
 main()

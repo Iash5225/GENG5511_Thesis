@@ -162,11 +162,19 @@ def compute_thermo_props(T: float, p: float, parameters):
         (cc / max(v00, _EPS_V)) * R * fz1 * fv
 
     dpdv_safe = np.sign(dpdv) * max(abs(dpdv), _EPS)
-    cp = cv - T * (dpdt**2) / dpdv_safe
+
 
     KappaT = -1.0 / (max(v, _EPS_V) * dpdv_safe)
-    KappaS = -cv / (max(cp, _EPS) * max(v, _EPS_V) * dpdv_safe)
+    KAPPA_FLOOR = 1e-9   # MPa^-1  (tune if needed; must be > 0)
     Alpha = -(dpdt / dpdv_safe) / max(v, _EPS_V)
+    cp = cv + T * (Alpha**2) * v / max(KappaT, KAPPA_FLOOR)
+    
+    KappaS = -cv / (max(cp, _EPS) * max(v, _EPS_V) * dpdv_safe)
+   
+
+    # --- robust cp via identity ---
+
+    # cp = cv - T * (dpdt**2) / dpdv_safe
 
     lnz = np.log(v00 / max(v, _EPS_V))
     U = v00 * (0.5*a1*lnz**2 + (a2/3.0)*lnz**3 + 0.25*a3*lnz**4)

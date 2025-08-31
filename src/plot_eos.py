@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-# indices in compute_thermo_props
 IDX = dict(Vm=0, KappaT=1, KappaS=2, Alpha=3, cp=4, H=10, G=11)
 
 
@@ -40,12 +39,14 @@ def _overlay_ax(ax, T, y_exp, y_eos, title, ylab, xlabel="T / K"):
         return
     order = np.argsort(T)
     ax.scatter(T, y_exp, s=12, label="exp")
-    ax.plot(np.asarray(T)[order], np.asarray(
-        y_eos)[order], lw=1.6, label="EOS")
+    ax.plot(np.asarray(T)[order],
+            np.asarray(y_eos)[order],
+            lw=2.0, color="red", label="EOS")   # <-- bright red line
     ax.set_title(title, fontsize=10)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylab)
     ax.legend(frameon=False, fontsize=8)
+
 
 
 def plot_all_overlays_grid(params, datasets, Tt, pt,

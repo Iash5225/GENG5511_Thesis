@@ -158,11 +158,11 @@ AXIS_FONT_SIZE=14
 
 # Initial parameter guess (length = 31)
 PARAMS_INIT = np.array([
-    22.555, 6743.10622, 9447.24378, 1046.14162, 0, 0, 0, 0, 0,
-    25.3970234, 0, 0, 0, 0, 0,
-    -5, 0, 0, 0, 0, 0,
+    22.555, 6743.12, 9447.24378, 1046.14162, 0, 0, 0, 0, 0,
+    81.43, 0, 0, 0, 0, 0,
+    -4.72, 0, 0, 0, 0, 0,
     -10, 0, 0, 0, 0, 0,
-   0, 100, 100, 51.0452205
+   0, 100, 100, 94.15
 ])
 
 # Lower bounds
@@ -204,15 +204,34 @@ GRADIENT_TOL = 1e-6
 MAX_ITERATIONS = 100
 
 # --- Weights for each deviation term ---
-W_VM_SUB = 55.0
-W_VM_MELT = 35.0
-W_VM_HIGHP = 1e-7
-W_CP_SUB = 1e-7
-W_ALPHA_SUB = 1e-5
-W_BETAT_SUB = 0.1
-W_BETAS_SUB = 1e-10
-W_H_SOLID_SUB = 25.0
-W_H_SOLID_MELT = 2.0
+W_VM_SUB = 30.0
+W_VM_MELT = 20.0
+W_VM_HIGHP = 5
+W_CP_SUB = 5.0
+W_ALPHA_SUB = 3.0
+W_BETAT_SUB = 5.0
+W_BETAS_SUB = 1.0
+W_H_SOLID_SUB = 10.0
+W_H_SOLID_MELT = 3.0
 W_P_SUB = 2.0
-W_P_MELT = 5.0
-W_GAMMA_T = 3.5
+W_P_MELT = 3.0
+W_GAMMA_T = 8.0
+
+history = {
+    "total": [],
+    "Vm_sub": [],
+    "Vm_melt": [],
+    "Vm_highp": [],
+    "cp_sub": [],
+    "alpha_sub": [],
+    "BetaT_sub": [],
+    "BetaS_sub": [],
+    "H_solid_sub": [],
+    "H_solid_melt": [],
+    "p_sub": [],
+    "p_melt": [],
+    "Gamma_T": []
+}
+
+# indices in compute_thermo_props
+IDX = dict(Vm=0, KappaT=1, KappaS=2, Alpha=3, cp=4, H=10, G=11)
