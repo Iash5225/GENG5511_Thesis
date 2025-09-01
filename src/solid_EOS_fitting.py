@@ -1,3 +1,5 @@
+from math import isfinite
+from scipy.optimize import brentq
 from scipy.optimize import minimize
 import numpy as np
 import pandas as pd
@@ -35,6 +37,51 @@ def _make_outfun(*datasets):
     return outfun
 
 
+def _pf_equilibrium(T, p_guess, Gf_at_pM, Vf_at_pM, params, compute_thermo_props,
+                    p_lo=1e-6, p_hi=8.0e4,  # MPa range wide enough for your data
+                    expand=3.0, max_expand=1e6):
+    """
+    Find p_f(T) such that G_model(T,p) - G_fluid(T,p) = 0.
+    We start near p_guess and expand a bracket until the sign changes.
+    """
+    # Define ΔG(T,p) using your already-available fluid data at this T:
+    # If you can evaluate fluid G,V at arbitrary p, use that. Otherwise,
+    # approximate G_fluid(T,p) ~ Gf_at_pM + (p - pM)*Vf_at_pM.
+    pM = float(p_guess)
+    GfM = float(Gf_at_pM)
+    VfM = float(Vf_at_pM)  # cm^3/mol
+
+    def dG(p):
+        pr = compute_thermo_props(T, p, params)
+        if not (isfinite(pr[11]) and isfinite(pr[0])):   # G and Vm
+            return np.nan
+        # linearized fluid G around pM (if no EOS for the fluid):
+        G_fluid_p = GfM + (p - pM) * VfM
+        return pr[11] - G_fluid_p
+
+    # Try to bracket around pM
+    lo, hi = max(p_lo, 1e-9), min(p_hi, 1e9)
+    a, b = max(lo, 0.5*pM), min(hi, 1.5*pM if pM > 0 else 1.0)
+    fa, fb = dG(a), dG(b)
+
+    # Expand until sign change or limits reached
+    k = 0
+    while (not (isfinite(fa) and isfinite(fb) and fa*fb < 0.0)) and k < 20:
+        a = max(lo, a/expand)
+        b = min(hi, b*expand)
+        fa, fb = dG(a), dG(b)
+        k += 1
+        if b/a > max_expand:
+            break
+
+    if isfinite(fa) and isfinite(fb) and fa*fb < 0.0:
+        try:
+            return float(brentq(dG, a, b, maxiter=100))
+        except Exception:
+            return np.nan
+    else:
+        return np.nan
+
 def rms_log(y_true, y_pred):
     y_true = np.asarray(y_true, float)
     y_pred = np.asarray(y_pred, float)
@@ -48,7 +95,7 @@ def rms_log(y_true, y_pred):
 # ---------- High-T weighting + log-pressure RMS ----------
 
 # smoothly up-weight points as T → Tmax (or as T → Tt on the low side)
-def _temp_weights_high_end(T, high_anchor, exp=2.0, w_min=0.25, w_max=3.0):
+def _temp_weights_high_end(T, high_anchor, exp=4.0, w_min=0.25, w_max=3.0):
     T = np.asarray(T, float)
     # map T into [0,1] against the chosen anchor (high end)
     span = max(abs(high_anchor - np.min(T)), 1e-9)
@@ -85,6 +132,12 @@ def _rms_log_pressure(p_true, p_pred, w=None, p_floor=1e-3):
     w = np.asarray(w, float)[m]
     w /= np.mean(w)
     return float(np.sqrt(np.mean(w * err * err)))
+
+
+def _hiT_weights(T, Tt, Tscale=60.0, boost=8.0):
+    # 1 below triple-point, grows ~exp as T rises
+    x = np.maximum(0.0, (np.asarray(T, float) - Tt)/Tscale)
+    return 1.0 + boost*(1.0 - np.exp(-x))**2
 
 def plot_deviation_history():
     """Make two figures:
@@ -231,18 +284,32 @@ def combined_cost_function(params, *datasets):
     #             terms.append(w * (cpi - cpm) / cpi)
     #     cp_sub_dev = rms(np.array(terms))
 
-    # cp (sublimation)
+    # # cp (sublimation)
+    # m = (np.isfinite(T_cp_sub) & np.isfinite(p_cp_sub)
+    #     & np.isfinite(cp_sub) & (T_cp_sub <= Tt))
+    # cp_sub_dev = BIG
+
+    # if np.any(m):
+    #     model = _safe_props_vector(T_cp_sub[m], p_cp_sub[m], params, idx=4)
+    #     # print("cp exp percentiles (J/mol-K):",
+    #     #       np.nanpercentile(cp_sub[m], [5, 50, 95]))
+    #     # print("cp model percentiles (J/mol-K):",
+    #     #   np.nanpercentile(model,  [5, 50, 95]))
+    #     cp_sub_dev = rms_percent(cp_sub[m], model)
+
+        # cp (sublimation) with split weighting (low vs high T)
     m = (np.isfinite(T_cp_sub) & np.isfinite(p_cp_sub)
         & np.isfinite(cp_sub) & (T_cp_sub <= Tt))
     cp_sub_dev = BIG
-
     if np.any(m):
-        model = _safe_props_vector(T_cp_sub[m], p_cp_sub[m], params, idx=4)
-        # print("cp exp percentiles (J/mol-K):",
-        #       np.nanpercentile(cp_sub[m], [5, 50, 95]))
-        # print("cp model percentiles (J/mol-K):",
-        #   np.nanpercentile(model,  [5, 50, 95]))
-        cp_sub_dev = rms_percent(cp_sub[m], model)
+        Tm = np.asarray(T_cp_sub)[m]
+        pm = np.asarray(p_cp_sub)[m]
+        y_exp = np.asarray(cp_sub)[m]
+        y_eos = _safe_props_vector(Tm, pm, params, idx=4)
+        # weights: stronger below CP_SPLIT_K because cp -> 0
+        w = np.where(Tm < CP_SPLIT_K, CP_W_BELOW, CP_W_ABOVE)
+        # relative RMS with weights
+        cp_sub_dev = _rms_weighted(y_exp, y_eos, w, floor=1e-6)
 
 
     # alpha (sublimation)
@@ -308,31 +375,53 @@ def combined_cost_function(params, *datasets):
 
 
         # --- Sublimation pressure (all MPa, T <= Tt) ---
+    # m = (np.isfinite(T_sub) & np.isfinite(p_sub) &
+    #     np.isfinite(G_fluid_sub) & np.isfinite(V_fluid_sub) & (T_sub <= Tt))
+    # p_sub_dev = BIG
+    # if np.any(m):
+    #     T = np.asarray(T_sub)[m]
+    #     pM = np.asarray(p_sub)[m]
+    #     Gf = np.asarray(G_fluid_sub)[m]
+    #     Vf = np.asarray(V_fluid_sub)[m]
+
+    #     pf = np.full_like(pM, np.nan, dtype=float)
+    #     # compute model-implied p_f for each experimental point
+    #     for i, (Ti, pMi, Gfi, Vfi) in enumerate(zip(T, pM, Gf, Vf)):
+    #         props = compute_thermo_props(Ti, pMi, params)
+    #         if np.all(np.isfinite(props)) and np.isfinite(Vfi) and (Vfi != props[0]):
+    #             dG = Gfi - props[11] + deltaH_triple - Ti * deltaS_triple
+    #             pf[i] = pMi - dG / (Vfi - props[0])  # MPa
+
+    #     # temperature weights that grow smoothly toward the triple point (high end for subl.)
+    #     w_T = _temp_weights_high_end(
+    #         T, high_anchor=Tt, exp=2.0, w_min=0.25, w_max=3.0)
+
+    #     # use log-residuals (balances decades of p); also uses the high-T weights
+    #     p_sub_dev = _rms_log_pressure(pM, pf, w=w_T, p_floor=1e-3)
+
+    # # Another method
+    # m = (np.isfinite(T_sub) & np.isfinite(p_sub) &
+    #      np.isfinite(G_fluid_sub) & np.isfinite(V_fluid_sub) & (T_sub <= Tt))
+    # p_sub_dev = BIG
+    # if np.any(m):
+    #     Tm, pM, Gf, Vf = T_sub[m], p_sub[m], G_fluid_sub[m], V_fluid_sub[m]
+    #     pf = np.array([_pf_equilibrium(Ti, pMi, Gfi, Vfi, params, compute_thermo_props)
+    #                 for Ti, pMi, Gfi, Vfi in zip(Tm, pM, Gf, Vf)])
+    #     p_sub_dev = _rms_log_pressure(pM, pf, w=_hiT_weights(Tm, Tt))
+    # replace the "Another method" block for p_sub_dev
     m = (np.isfinite(T_sub) & np.isfinite(p_sub) &
         np.isfinite(G_fluid_sub) & np.isfinite(V_fluid_sub) & (T_sub <= Tt))
     p_sub_dev = BIG
     if np.any(m):
-        T = np.asarray(T_sub)[m]
-        pM = np.asarray(p_sub)[m]
-        Gf = np.asarray(G_fluid_sub)[m]
-        Vf = np.asarray(V_fluid_sub)[m]
-
+        Tm, pM, Gf, Vf = T_sub[m], p_sub[m], G_fluid_sub[m], V_fluid_sub[m]
         pf = np.full_like(pM, np.nan, dtype=float)
-        # compute model-implied p_f for each experimental point
-        for i, (Ti, pMi, Gfi, Vfi) in enumerate(zip(T, pM, Gf, Vf)):
+        for i, (Ti, pMi, Gfi, Vfi) in enumerate(zip(Tm, pM, Gf, Vf)):
             props = compute_thermo_props(Ti, pMi, params)
-            if np.all(np.isfinite(props)) and np.isfinite(Vfi) and (Vfi != props[0]):
-                dG = Gfi - props[11] + deltaH_triple - Ti * deltaS_triple
-                pf[i] = pMi - dG / (Vfi - props[0])  # MPa
-
-        # temperature weights that grow smoothly toward the triple point (high end for subl.)
-        w_T = _temp_weights_high_end(
-            T, high_anchor=Tt, exp=2.0, w_min=0.25, w_max=3.0)
-
-        # use log-residuals (balances decades of p); also uses the high-T weights
-        p_sub_dev = _rms_log_pressure(pM, pf, w=w_T, p_floor=1e-3)
-
-
+            if np.all(np.isfinite(props)) and np.isfinite(Vfi) and (Vfi != props[IDX["Vm"]]):
+                dG = Gfi - props[IDX["G"]] + (deltaH_triple - Ti*deltaS_triple)
+                pf[i] = pMi - dG / (Vfi - props[IDX["Vm"]])
+        # keep the log RMS (good over decades) and your high-T weights
+        p_sub_dev = _rms_log_pressure(pM, pf, w=_hiT_weights(Tm, Tt))
     # Melting pressure (all MPa; extra weight above threshold via factor)
     # m = (np.isfinite(T_melt) & np.isfinite(p_melt) &
     #      np.isfinite(G_fluid_melt) & np.isfinite(V_fluid_melt) & (T_melt >= Tt))
@@ -677,6 +766,128 @@ def combined_cost_vm(params, *datasets):
     return total, {"Vm_sub": Vm_sub_dev, "Vm_melt": Vm_melt_dev}
 
 
+# =========================
+# ======== STAGE A ========
+# Fit Vm only (sublimation + melting); freeze all other params
+# =========================
+
+def _cost_only_vm(params, *datasets):
+    try:
+        total, _ = combined_cost_vm(params, *datasets)
+        return float(total) if np.isfinite(total) else BIG
+    except Exception:
+        return BIG
+
+
+def _make_outfun_vm(*datasets):
+    def outfun(xk):
+        tot, dev = combined_cost_vm(xk, *datasets)
+        # optional live log
+        print(
+            f"[Stage A] total: {tot:.6g} | Vm_sub: {dev['Vm_sub']:.6g} | Vm_melt: {dev['Vm_melt']:.6g}")
+    return outfun
+
+
+def _stageA_bounds_free_vm_only(params_init, lower, upper):
+    """
+    Build bounds where ONLY [v00, a1, a2, a3] are free.
+    Everything else is clamped at its initial value.
+    Layout from your code:
+      0: v00
+      1-3: a1, a2, a3
+      others: frozen
+    """
+    params_init = np.asarray(params_init, float)
+    lb = list(lower)
+    ub = list(upper)
+
+    free_idx = {0, 1, 2, 3}  # v00, a1, a2, a3
+    B = []
+    for i, (lo, hi) in enumerate(zip(lb, ub)):
+        if i in free_idx:
+            # keep your original bounds for the free ones, but make sure they are wide enough
+            B.append((float(lo), float(hi)))
+        else:
+            # clamp at initial value
+            B.append((float(params_init[i]), float(params_init[i])))
+    return B
+
+
+def run_stage_A(params_init, datasets, lower_bound, upper_bound,
+                maxiter=300, ftol=1e-9, gtol=1e-3):
+    print("=== Stage A: Fitting Vm only (sub+melt) ===")
+    # build bounds
+    boundsA = _stageA_bounds_free_vm_only(
+        params_init, lower_bound, upper_bound)
+
+    # quick sanity on initial cost
+    tot0, dev0 = combined_cost_vm(params_init, *datasets)
+    print(
+        f"[Stage A] initial total = {tot0:.6g}  (Vm_sub={dev0['Vm_sub']:.6g}, Vm_melt={dev0['Vm_melt']:.6g})")
+
+    cb = _make_outfun_vm(*datasets)
+
+    res = minimize(
+        fun=_cost_only_vm,
+        x0=np.asarray(params_init, dtype=float),
+        args=datasets,
+        method="L-BFGS-B",
+        bounds=boundsA,
+        callback=cb,
+        options=dict(
+            disp=True,
+            maxiter=maxiter,
+            ftol=ftol,
+            gtol=gtol,
+            maxls=40,
+        )
+    )
+    print("\n[Stage A] Optimization status:", res.message)
+    print("[Stage A] Final cost:", res.fun)
+
+    # pretty print only the free parameters
+    names = ["v00", "a1", "a2", "a3"]
+    idxs = [0, 1, 2, 3]
+    print("\n[Stage A] Fitted elastic parameters:")
+    for nm, i in zip(names, idxs):
+        print(f"  {nm:4s}: {res.x[i]:.6g}")
+
+    # save params so we can seed Stage B later
+    from datetime import datetime
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    np.save(f"stageA_params_{stamp}.npy", res.x)
+    print(f"[Stage A] Saved params -> stageA_params_{stamp}.npy")
+
+    return res.x, res.fun
+
+
+def stage_A():
+    # 1) load data
+    krypton_data = load_all_gas_data('krypton', read_from_excel=False)
+    datasets = extract_datasets(krypton_data)
+
+    # 2) build Stage A bounds and run
+    boundsA = list(zip(LOWER_BOUND, UPPER_BOUND))
+    paramsA, fA = run_stage_A(PARAMS_INIT, datasets, LOWER_BOUND, UPPER_BOUND)
+
+    # 3) plot overlays using Stage-A params (so you can visually check Vm)
+    plot_all_overlays_grid(
+        params=paramsA,
+        datasets=datasets,
+        Tt=KRYPTON_T_t,
+        pt=KRYPTON_P_t,
+        compute_thermo_props=compute_thermo_props,
+        St_REFPROP=KRYPTON_REFERENCE_ENTROPY,
+        Ht_REFPROP=KRYPTON_REFERENCE_ENTHALPY,
+        ncols=3,
+        figsize=(14, 10)
+    )
+
+    # 4) print compact list for your log
+    formatted = ", ".join(f"{p:.6g}" for p in paramsA)
+    print("\n[Stage A] Full parameter vector (with non-frees unchanged):")
+    print(formatted)
+    print("[Stage A] Final cost:", fA)
 
 def main():
     krypton_data = load_all_gas_data('krypton', read_from_excel=False)
@@ -717,4 +928,5 @@ def main():
     for name, val in zip(param_names, params_fit[:len(param_names)]):
         print(f"{name:25s}: {val:12.4f}")
     print("Final cost:", fval)
-main()
+
+stage_A()

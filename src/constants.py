@@ -169,7 +169,7 @@ AXIS_FONT_SIZE=14
 #     0, 0, 0, 0, 0, 0.00242239049165781, 0, 0, 0, 0, 0, 0.0128218007844121, 0.388169436431343, 7.85061199420585, 130.371937461416])
 
 PARAMS_INIT = np.array([
-    22.555, 6743.10622, 9447.24378, 1046.14162, 0, 0, 0, 0, 0,
+    22.555, 6901.0254, 9447.7265, 1046.1416, 0, 0, 0, 0, 0,
     25.3970234, 0, 0, 0, 0, 0,
     -5, 0, 0, 0, 0, 0,
     -10, 0, 0, 0, 0, 0,
@@ -246,3 +246,21 @@ history = {
 
 # indices in compute_thermo_props
 IDX = dict(Vm=0, KappaT=1, KappaS=2, Alpha=3, cp=4, H=10, G=11)
+
+# ---------- Physical-constraint knobs ----------
+CP_SPLIT_K = 7.0            # K: split between "low" and "high" heat-capacity weighting
+CP_W_BELOW = 3.0             # stronger weight where cp -> 0
+CP_W_ABOVE = 1.0
+
+PMELT_T_HI_K = 500.0         # K: emphasize melting pressures at high T
+# extra weight multiplier for T >= 500 K (on top of log-RMS)
+PMELT_W_HI = 4.0
+
+# enforce alpha >= 0 as T -> 0 (apply up to this temp)
+ALPHA_POS_T_K = 30.0
+W_ALPHA_POS = 5.0          # deviation weight for alpha positivity penalty
+
+GAMMA_DEBYE_T_MAX = 30.0     # K: range over which gamma -> gamma_D0
+W_GAMMA_LOW_T = 3.0      # weight for (gamma - gamma_D0) penalty in 0–30 K
+
+W_GAMMA_MONO = 3.5      # already in your code; keep or tune
