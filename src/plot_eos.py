@@ -1,8 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import datetime
-from constants import EOS_FILEPATH
+from constants import *
 import os
+from thermal_script import melting_pressure_equation,sublimation_pressure_equation
 
 IDX = dict(Vm=0, KappaT=1, KappaS=2, Alpha=3, cp=4, H=10, G=11)
 
@@ -51,11 +52,12 @@ def _overlay_ax(ax, T, y_exp, y_eos, title, ylab, xlabel="T / K"):
     ax.legend(frameon=False, fontsize=8)
 
 
-
 def plot_all_overlays_grid(params, datasets, Tt, pt,
                            compute_thermo_props,
                            St_REFPROP, Ht_REFPROP,
+                           psub_curve=None, pmelt_curve=None,   # <— NEW
                            ncols=3, figsize=(13, 9), sharex=False):
+
     """
     Makes a grid of subplots:
       Vm_sub, Vm_melt, Vm_highp (if any), cp_sub, Alpha_sub, KappaT_sub, KappaS_sub,
@@ -72,6 +74,14 @@ def plot_all_overlays_grid(params, datasets, Tt, pt,
      T_melt, p_melt, G_fluid_melt, V_fluid_melt,
      T_H_sub, p_H_sub, delta_H_sub, H_fluid_sub,
      T_H_melt, p_H_melt, delta_H_melt, H_fluid_melt) = datasets
+    
+
+    if psub_curve is None:
+        psub_curve = lambda T: np.full_like(
+            np.asarray(T, float), np.nan, dtype=float)
+    if pmelt_curve is None:
+        pmelt_curve = lambda T: np.full_like(
+            np.asarray(T, float), np.nan, dtype=float)
 
     dHtr, dStr = _calc_deltaH_S_at_triple(params, Tt, pt, compute_thermo_props,
                                           St_REFPROP, Ht_REFPROP)
@@ -178,41 +188,49 @@ def plot_all_overlays_grid(params, datasets, Tt, pt,
         panels.append((r"$H_\mathrm{solid}$ — melting", "T / K",
                       r"$H$ (kJ mol$^{-1}$)", T, H_s_exp, H_model))
 
-    # Sublimation pressure: model-implied p_f vs exp p_M
+        # --- Sublimation pressure (aux curve vs experimental, log y) ---
     m = (np.isfinite(T_sub) & np.isfinite(p_sub) &
-         np.isfinite(G_fluid_sub) & np.isfinite(V_fluid_sub) & (np.asarray(T_sub) <= Tt))
+        np.isfinite(G_fluid_sub) & np.isfinite(V_fluid_sub) & (np.asarray(T_sub) <= Tt))
     if np.any(m):
-        T = np.asarray(T_sub)[m]
-        pM = np.asarray(p_sub)[m]
-        Gf = np.asarray(G_fluid_sub)[m]
-        Vf = np.asarray(V_fluid_sub)[m]
-        pf = np.full_like(pM, np.nan, dtype=float)
-        for i, (Ti, pMi, Gfi, Vfi) in enumerate(zip(T, pM, Gf, Vf)):
-            pr = compute_thermo_props(Ti, pMi, params)
-            if np.all(np.isfinite(pr)) and np.isfinite(Vfi) and (Vfi != pr[IDX["Vm"]]):
-                dG = Gfi - pr[IDX["G"]] + dHtr - Ti*(_calc_deltaH_S_at_triple(
-                    params, Tt, pt, compute_thermo_props, St_REFPROP, Ht_REFPROP)[1])
-                pf[i] = pMi - dG / (Vfi - pr[IDX["Vm"]])
-        panels.append(("Sublimation pressure", "T / K", "p (MPa)", T, pM, pf))
+        T_pts = np.asarray(T_sub)[m]
+        p_pts = np.asarray(p_sub)[m]
+        # dense curve from min(T_pts) up to Tt
+        T_curve = np.linspace(np.nanmin(T_pts), Tt, 300)
+        p_curve = np.asarray(psub_curve(T_curve), float)
+        # guard: log axis needs positive pressures
+        ok = np.isfinite(p_curve) & (p_curve > 0)
+        T_curve, p_curve = T_curve[ok], p_curve[ok]
+        panels.append({
+            "type": "pressure",
+            "title": "Sublimation pressure",
+            "xlabel": "T / K",
+            "ylabel": "p (MPa)",
+            "T_pts": T_pts, "p_pts": p_pts,
+            "T_curve": T_curve, "p_curve": p_curve
+        })
 
-    # Melting pressure: model-implied p_f vs exp p_M
+    # --- Melting pressure (aux curve vs experimental, log y) ---
     m = (np.isfinite(T_melt) & np.isfinite(p_melt) &
-         np.isfinite(G_fluid_melt) & np.isfinite(V_fluid_melt) & (np.asarray(T_melt) >= Tt))
+        np.isfinite(G_fluid_melt) & np.isfinite(V_fluid_melt) & (np.asarray(T_melt) >= Tt))
     if np.any(m):
-        T = np.asarray(T_melt)[m]
-        pM = np.asarray(p_melt)[m]
-        Gf = np.asarray(G_fluid_melt)[m]
-        Vf = np.asarray(V_fluid_melt)[m]
-        pf = np.full_like(pM, np.nan, dtype=float)
-        dHtr2, dStr2 = dHtr, _calc_deltaH_S_at_triple(
-            params, Tt, pt, compute_thermo_props, St_REFPROP, Ht_REFPROP)[1]
-        for i, (Ti, pMi, Gfi, Vfi) in enumerate(zip(T, pM, Gf, Vf)):
-            pr = compute_thermo_props(Ti, pMi, params)
-            if np.all(np.isfinite(pr)) and np.isfinite(Vfi) and (Vfi != pr[IDX["Vm"]]):
-                dG = Gfi - pr[IDX["G"]] + dHtr2 - Ti*dStr2
-                pf[i] = pMi - dG / (Vfi - pr[IDX["Vm"]])
-        panels.append(("Melting pressure", "T / K", "p (MPa)", T, pM, pf))
-
+        T_pts = np.asarray(T_melt)[m]
+        p_pts = np.asarray(p_melt)[m]
+        # dense curve from max(Tt, min exp T) to max exp T
+        t_lo = max(Tt, float(np.nanmin(T_pts)))
+        t_hi = float(np.nanmax(T_pts))
+        if t_hi > t_lo:
+            T_curve = np.linspace(t_lo, t_hi, 300)
+            p_curve = np.asarray(pmelt_curve(T_curve), float)
+            ok = np.isfinite(p_curve) & (p_curve > 0)
+            T_curve, p_curve = T_curve[ok], p_curve[ok]
+            panels.append({
+                "type": "pressure",
+                "title": "Melting pressure",
+                "xlabel": "T / K",
+                "ylabel": "p (MPa)",
+                "T_pts": T_pts, "p_pts": p_pts,
+                "T_curve": T_curve, "p_curve": p_curve
+            })
 
         n = len(panels)
         if n == 0:
@@ -221,19 +239,32 @@ def plot_all_overlays_grid(params, datasets, Tt, pt,
 
         ncols = max(1, int(ncols))
         nrows = (n + ncols - 1) // ncols
-        fig, axes = plt.subplots(
-            nrows, ncols, figsize=figsize, squeeze=False, sharex=sharex)
 
+
+        fig, axes = plt.subplots(nrows, ncols, figsize=figsize,
+                                squeeze=False, sharex=sharex)
         k = 0
         for r in range(nrows):
             for c in range(ncols):
                 ax = axes[r, c]
                 if k < n:
-                    title, xlab, ylab, T, y_exp, y_eos = panels[k]
-                    _overlay_ax(ax, T, y_exp, y_eos, title, ylab, xlabel=xlab)
+                    panel = panels[k]
+                    if isinstance(panel, dict) and panel.get("type") == "pressure":
+                        _overlay_pressure_ax(
+                            ax,
+                            panel["T_pts"], panel["p_pts"],
+                            panel["T_curve"], panel["p_curve"],
+                            panel["title"], panel["ylabel"],
+                            xlabel=panel["xlabel"]
+                        )
+                    else:
+                        # your original tuple-style panels
+                        title, xlab, ylab, T, y_exp, y_eos = panel
+                        _overlay_ax(ax, T, y_exp, y_eos, title, ylab, xlabel=xlab)
                 else:
                     ax.set_axis_off()
                 k += 1
+
 
         fig.suptitle("Experimental vs EOS overlays", y=1.02, fontsize=12)
         fig.tight_layout()
@@ -247,3 +278,27 @@ def plot_all_overlays_grid(params, datasets, Tt, pt,
         print(f"Figure saved to {filename}")
 
         plt.close(fig)  # free memory
+
+
+def _make_phase_curve(T_data, T_lo, T_hi, n=200):
+    """Dense, sorted temperature grid spanning [T_lo, T_hi] ∩ [min(T_data), max(T_data)]."""
+    if len(T_data) == 0:
+        return np.array([]), np.array([])
+    tmin = max(T_lo, float(np.nanmin(T_data)))
+    tmax = min(T_hi, float(np.nanmax(T_data)))
+    if not np.isfinite(tmin) or not np.isfinite(tmax) or tmax <= tmin:
+        return np.array([]), np.array([])
+    Tgrid = np.linspace(tmin, tmax, n)
+    return Tgrid, None  # second value filled by caller
+
+
+def _overlay_pressure_ax(ax, T_pts, p_pts, T_curve, p_curve, title, ylabel, xlabel="T / K"):
+    """Scatter experimental points and draw phase-curve; set log y-scale and a neat legend."""
+    ax.scatter(T_pts, p_pts, s=28, facecolors='none',
+               edgecolors='C0', linewidths=1.2, label="exp.")
+    ax.plot(T_curve, p_curve, 'k-', lw=1.8, label="aux curve")
+    ax.set_yscale('log')
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    ax.legend(loc="best", fontsize=8)
