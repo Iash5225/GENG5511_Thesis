@@ -928,5 +928,176 @@ def main():
     for name, val in zip(param_names, params_fit[:len(param_names)]):
         print(f"{name:25s}: {val:12.4f}")
     print("Final cost:", fval)
+# =========================
+# ======== STAGE B ========
+# Fit thermal + phase-line parameters with full cost
+# Keeps elastic (v00, a1, a2, a3) fixed by default
+# =========================
 
-stage_A()
+# Indices (consistent with your unpacking):
+# 0: v00
+# 1-3: a1, a2, a3
+# 9-15:  Th[0..5]  -> we'll free Th[0] (index 9)
+# 15-21: g[0..5]   -> we'll free g[0]  (index 15)
+# 21-27: q[0..5]   -> we'll free q[0]  (index 21)
+# 27: aa, 28: bb, 29: cc, 30: S* (solid entropy at triple)
+
+
+_STAGEB_DEFAULT_FREE = dict(
+    T0=True,   # Th[0] @ index 9
+    g0=True,   # g[0] @ index 15
+    q0=True,   # q[0] @ index 21
+    aa=True,   # index 27
+    bb=True,   # index 28
+    cc=True,   # index 29
+    Sstar=True  # index 30 (lets triple-point H,S align)
+)
+
+
+def _stageB_bounds(params_start, lower, upper,
+                   free_flags=_STAGEB_DEFAULT_FREE,
+                   lock_elastic=True, relax_elastic_eps=0.0):
+    """
+    Build Stage-B bounds.
+    - lock_elastic=True → clamp [0..3] to params_start values.
+      (Set relax_elastic_eps>0 to allow tiny wiggle if you like.)
+    - free_flags controls which thermal indices are free.
+    All others are clamped at their starting values.
+    """
+    params_start = np.asarray(params_start, float)
+    LB = list(lower)
+    UB = list(upper)
+
+    # start from all fixed at their current value:
+    B = [(float(v), float(v)) for v in params_start]
+
+    # optionally unlock elastic (0..3)
+    if lock_elastic:
+        if relax_elastic_eps > 0:
+            for i in (0, 1, 2, 3):
+                v = params_start[i]
+                B[i] = (v - relax_elastic_eps*abs(v),
+                        v + relax_elastic_eps*abs(v))
+        # else keep as clamped
+    else:
+        for i in (0, 1, 2, 3):
+            B[i] = (float(LB[i]), float(UB[i]))
+
+    # Free thermal/phase-line knobs
+    idx_map = dict(T0=9, g0=15, q0=21, aa=27, bb=28, cc=29, Sstar=30)
+    for key, do_free in free_flags.items():
+        if do_free:
+            i = idx_map[key]
+            B[i] = (float(LB[i]), float(UB[i]))
+
+    return B
+
+
+def _make_outfun_full(*datasets):
+    # reuse your per-iteration logging with full cost
+    return _make_outfun(*datasets)
+
+
+def run_stage_B(params_from_stageA, datasets,
+                lower_bound, upper_bound,
+                free_flags=_STAGEB_DEFAULT_FREE,
+                lock_elastic=True,
+                maxiter=500, ftol=1e-9, gtol=1e-3):
+    print("=== Stage B: Fitting thermal + phase-line parameters (full cost) ===")
+
+    boundsB = _stageB_bounds(
+        params_start=params_from_stageA,
+        lower=lower_bound, upper=upper_bound,
+        free_flags=free_flags,
+        lock_elastic=lock_elastic,
+        relax_elastic_eps=0.0  # set small (e.g., 1e-3) to allow tiny movement
+    )
+
+    # show what is free
+    print("[Stage B] Free parameters:", [
+          k for k, v in free_flags.items() if v])
+    if lock_elastic:
+        print("[Stage B] Elastic [v00,a1,a2,a3] locked to Stage-A values")
+
+    # sanity check initial full cost
+    tot0, dev0 = combined_cost_function(params_from_stageA, *datasets)
+    print(f"[Stage B] initial total = {tot0:.6g}")
+    for k, v in dev0.items():
+        print(f"  {k}: {v:.6g}")
+
+    cb = _make_outfun_full(*datasets)
+
+    res = minimize(
+        fun=_cost_only,                        # uses combined_cost_function
+        x0=np.asarray(params_from_stageA, float),
+        args=datasets,
+        method="L-BFGS-B",
+        bounds=boundsB,
+        callback=cb,
+        options=dict(
+            disp=True,
+            maxiter=maxiter,
+            ftol=ftol,
+            gtol=gtol,
+            maxls=40,
+        )
+    )
+
+    print("\n[Stage B] Optimization status:", res.message)
+    print("[Stage B] Final cost:", res.fun)
+
+    # Pretty print the parameters we changed
+    idx_map = dict(T0=9, g0=15, q0=21, aa=27, bb=28, cc=29, Sstar=30)
+    print("\n[Stage B] Fitted thermal/phase-line parameters:")
+    for k, i in idx_map.items():
+        if free_flags.get(k, False):
+            print(f"  {k:6s} (idx {i:2d}): {res.x[i]: .6g}")
+
+    # Save params
+    from datetime import datetime
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    np.save(f"stageB_params_{stamp}.npy", res.x)
+    print(f"[Stage B] Saved params -> stageB_params_{stamp}.npy")
+
+    return res.x, res.fun
+
+
+def stage_B(params_stageA):
+    krypton_data = load_all_gas_data('krypton', read_from_excel=False)
+    datasets = extract_datasets(krypton_data)
+
+    paramsB, fB = run_stage_B(
+        params_from_stageA=params_stageA,
+        datasets=datasets,
+        lower_bound=LOWER_BOUND,
+        upper_bound=UPPER_BOUND,
+        free_flags=_STAGEB_DEFAULT_FREE,  # change here if you want to freeze any
+        lock_elastic=True,                # keep elastic from Stage A
+        maxiter=500, ftol=1e-9, gtol=1e-3
+    )
+
+    # Plot overlays to inspect p_sub, p_melt, cp, alpha, etc.
+    plot_all_overlays_grid(
+        params=paramsB,
+        datasets=datasets,
+        Tt=KRYPTON_T_t,
+        pt=KRYPTON_P_t,
+        compute_thermo_props=compute_thermo_props,
+        St_REFPROP=KRYPTON_REFERENCE_ENTROPY,
+        Ht_REFPROP=KRYPTON_REFERENCE_ENTHALPY,
+        ncols=3,
+        figsize=(14, 10)
+    )
+
+    formatted = ", ".join(f"{p:.6g}" for p in paramsB)
+    print("\n[Stage B] Full parameter vector:")
+    print(formatted)
+    print("[Stage B] Final cost:", fB)
+
+
+# 1) Stage A
+paramsA, fA = run_stage_A(PARAMS_INIT, extract_datasets(load_all_gas_data('krypton', False)),
+                          LOWER_BOUND, UPPER_BOUND)
+
+# 2) Stage B (uses Stage A params as the start point)
+stage_B(paramsA)
