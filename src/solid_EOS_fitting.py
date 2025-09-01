@@ -44,6 +44,48 @@ def rms_log(y_true, y_pred):
     r = np.log(y_pred[m]) - np.log(y_true[m])
     return float(np.sqrt(np.mean(r*r)))
 
+
+# ---------- High-T weighting + log-pressure RMS ----------
+
+# smoothly up-weight points as T → Tmax (or as T → Tt on the low side)
+def _temp_weights_high_end(T, high_anchor, exp=2.0, w_min=0.25, w_max=3.0):
+    T = np.asarray(T, float)
+    # map T into [0,1] against the chosen anchor (high end)
+    span = max(abs(high_anchor - np.min(T)), 1e-9)
+    x = np.clip((T - (high_anchor - span)) / span, 0.0, 1.0)
+    w = w_min + (w_max - w_min) * (x ** exp)   # emphasize high T
+    return w
+
+
+def _rms_weighted(y_true, y_pred, w, floor=1e-12):
+    y_true = np.asarray(y_true, float)
+    y_pred = np.asarray(y_pred, float)
+    w = np.asarray(w,      float)
+    m = np.isfinite(y_true) & np.isfinite(y_pred) & np.isfinite(w)
+    if not np.any(m):
+        return BIG
+    # relative error with small floor to avoid divide-by-zero
+    err = (y_true[m] - y_pred[m]) / np.maximum(np.abs(y_true[m]), floor)
+    w = w[m]
+    w /= np.mean(w)  # normalize so scale is comparable to unweighted RMS
+    return float(np.sqrt(np.mean(w * err * err)))
+
+
+def _rms_log_pressure(p_true, p_pred, w=None, p_floor=1e-3):
+    p_true = np.asarray(p_true, float)
+    p_pred = np.asarray(p_pred, float)
+    m = np.isfinite(p_true) & np.isfinite(p_pred)
+    if not np.any(m):
+        return BIG
+    lt = np.log(np.maximum(p_true[m], p_floor))
+    lp = np.log(np.maximum(p_pred[m], p_floor))
+    err = lt - lp
+    if w is None:
+        return float(np.sqrt(np.mean(err * err)))
+    w = np.asarray(w, float)[m]
+    w /= np.mean(w)
+    return float(np.sqrt(np.mean(w * err * err)))
+
 def plot_deviation_history():
     """Make two figures:
        1) total deviation vs iteration
@@ -250,33 +292,84 @@ def combined_cost_function(params, *datasets):
             T_H_melt[m], p_H_melt[m], params, idx=10) - deltaH_triple
         H_solid_melt_dev = rms_percent(H_solid_melt, modelH)
 
-    # Sublimation pressure (all MPa)
+    # # Sublimation pressure (all MPa)
+    # m = (np.isfinite(T_sub) & np.isfinite(p_sub) &
+    #      np.isfinite(G_fluid_sub) & np.isfinite(V_fluid_sub) & (T_sub <= Tt))
+    # p_sub_dev = BIG
+    # if np.any(m):
+    #     pf = np.full_like(p_sub[m], np.nan, dtype=float)
+    #     for i, (T, pM, Gf, Vf) in enumerate(zip(T_sub[m], p_sub[m], G_fluid_sub[m], V_fluid_sub[m])):
+    #         props = compute_thermo_props(T, pM, params)
+    #         if np.all(np.isfinite(props)) and np.isfinite(Vf) and (Vf != props[0]):
+    #             dG = Gf - props[11] + deltaH_triple - T * deltaS_triple
+    #             pf[i] = pM - dG / (Vf - props[0])  # MPa
+    #     #p_sub_dev = rms_percent(p_sub[m], pf)
+    #     p_sub_dev = rms_log(p_sub[m], pf)
+
+
+        # --- Sublimation pressure (all MPa, T <= Tt) ---
     m = (np.isfinite(T_sub) & np.isfinite(p_sub) &
-         np.isfinite(G_fluid_sub) & np.isfinite(V_fluid_sub) & (T_sub <= Tt))
+        np.isfinite(G_fluid_sub) & np.isfinite(V_fluid_sub) & (T_sub <= Tt))
     p_sub_dev = BIG
     if np.any(m):
-        pf = np.full_like(p_sub[m], np.nan, dtype=float)
-        for i, (T, pM, Gf, Vf) in enumerate(zip(T_sub[m], p_sub[m], G_fluid_sub[m], V_fluid_sub[m])):
-            props = compute_thermo_props(T, pM, params)
-            if np.all(np.isfinite(props)) and np.isfinite(Vf) and (Vf != props[0]):
-                dG = Gf - props[11] + deltaH_triple - T * deltaS_triple
-                pf[i] = pM - dG / (Vf - props[0])  # MPa
-        #p_sub_dev = rms_percent(p_sub[m], pf)
-        p_sub_dev = rms_log(p_sub[m], pf)
+        T = np.asarray(T_sub)[m]
+        pM = np.asarray(p_sub)[m]
+        Gf = np.asarray(G_fluid_sub)[m]
+        Vf = np.asarray(V_fluid_sub)[m]
+
+        pf = np.full_like(pM, np.nan, dtype=float)
+        # compute model-implied p_f for each experimental point
+        for i, (Ti, pMi, Gfi, Vfi) in enumerate(zip(T, pM, Gf, Vf)):
+            props = compute_thermo_props(Ti, pMi, params)
+            if np.all(np.isfinite(props)) and np.isfinite(Vfi) and (Vfi != props[0]):
+                dG = Gfi - props[11] + deltaH_triple - Ti * deltaS_triple
+                pf[i] = pMi - dG / (Vfi - props[0])  # MPa
+
+        # temperature weights that grow smoothly toward the triple point (high end for subl.)
+        w_T = _temp_weights_high_end(
+            T, high_anchor=Tt, exp=2.0, w_min=0.25, w_max=3.0)
+
+        # use log-residuals (balances decades of p); also uses the high-T weights
+        p_sub_dev = _rms_log_pressure(pM, pf, w=w_T, p_floor=1e-3)
+
 
     # Melting pressure (all MPa; extra weight above threshold via factor)
+    # m = (np.isfinite(T_melt) & np.isfinite(p_melt) &
+    #      np.isfinite(G_fluid_melt) & np.isfinite(V_fluid_melt) & (T_melt >= Tt))
+    # p_melt_dev = BIG
+    # if np.any(m):
+    #     pf = np.full_like(p_melt[m], np.nan, dtype=float)
+    #     for i, (T, pM, Gf, Vf) in enumerate(zip(T_melt[m], p_melt[m], G_fluid_melt[m], V_fluid_melt[m])):
+    #         props = compute_thermo_props(T, pM, params)
+    #         if np.all(np.isfinite(props)) and np.isfinite(Vf) and (Vf != props[0]):
+    #             fac = PMELT_EXTRA_FACTOR if T > PMELT_EXTRA_WEIGHT_T_K else 1.0
+    #             dG = Gf - props[11] + deltaH_triple - T * deltaS_triple
+    #             pf[i] = pM - fac * (dG / (Vf - props[0]))
+    #     p_melt_dev = rms_percent(p_melt[m], pf)
+
+
+        # --- Melting pressure (all MPa, T >= Tt) ---
     m = (np.isfinite(T_melt) & np.isfinite(p_melt) &
-         np.isfinite(G_fluid_melt) & np.isfinite(V_fluid_melt) & (T_melt >= Tt))
+        np.isfinite(G_fluid_melt) & np.isfinite(V_fluid_melt) & (T_melt >= Tt))
     p_melt_dev = BIG
     if np.any(m):
-        pf = np.full_like(p_melt[m], np.nan, dtype=float)
-        for i, (T, pM, Gf, Vf) in enumerate(zip(T_melt[m], p_melt[m], G_fluid_melt[m], V_fluid_melt[m])):
-            props = compute_thermo_props(T, pM, params)
-            if np.all(np.isfinite(props)) and np.isfinite(Vf) and (Vf != props[0]):
-                fac = PMELT_EXTRA_FACTOR if T > PMELT_EXTRA_WEIGHT_T_K else 1.0
-                dG = Gf - props[11] + deltaH_triple - T * deltaS_triple
-                pf[i] = pM - fac * (dG / (Vf - props[0]))
-        p_melt_dev = rms_percent(p_melt[m], pf)
+        T = np.asarray(T_melt)[m]
+        pM = np.asarray(p_melt)[m]
+        Gf = np.asarray(G_fluid_melt)[m]
+        Vf = np.asarray(V_fluid_melt)[m]
+
+        pf = np.full_like(pM, np.nan, dtype=float)
+        for i, (Ti, pMi, Gfi, Vfi) in enumerate(zip(T, pM, Gf, Vf)):
+            props = compute_thermo_props(Ti, pMi, params)
+            if np.all(np.isfinite(props)) and np.isfinite(Vfi) and (Vfi != props[0]):
+                dG = Gfi - props[11] + deltaH_triple - Ti * deltaS_triple
+                pf[i] = pMi - dG / (Vfi - props[0])
+
+        # high-T weighting grows from Tt up to max(T)
+        w_T = _temp_weights_high_end(
+            T, high_anchor=np.max(T), exp=2.0, w_min=0.25, w_max=3.0)
+
+        p_melt_dev = _rms_log_pressure(pM, pf, w=w_T, p_floor=1e-3)
 
     # Gamma-T smoothness penalty along a subl. grid (T<=Tt)
     T6 = np.array([0.0001] + list(range(2, 84, 2)) + [83.806])
