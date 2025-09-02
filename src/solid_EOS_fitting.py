@@ -663,6 +663,7 @@ def combined_cost_vm(params, *datasets):
             T_Vm_melt[m], p_Vm_melt[m], params, idx=0)
         Vm_melt_dev = _rmse_abs(Vm_melt[m], model_melt)
 
+
     # # gentle offset anchor at ~100 K (sub side)
     # Vm_anchor = 0.0
     # try:
@@ -677,62 +678,66 @@ def combined_cost_vm(params, *datasets):
     # except Exception:
     #     Vm_anchor = 0.0
         # ---- Sub-branch anchors & slope penalty ----
+    # after Vm_sub_dev and Vm_melt_dev are computed
     Vm_anchor = 0.0
     slope_pen = 0.0
     try:
-        # focus on a stable window (avoid ultra-low T noise)
-        msub_win = (np.isfinite(T_Vm_sub) & np.isfinite(Vm_sub)
-                    & (T_Vm_sub >= 8.0) & (T_Vm_sub <= min(KRYPTON_T_t-2.0, 115.0)))
+        msub = (np.isfinite(T_Vm_sub) & np.isfinite(Vm_sub)
+                & (T_Vm_sub >= 8.0) & (T_Vm_sub <= min(KRYPTON_T_t-2.0, 115.0)))
+        if np.any(msub):
+            Tsub = np.asarray(T_Vm_sub[msub], float)
+            Vexp = np.asarray(Vm_sub[msub], float)
+            Vmod = _safe_props_vector(Tsub, psub_curve(Tsub), params, idx=0)
 
-        if np.any(msub_win):
-            T_sub_win = np.asarray(T_Vm_sub[msub_win], float)
-            Vm_sub_win = np.asarray(Vm_sub[msub_win], float)
-
-            # model samples at the same T (using p_sub(T))
-            p_sub_win = psub_curve(T_sub_win)
-            Vm_model_win = _safe_props_vector(
-                T_sub_win, p_sub_win, params, idx=0)
-
-            # --- two anchors (low and high T medians) ---
-            def _med_in_window(Tc, half=5.0):
-                mask = (np.abs(T_sub_win - Tc) <= half)
-                if np.any(mask):
-                    return float(np.nanmedian(Vm_sub_win[mask]))
-                return float(np.nanmedian(Vm_sub_win))
+            # Anchors at low/high T (medians)
+            def _med(Tc, half=5.0):
+                m = np.abs(Tsub - Tc) <= half
+                return float(np.nanmedian(Vexp[m])) if np.any(m) else float(np.nanmedian(Vexp))
             T_lo, T_hi = 20.0, min(110.0, KRYPTON_T_t-2.0)
-            Vm_exp_lo = _med_in_window(T_lo)
-            Vm_exp_hi = _med_in_window(T_hi)
-            Vm_mod_lo = _safe_props_vector(
+            V_lo_e, V_hi_e = _med(T_lo), _med(T_hi)
+            V_lo_m = _safe_props_vector(
                 [T_lo], [psub_curve(T_lo)], params, idx=0)[0]
-            Vm_mod_hi = _safe_props_vector(
+            V_hi_m = _safe_props_vector(
                 [T_hi], [psub_curve(T_hi)], params, idx=0)[0]
-            Vm_anchor = (Vm_mod_lo - Vm_exp_lo)**2 + \
-                (Vm_mod_hi - Vm_exp_hi)**2  # (cm^3/mol)^2
+            Vm_anchor = (V_lo_m - V_lo_e)**2 + (V_hi_m - V_hi_e)**2  # (cm^3/mol)^2
 
-            # --- slope penalty (match dV/dT over the window) ---
-            if np.sum(np.isfinite(Vm_model_win)) >= 4:
-                k_exp = np.polyfit(T_sub_win, Vm_sub_win, 1)[0]
-                k_model = np.polyfit(T_sub_win[np.isfinite(Vm_model_win)],
-                                     Vm_model_win[np.isfinite(Vm_model_win)], 1)[0]
-                slope_pen = (k_model - k_exp)**2  # (cm^3/mol/K)^2
+            # Match trend dV/dT over the window (very small weight)
+            if np.sum(np.isfinite(Vmod)) >= 4:
+                k_e = np.polyfit(Tsub, Vexp, 1)[0]
+                k_m = np.polyfit(Tsub[np.isfinite(Vmod)],
+                                Vmod[np.isfinite(Vmod)], 1)[0]
+                slope_pen = (k_m - k_e)**2   # (cm^3/mol/K)^2
     except Exception:
         pass
 
-    # weights (tune lightly)
-    W_SUB = 1.0          # absolute RMSE of sub branch
-    W_MELT = 1.0          # absolute RMSE of melt branch
-    W_ANCHOR = 0.2          # two value anchors (small)
-    W_SLOPE = 0.05         # slope penalty (very small)
+    # weights (gentle)
+    W_SUB, W_MELT, W_ANCH, W_SLOPE = 1.0, 1.0, 0.2, 0.05
+    total = (W_SUB*Vm_sub_dev + W_MELT*Vm_melt_dev +
+            W_ANCH*Vm_anchor + W_SLOPE*slope_pen)
 
-    total = (W_SUB * Vm_sub_dev
-             + W_MELT * Vm_melt_dev
-             + W_ANCHOR * Vm_anchor
-             + W_SLOPE * slope_pen)
+        # very weak prior around ~2 (tweak as you like)
+    gamma0 = float(params[GAMMA0_IDX])
+    prior_gamma = 1e-3 * (gamma0 - 2.0)**2
+    total += prior_gamma
+
     return total, {"Vm_sub": Vm_sub_dev, "Vm_melt": Vm_melt_dev,
-                   "Vm_anchor": Vm_anchor, "Vm_slope": slope_pen}
+                "Vm_anchor": Vm_anchor, "Vm_slope": slope_pen}
+
 
     #return total, {"Vm_sub": Vm_sub_dev, "Vm_melt": Vm_melt_dev, "Vm_anchor": Vm_anchor}
 
+def prefit_v00(params, datasets, grid=np.linspace(20, 32, 25)):
+    best = None
+    base = np.array(params, float)
+    for v00 in grid:
+        p = base.copy()
+        p[0] = float(v00)
+        tot, _ = combined_cost_vm(p, *datasets)
+        if np.isfinite(tot) and (best is None or tot < best[0]):
+            best = (tot, v00)
+    print(f"[Stage A] prefit v00 -> {best[1]:.3f} (cost {best[0]:.3f})")
+    base[0] = best[1]
+    return base
 
 
 
@@ -775,24 +780,45 @@ def _make_outfun_vm(*datasets):
 #             B.append((v, v))         # clamp others
 #     return B
 
+# def _stageA_bounds_free_vm_only(params_init, lower, upper):
+#     params_init = np.asarray(params_init, float)
+#     B = []
+#     for i, (lo, hi) in enumerate(zip(lower, upper)):
+#         if i == 0:                  # v00 (offset)
+#             lo, hi = 10.0, 40.0
+#         elif i in (1, 2):           # a1,a2 (slope/curvature)
+#             lo, hi = -1e6, 1e6
+#         elif i == 3:                # theta_D,0  <-- NEW: let it move
+#             lo, hi = 200.0, 2000.0
+#         elif i == 4:              # (optional) gamma_D,0 if you need more T-rise
+#             lo, hi = 0.5, 3.5
+#         else:
+#             v = float(params_init[i])
+#             lo, hi = v, v
+#         B.append((float(lo), float(hi)))
+#     return B
+
+# indices for the first 10 (as you print them in main)
+THETA0_IDX = 3
+GAMMA0_IDX = 4   # optional
+
+
 def _stageA_bounds_free_vm_only(params_init, lower, upper):
     params_init = np.asarray(params_init, float)
     B = []
     for i, (lo, hi) in enumerate(zip(lower, upper)):
-        if i == 0:                  # v00 (offset)
-            lo, hi = 10.0, 40.0
-        elif i in (1, 2):           # a1,a2 (slope/curvature)
-            lo, hi = -1e6, 1e6
-        elif i == 3:                # theta_D,0  <-- NEW: let it move
-            lo, hi = 200.0, 2000.0
-        # elif i == 4:              # (optional) gamma_D,0 if you need more T-rise
-        #     lo, hi = 0.5, 3.5
+        if i == 0:                 # v00 offset
+            B.append((10.0, 40.0))
+        elif i in (1, 2,):         # a1, a2 slope/curvature
+            B.append((-1e6, 1e6))
+        elif i == THETA0_IDX:      # <-- NEW: allow thermal knob to move
+            B.append((200.0, 2000.0))
+        elif i == GAMMA0_IDX:    # (optional) if you still need more T-rise
+            B.append((0.5, 3.5))
         else:
             v = float(params_init[i])
-            lo, hi = v, v
-        B.append((float(lo), float(hi)))
+            B.append((v, v))       # clamp others in Stage A
     return B
-
 
 def quick_plot_vm_only(params, datasets, Tt):
     import matplotlib.pyplot as plt
@@ -854,9 +880,9 @@ def run_stage_A(params_init, datasets, lower_bound, upper_bound,
 
 
     print(f"[Stage A] free variables = {free} (want 4)")
-    for i in (0, 1, 2, 3):
-        print(f"[Stage A] bounds[{i}] = {boundsA[i]}")
-    assert free == 4, "Stage A still not freeing v00,a1,a2,a3"
+    # for i in (0, 1, 2, 3):
+    #     print(f"[Stage A] bounds[{i}] = {boundsA[i]}")
+    # assert free == 4, "Stage A still not freeing v00,a1,a2,a3"
 
     # quick sanity on initial cost
     tot0, dev0 = combined_cost_vm(params_init, *datasets)
@@ -956,7 +982,14 @@ def stage_A():
 
     # 2) build Stage A bounds and run
     boundsA = list(zip(LOWER_BOUND, UPPER_BOUND))
-    paramsA, fA = run_stage_A(PARAMS_INIT, datasets, LOWER_BOUND, UPPER_BOUND)
+    p0 = prefit_v00(PARAMS_INIT, datasets)  # as we wrote earlier
+
+    print("[Stage A] bounds v00,a1,a2,theta0,gamma0:",
+          boundsA[0], boundsA[1], boundsA[2], boundsA[THETA0_IDX], boundsA[GAMMA0_IDX])
+
+    paramsA, fA = run_stage_A(p0, datasets, LOWER_BOUND, UPPER_BOUND)
+
+    # paramsA, fA = run_stage_A(PARAMS_INIT, datasets, LOWER_BOUND, UPPER_BOUND)
 
     # 3) plot overlays using Stage-A params (so you can visually check Vm)
     plot_all_overlays_grid(
