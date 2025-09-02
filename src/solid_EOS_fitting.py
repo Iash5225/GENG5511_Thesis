@@ -11,7 +11,7 @@ from constants import *
 from fitting_helper import rms , _mean_sq
 import math
 from plot_eos import plot_all_overlays_grid
-from thermal_script import melting_pressure_equation, sublimation_pressure_equation
+from thermal_script import melting_pressure_equation, sublimation_pressure_equation,plot_sublimation_gas_data
 
 BIG = 1e4
 # Constants

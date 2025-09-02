@@ -196,7 +196,7 @@ def plot_all_overlays_grid(params, datasets, Tt, pt,
         p_pts = np.asarray(p_sub)[m]
         # dense curve from min(T_pts) up to Tt
         T_curve = np.linspace(np.nanmin(T_pts), Tt, 300)
-        p_curve = np.asarray(psub_curve(T_curve), float)
+        p_curve = np.asarray(psub_curve(T_curve), float)*1e6 #convert bar to MPA 
         # guard: log axis needs positive pressures
         ok = np.isfinite(p_curve) & (p_curve > 0)
         T_curve, p_curve = T_curve[ok], p_curve[ok]
