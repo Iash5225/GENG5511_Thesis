@@ -148,6 +148,10 @@ def _safe_props_vector(T_arr, p_arr, params, idx):
             pass
     return out
 
+
+def _rmse_abs(y, yhat):
+    m = np.isfinite(y) & np.isfinite(yhat)
+    return BIG if not np.any(m) else float(np.sqrt(np.mean((y[m]-yhat[m])**2)))
 def combined_cost_function(params, *datasets):
     (T_Vm_sub, p_Vm_sub, Vm_sub,
      T_Vm_melt, p_Vm_melt, Vm_melt,
@@ -178,22 +182,36 @@ def combined_cost_function(params, *datasets):
 
     # ====== BLOCKS ======
 
-    # Vm (sublimation): T <= Tt
+    # # Vm (sublimation): T <= Tt
+    # m = (np.isfinite(T_Vm_sub) & np.isfinite(p_Vm_sub)
+    #      & np.isfinite(Vm_sub) & (T_Vm_sub <= Tt))
+    # Vm_sub_dev = BIG
+    # if np.any(m):
+    #     model = _safe_props_vector(T_Vm_sub[m], p_Vm_sub[m], params, idx=0)
+    #     Vm_sub_dev = rms_percent(Vm_sub[m], model)
+
+    # # Vm (melting): T >= Tt
+    # m = (np.isfinite(T_Vm_melt) & np.isfinite(p_Vm_melt)
+    #      & np.isfinite(Vm_melt) & (T_Vm_melt >= Tt))
+    # Vm_melt_dev = BIG
+    # if np.any(m):
+    #     model = _safe_props_vector(T_Vm_melt[m], p_Vm_melt[m], params, idx=0)
+    #     Vm_melt_dev = rms_percent(Vm_melt[m], model)
+        # Vm (sublimation): T <= Tt  —— use ABS RMSE in cm^3/mol
     m = (np.isfinite(T_Vm_sub) & np.isfinite(p_Vm_sub)
          & np.isfinite(Vm_sub) & (T_Vm_sub <= Tt))
     Vm_sub_dev = BIG
     if np.any(m):
         model = _safe_props_vector(T_Vm_sub[m], p_Vm_sub[m], params, idx=0)
-        Vm_sub_dev = rms_percent(Vm_sub[m], model)
+        Vm_sub_dev = _rmse_abs(Vm_sub[m], model)   # cm^3/mol
 
-    # Vm (melting): T >= Tt
+    # Vm (melting): T >= Tt  —— use ABS RMSE in cm^3/mol
     m = (np.isfinite(T_Vm_melt) & np.isfinite(p_Vm_melt)
          & np.isfinite(Vm_melt) & (T_Vm_melt >= Tt))
     Vm_melt_dev = BIG
     if np.any(m):
         model = _safe_props_vector(T_Vm_melt[m], p_Vm_melt[m], params, idx=0)
-        Vm_melt_dev = rms_percent(Vm_melt[m], model)
-
+        Vm_melt_dev = _rmse_abs(Vm_melt[m], model)  # cm^3/mol
     # Vm (high-p): no phase constraint (already experimental p)
     m = (np.isfinite(T_Vm_highp) & np.isfinite(
         p_Vm_highp) & np.isfinite(Vm_highp))
@@ -201,6 +219,34 @@ def combined_cost_function(params, *datasets):
     if np.any(m):
         model = _safe_props_vector(T_Vm_highp[m], p_Vm_highp[m], params, idx=0)
         Vm_highp_dev = rms_percent(Vm_highp[m], model)
+
+        # (Optional) small anchor on Vm near ~100 K along sublimation to help offset
+    # It softly pulls v00 toward the experimental scale but won't dominate.
+    Vm_anchor_dev = 0.0
+    try:
+        T_ref = 100.0
+        # model at (T_ref, p_sub(T_ref))
+        p_ref = psub_curve(T_ref)
+        Vm_ref_model = _safe_props_vector([T_ref], [p_ref], params, idx=0)[0]
+
+        # experimental reference: use median of sub data within ±15 K of T_ref
+        win = (np.isfinite(T_Vm_sub) & np.isfinite(Vm_sub)
+               & (np.abs(T_Vm_sub - T_ref) <= 15.0))
+        if np.any(win):
+            Vm_ref_exp = float(np.nanmedian(Vm_sub[win]))
+        else:
+            Vm_ref_exp = float(np.nanmedian(Vm_sub[np.isfinite(Vm_sub)]))
+        Vm_anchor_dev = abs(Vm_ref_model - Vm_ref_exp)  # cm^3/mol
+    except Exception:
+        Vm_anchor_dev = 0.0
+
+    Vm_ref_exp = 28.0
+
+
+    Vm_ref_model = compute_thermo_props(100.0, 1.0, params)[IDX["Vm"]]
+    penalty = 5.0 * (Vm_ref_model - Vm_ref_exp)**2   # weight 5 is tunable
+    total += penalty
+
 
     # cp (sublimation)
     # m = (np.isfinite(T_cp_sub) & np.isfinite(p_cp_sub)
@@ -413,6 +459,22 @@ def extract_datasets(data):
     """
     T_Vm_sub = data["cell_volume_sub"]['Temperature']
 
+    cv_sub_df = data["cell_volume_sub"]
+
+
+    # don’t drop NaNs yet, keep them so we can inspect
+    cv_sub_df["Temperature"] = pd.to_numeric(
+        cv_sub_df["Temperature"], errors="coerce")
+    cv_sub_df["Cell Volume"] = pd.to_numeric(
+        cv_sub_df["Cell Volume"], errors="coerce")
+
+    # Print any bad rows with author info
+    bad = cv_sub_df[~np.isfinite(cv_sub_df["Temperature"])]
+    if not bad.empty:
+        print("⚠️ Non-finite temperatures in sublimation dataset:")
+        print(bad[["Temperature", "Cell Volume", "Author", "Year"]])
+
+
 
     # Check before calling
     bad_T = T_Vm_sub[T_Vm_sub <= 0]
@@ -578,25 +640,100 @@ def debug_datasets(datasets, Tt):
 
 def combined_cost_vm(params, *datasets):
     (T_Vm_sub, p_Vm_sub, Vm_sub,
-     T_Vm_melt, p_Vm_melt, Vm_melt,
-     *rest) = datasets  # ignore the rest
+     T_Vm_melt, p_Vm_melt, Vm_melt, *_) = datasets
 
+    def _rmse_abs(y, yhat):
+        m = np.isfinite(y) & np.isfinite(yhat)
+        return BIG if not np.any(m) else float(np.sqrt(np.mean((y[m]-yhat[m])**2)))
+
+    # sub
     Vm_sub_dev = BIG
     m = (np.isfinite(T_Vm_sub) & np.isfinite(
         Vm_sub) & (T_Vm_sub <= KRYPTON_T_t))
     if np.any(m):
-        model = _safe_props_vector(T_Vm_sub[m], p_Vm_sub[m], params, idx=0)
-        Vm_sub_dev = rms_percent(Vm_sub[m], model)
+        model_sub = _safe_props_vector(T_Vm_sub[m], p_Vm_sub[m], params, idx=0)
+        Vm_sub_dev = _rmse_abs(Vm_sub[m], model_sub)  # cm^3/mol
 
+    # melt
     Vm_melt_dev = BIG
     m = (np.isfinite(T_Vm_melt) & np.isfinite(
         Vm_melt) & (T_Vm_melt >= KRYPTON_T_t))
     if np.any(m):
-        model = _safe_props_vector(T_Vm_melt[m], p_Vm_melt[m], params, idx=0)
-        Vm_melt_dev = rms_percent(Vm_melt[m], model)
+        model_melt = _safe_props_vector(
+            T_Vm_melt[m], p_Vm_melt[m], params, idx=0)
+        Vm_melt_dev = _rmse_abs(Vm_melt[m], model_melt)
 
-    total = Vm_sub_dev * 55 + Vm_melt_dev * 35
-    return total, {"Vm_sub": Vm_sub_dev, "Vm_melt": Vm_melt_dev}
+    # # gentle offset anchor at ~100 K (sub side)
+    # Vm_anchor = 0.0
+    # try:
+    #     T_ref = 100.0
+    #     p_ref = psub_curve(T_ref)
+    #     Vm_model_ref = _safe_props_vector([T_ref], [p_ref], params, idx=0)[0]
+    #     win = (np.isfinite(T_Vm_sub) & np.isfinite(Vm_sub)
+    #            & (np.abs(T_Vm_sub - T_ref) <= 15.0))
+    #     Vm_exp_ref = float(np.nanmedian(Vm_sub[win])) if np.any(
+    #         win) else float(np.nanmedian(Vm_sub))
+    #     Vm_anchor = (Vm_model_ref - Vm_exp_ref)**2  # (cm^3/mol)^2
+    # except Exception:
+    #     Vm_anchor = 0.0
+        # ---- Sub-branch anchors & slope penalty ----
+    Vm_anchor = 0.0
+    slope_pen = 0.0
+    try:
+        # focus on a stable window (avoid ultra-low T noise)
+        msub_win = (np.isfinite(T_Vm_sub) & np.isfinite(Vm_sub)
+                    & (T_Vm_sub >= 8.0) & (T_Vm_sub <= min(KRYPTON_T_t-2.0, 115.0)))
+
+        if np.any(msub_win):
+            T_sub_win = np.asarray(T_Vm_sub[msub_win], float)
+            Vm_sub_win = np.asarray(Vm_sub[msub_win], float)
+
+            # model samples at the same T (using p_sub(T))
+            p_sub_win = psub_curve(T_sub_win)
+            Vm_model_win = _safe_props_vector(
+                T_sub_win, p_sub_win, params, idx=0)
+
+            # --- two anchors (low and high T medians) ---
+            def _med_in_window(Tc, half=5.0):
+                mask = (np.abs(T_sub_win - Tc) <= half)
+                if np.any(mask):
+                    return float(np.nanmedian(Vm_sub_win[mask]))
+                return float(np.nanmedian(Vm_sub_win))
+            T_lo, T_hi = 20.0, min(110.0, KRYPTON_T_t-2.0)
+            Vm_exp_lo = _med_in_window(T_lo)
+            Vm_exp_hi = _med_in_window(T_hi)
+            Vm_mod_lo = _safe_props_vector(
+                [T_lo], [psub_curve(T_lo)], params, idx=0)[0]
+            Vm_mod_hi = _safe_props_vector(
+                [T_hi], [psub_curve(T_hi)], params, idx=0)[0]
+            Vm_anchor = (Vm_mod_lo - Vm_exp_lo)**2 + \
+                (Vm_mod_hi - Vm_exp_hi)**2  # (cm^3/mol)^2
+
+            # --- slope penalty (match dV/dT over the window) ---
+            if np.sum(np.isfinite(Vm_model_win)) >= 4:
+                k_exp = np.polyfit(T_sub_win, Vm_sub_win, 1)[0]
+                k_model = np.polyfit(T_sub_win[np.isfinite(Vm_model_win)],
+                                     Vm_model_win[np.isfinite(Vm_model_win)], 1)[0]
+                slope_pen = (k_model - k_exp)**2  # (cm^3/mol/K)^2
+    except Exception:
+        pass
+
+    # weights (tune lightly)
+    W_SUB = 1.0          # absolute RMSE of sub branch
+    W_MELT = 1.0          # absolute RMSE of melt branch
+    W_ANCHOR = 0.2          # two value anchors (small)
+    W_SLOPE = 0.05         # slope penalty (very small)
+
+    total = (W_SUB * Vm_sub_dev
+             + W_MELT * Vm_melt_dev
+             + W_ANCHOR * Vm_anchor
+             + W_SLOPE * slope_pen)
+    return total, {"Vm_sub": Vm_sub_dev, "Vm_melt": Vm_melt_dev,
+                   "Vm_anchor": Vm_anchor, "Vm_slope": slope_pen}
+
+    #return total, {"Vm_sub": Vm_sub_dev, "Vm_melt": Vm_melt_dev, "Vm_anchor": Vm_anchor}
+
+
 
 
 # =========================
@@ -621,30 +758,91 @@ def _make_outfun_vm(*datasets):
     return outfun
 
 
-def _stageA_bounds_free_vm_only(params_init, lower, upper):
-    """
-    Build bounds where ONLY [v00, a1, a2, a3] are free.
-    Everything else is clamped at its initial value.
-    Layout from your code:
-      0: v00
-      1-3: a1, a2, a3
-      others: frozen
-    """
-    params_init = np.asarray(params_init, float)
-    lb = list(lower)
-    ub = list(upper)
+# def _stageA_bounds_free_vm_only(params_init, lower, upper):
+#     """
+#     Free ONLY indices {0,1,2,3} with generous bounds.
+#     Everything else is clamped to its initial value.
+#     """
+#     params_init = np.asarray(params_init, float)
+#     B = []
+#     for i, (lo, hi) in enumerate(zip(lower, upper)):
+#         if i == 0:        # v00  (we expect ~26–30)
+#             B.append((10.0, 40.0))   # << wide and definitely free
+#         elif i in (1, 2, 3):  # a1,a2,a3
+#             B.append((-1e6, 1e6))    # << very wide: let slope/curvature move
+#         else:
+#             v = float(params_init[i])
+#             B.append((v, v))         # clamp others
+#     return B
 
-    free_idx = {0, 1, 2, 3}  # v00, a1, a2, a3
+def _stageA_bounds_free_vm_only(params_init, lower, upper):
+    params_init = np.asarray(params_init, float)
     B = []
-    for i, (lo, hi) in enumerate(zip(lb, ub)):
-        if i in free_idx:
-            # keep your original bounds for the free ones, but make sure they are wide enough
-            B.append((float(lo), float(hi)))
+    for i, (lo, hi) in enumerate(zip(lower, upper)):
+        if i == 0:                  # v00 (offset)
+            lo, hi = 10.0, 40.0
+        elif i in (1, 2):           # a1,a2 (slope/curvature)
+            lo, hi = -1e6, 1e6
+        elif i == 3:                # theta_D,0  <-- NEW: let it move
+            lo, hi = 200.0, 2000.0
+        # elif i == 4:              # (optional) gamma_D,0 if you need more T-rise
+        #     lo, hi = 0.5, 3.5
         else:
-            # clamp at initial value
-            B.append((float(params_init[i]), float(params_init[i])))
+            v = float(params_init[i])
+            lo, hi = v, v
+        B.append((float(lo), float(hi)))
     return B
 
+
+def quick_plot_vm_only(params, datasets, Tt):
+    import matplotlib.pyplot as plt
+    (T_Vm_sub, p_Vm_sub, Vm_sub,
+     T_Vm_melt, p_Vm_melt, Vm_melt, *_) = datasets
+
+    # Model predictions along each experimental point
+    Vm_sub_model = _safe_props_vector(
+        T_Vm_sub,  p_Vm_sub,  params, idx=IDX["Vm"])
+    Vm_melt_model = _safe_props_vector(
+        T_Vm_melt, p_Vm_melt, params, idx=IDX["Vm"])
+
+    fig, ax = plt.subplots(1, 2, figsize=(11, 4.5), sharey=True)
+
+    # --- Sublimation side (T <= Tt) ---
+    msub = np.isfinite(T_Vm_sub) & (T_Vm_sub <= Tt) & np.isfinite(
+        Vm_sub) & np.isfinite(Vm_sub_model)
+    ax[0].scatter(T_Vm_sub[msub], Vm_sub[msub],
+                  s=20, label="Exp (sub)", alpha=0.6)
+    ax[0].plot(T_Vm_sub[msub], Vm_sub_model[msub], lw=1.8, label="Model (sub)")
+    ax[0].axvline(Tt, ls="--", lw=1, color="gray")
+    ax[0].set_title("Vm along sublimation")
+    ax[0].set_xlabel("T [K]")
+    ax[0].set_ylabel(r"$V_m$ [cm$^3$/mol]")
+    ax[0].legend()
+
+    # --- Melting side (T >= Tt) ---
+    mmelt = np.isfinite(T_Vm_melt) & (T_Vm_melt >= Tt) & np.isfinite(
+        Vm_melt) & np.isfinite(Vm_melt_model)
+    ax[1].scatter(T_Vm_melt[mmelt], Vm_melt[mmelt],
+                  s=20, label="Exp (melt)", alpha=0.6)
+    ax[1].plot(T_Vm_melt[mmelt], Vm_melt_model[mmelt],
+               lw=1.8, label="Model (melt)")
+    ax[1].axvline(Tt, ls="--", lw=1, color="gray")
+    ax[1].set_title("Vm along melting")
+    ax[1].set_xlabel("T [K]")
+    ax[1].legend()
+
+    plt.tight_layout()
+    plt.show()
+
+    # Print RMS % errors for a quick numeric feel
+    def _rms_pct(y, yhat):
+        m = np.isfinite(y) & np.isfinite(yhat) & (y != 0)
+        if not np.any(m):
+            return np.nan
+        e = 100*(y[m]-yhat[m])/y[m]
+        return float(np.sqrt(np.mean(e*e)))
+    print("[Stage A] RMS% Vm_sub:",  _rms_pct(Vm_sub,  Vm_sub_model))
+    print("[Stage A] RMS% Vm_melt:", _rms_pct(Vm_melt, Vm_melt_model))
 
 def run_stage_A(params_init, datasets, lower_bound, upper_bound,
                 maxiter=300, ftol=1e-9, gtol=1e-3):
@@ -652,6 +850,13 @@ def run_stage_A(params_init, datasets, lower_bound, upper_bound,
     # build bounds
     boundsA = _stageA_bounds_free_vm_only(
         params_init, lower_bound, upper_bound)
+    free = sum(ub > lb + 1e-12 for (lb, ub) in boundsA)
+
+
+    print(f"[Stage A] free variables = {free} (want 4)")
+    for i in (0, 1, 2, 3):
+        print(f"[Stage A] bounds[{i}] = {boundsA[i]}")
+    assert free == 4, "Stage A still not freeing v00,a1,a2,a3"
 
     # quick sanity on initial cost
     tot0, dev0 = combined_cost_vm(params_init, *datasets)
@@ -694,6 +899,56 @@ def run_stage_A(params_init, datasets, lower_bound, upper_bound,
     return res.x, res.fun
 
 
+def run_stageA_then_plot():
+    krypton_data = load_all_gas_data('krypton', read_from_excel=False)
+    datasets = extract_datasets(krypton_data)
+    debug_datasets(datasets, KRYPTON_T_t)
+
+    # Fit Vm only (v00, a1, a2, a3 free; all else clamped)
+    paramsA, fA = run_stage_A(PARAMS_INIT, datasets, LOWER_BOUND, UPPER_BOUND)
+
+    # Quick visual checks for Vm only
+    quick_plot_vm_only(paramsA, datasets, Tt=KRYPTON_T_t)
+
+    # Also generate the full overlay grid if you want (uses your existing helper)
+    plot_all_overlays_grid(
+        params=paramsA,
+        datasets=datasets,
+        Tt=KRYPTON_T_t, pt=KRYPTON_P_t,
+        compute_thermo_props=compute_thermo_props,
+        St_REFPROP=KRYPTON_REFERENCE_ENTROPY,
+        Ht_REFPROP=KRYPTON_REFERENCE_ENTHALPY,
+        psub_curve=psub_curve, pmelt_curve=pmelt_curve,
+        ncols=3, figsize=(14, 10)
+    )
+
+
+def _clean_xy(df, xcol, ycol, *, x_min=None, x_max=None, y_min=None, y_max=None, return_df=False):
+    """
+    Coerce to numeric, drop NaNs, enforce ranges. Returns (x,y,idx) or df.
+    """
+    _df = df.copy()
+    _df[xcol] = pd.to_numeric(_df[xcol], errors="coerce")
+    _df[ycol] = pd.to_numeric(_df[ycol], errors="coerce")
+
+    if x_min is not None:
+        _df = _df[_df[xcol] >= x_min]
+    if x_max is not None:
+        _df = _df[_df[xcol] <= x_max]
+    if y_min is not None:
+        _df = _df[_df[ycol] >= y_min]
+    if y_max is not None:
+        _df = _df[_df[ycol] <= y_max]
+
+    if return_df:
+        return _df
+    else:
+        return (
+            _df[xcol].to_numpy(dtype=float),
+            _df[ycol].to_numpy(dtype=float),
+            _df.index.to_numpy()
+        )
+
 def stage_A():
     # 1) load data
     krypton_data = load_all_gas_data('krypton', read_from_excel=False)
@@ -725,109 +980,132 @@ def stage_A():
 def main():
     krypton_data = load_all_gas_data('krypton', read_from_excel=False)
     datasets = extract_datasets(krypton_data)
-    bounds = list(zip(LOWER_BOUND, UPPER_BOUND))
-    params_fit, fval = run_optimization(PARAMS_INIT, bounds, datasets)
-    plot_deviation_history()
+    debug_datasets(datasets, KRYPTON_T_t)
+    # Fast content checks
+    (T_Vm_sub, p_Vm_sub, Vm_sub,
+    T_Vm_melt, p_Vm_melt, Vm_melt, *_) = datasets
+
+    assert np.all(np.isfinite(T_Vm_sub)), "NaN T in Vm_sub"
+    assert np.all(np.isfinite(Vm_sub)),   "NaN Vm_sub"
+    assert np.all(np.isfinite(T_Vm_melt)), "NaN T in Vm_melt"
+    assert np.all(np.isfinite(Vm_melt)),   "NaN Vm_melt"
+
+    # Units (your pipeline expects: T[K], p[MPa], Vm[cm^3/mol])
+    print("Unit sanity: p_sub MPa range:", float(
+        np.nanmin(p_Vm_sub)), "→", float(np.nanmax(p_Vm_sub)))
+    print("Unit sanity: Vm_sub cm^3/mol range:",
+        float(np.nanmin(Vm_sub)), "→", float(np.nanmax(Vm_sub)))
+    vm_test = compute_thermo_props(100.0, 1.0, PARAMS_INIT)[IDX["Vm"]]
 
 
-    plot_all_overlays_grid(
-        params=params_fit,
-        datasets=datasets,
-        Tt=KRYPTON_T_t,
-        pt=KRYPTON_P_t,
-        compute_thermo_props=compute_thermo_props,
-        St_REFPROP=KRYPTON_REFERENCE_ENTROPY,
-        Ht_REFPROP=KRYPTON_REFERENCE_ENTHALPY,
-        psub_curve=psub_curve,          # <— NEW
-        pmelt_curve=pmelt_curve,        # <— NEW
-        ncols=3,
-        figsize=(14, 10),
-    )
-    # --- pretty print parameters ---
-    formatted = ", ".join(f"{p:.2f}" for p in params_fit)
-    print("Fitted parameters:")
-    print(formatted)
-    # --- pretty print parameters with names ---
-    param_names = [
-        r"$c_1$ / MPa",
-        r"$c_2$ / MPa",
-        r"$c_3$ / MPa",
-        r"$\theta_{D,0}$ / K",
-        r"$\gamma_{D,0}$",
-        r"$q_D$",
-        r"$b_1$",
-        r"$b_2$",
-        r"$b_3$",
-        r"$S_m(g,T_t,p_t)$ / (J mol$^{-1}$ K$^{-1}$)"
-    ]
+    print("Vm(100K,1MPa) =", vm_test)
+    # Expect a few tens (e.g., ~28). If ~2.8e-5, convert inside model or _safe_props_vector.
 
-    print("\n=== Optimised Parameters ===")
-    for name, val in zip(param_names, params_fit[:len(param_names)]):
-        print(f"{name:25s}: {val:12.4f}")
-    print("Final cost:", fval)
-# =========================
-# ======== STAGE B ========
-# Fit thermal + phase-line parameters with full cost
-# Keeps elastic (v00, a1, a2, a3) fixed by default
-# =========================
+    run_stageA_then_plot()
 
-# Indices (consistent with your unpacking):
-# 0: v00
-# 1-3: a1, a2, a3
-# 9-15:  Th[0..5]  -> we'll free Th[0] (index 9)
-# 15-21: g[0..5]   -> we'll free g[0]  (index 15)
-# 21-27: q[0..5]   -> we'll free q[0]  (index 21)
-# 27: aa, 28: bb, 29: cc, 30: S* (solid entropy at triple)
+#     bounds = list(zip(LOWER_BOUND, UPPER_BOUND))
+#     params_fit, fval = run_optimization(PARAMS_INIT, bounds, datasets)
+#     plot_deviation_history()
 
 
-_STAGEB_DEFAULT_FREE = dict(
-    T0=True,   # Th[0] @ index 9
-    g0=True,   # g[0] @ index 15
-    q0=True,   # q[0] @ index 21
-    aa=True,   # index 27
-    bb=True,   # index 28
-    cc=True,   # index 29
-    Sstar=True  # index 30 (lets triple-point H,S align)
-)
+#     plot_all_overlays_grid(
+#         params=params_fit,
+#         datasets=datasets,
+#         Tt=KRYPTON_T_t,
+#         pt=KRYPTON_P_t,
+#         compute_thermo_props=compute_thermo_props,
+#         St_REFPROP=KRYPTON_REFERENCE_ENTROPY,
+#         Ht_REFPROP=KRYPTON_REFERENCE_ENTHALPY,
+#         psub_curve=psub_curve,          # <— NEW
+#         pmelt_curve=pmelt_curve,        # <— NEW
+#         ncols=3,
+#         figsize=(14, 10),
+#     )
+#     # --- pretty print parameters ---
+#     formatted = ", ".join(f"{p:.2f}" for p in params_fit)
+#     print("Fitted parameters:")
+#     print(formatted)
+#     # --- pretty print parameters with names ---
+#     param_names = [
+#         r"$c_1$ / MPa",
+#         r"$c_2$ / MPa",
+#         r"$c_3$ / MPa",
+#         r"$\theta_{D,0}$ / K",
+#         r"$\gamma_{D,0}$",
+#         r"$q_D$",
+#         r"$b_1$",
+#         r"$b_2$",
+#         r"$b_3$",
+#         r"$S_m(g,T_t,p_t)$ / (J mol$^{-1}$ K$^{-1}$)"
+#     ]
+
+#     print("\n=== Optimised Parameters ===")
+#     for name, val in zip(param_names, params_fit[:len(param_names)]):
+#         print(f"{name:25s}: {val:12.4f}")
+#     print("Final cost:", fval)
+# # =========================
+# # ======== STAGE B ========
+# # Fit thermal + phase-line parameters with full cost
+# # Keeps elastic (v00, a1, a2, a3) fixed by default
+# # =========================
+
+# # Indices (consistent with your unpacking):
+# # 0: v00
+# # 1-3: a1, a2, a3
+# # 9-15:  Th[0..5]  -> we'll free Th[0] (index 9)
+# # 15-21: g[0..5]   -> we'll free g[0]  (index 15)
+# # 21-27: q[0..5]   -> we'll free q[0]  (index 21)
+# # 27: aa, 28: bb, 29: cc, 30: S* (solid entropy at triple)
 
 
-def _stageB_bounds(params_start, lower, upper,
-                   free_flags=_STAGEB_DEFAULT_FREE,
-                   lock_elastic=True, relax_elastic_eps=0.0):
-    """
-    Build Stage-B bounds.
-    - lock_elastic=True → clamp [0..3] to params_start values.
-      (Set relax_elastic_eps>0 to allow tiny wiggle if you like.)
-    - free_flags controls which thermal indices are free.
-    All others are clamped at their starting values.
-    """
-    params_start = np.asarray(params_start, float)
-    LB = list(lower)
-    UB = list(upper)
+# _STAGEB_DEFAULT_FREE = dict(
+#     T0=True,   # Th[0] @ index 9
+#     g0=True,   # g[0] @ index 15
+#     q0=True,   # q[0] @ index 21
+#     aa=True,   # index 27
+#     bb=True,   # index 28
+#     cc=True,   # index 29
+#     Sstar=True  # index 30 (lets triple-point H,S align)
+# )
 
-    # start from all fixed at their current value:
-    B = [(float(v), float(v)) for v in params_start]
 
-    # optionally unlock elastic (0..3)
-    if lock_elastic:
-        if relax_elastic_eps > 0:
-            for i in (0, 1, 2, 3):
-                v = params_start[i]
-                B[i] = (v - relax_elastic_eps*abs(v),
-                        v + relax_elastic_eps*abs(v))
-        # else keep as clamped
-    else:
-        for i in (0, 1, 2, 3):
-            B[i] = (float(LB[i]), float(UB[i]))
+# def _stageB_bounds(params_start, lower, upper,
+#                    free_flags=_STAGEB_DEFAULT_FREE,
+#                    lock_elastic=True, relax_elastic_eps=0.0):
+#     """
+#     Build Stage-B bounds.
+#     - lock_elastic=True → clamp [0..3] to params_start values.
+#       (Set relax_elastic_eps>0 to allow tiny wiggle if you like.)
+#     - free_flags controls which thermal indices are free.
+#     All others are clamped at their starting values.
+#     """
+#     params_start = np.asarray(params_start, float)
+#     LB = list(lower)
+#     UB = list(upper)
 
-    # Free thermal/phase-line knobs
-    idx_map = dict(T0=9, g0=15, q0=21, aa=27, bb=28, cc=29, Sstar=30)
-    for key, do_free in free_flags.items():
-        if do_free:
-            i = idx_map[key]
-            B[i] = (float(LB[i]), float(UB[i]))
+#     # start from all fixed at their current value:
+#     B = [(float(v), float(v)) for v in params_start]
 
-    return B
+#     # optionally unlock elastic (0..3)
+#     if lock_elastic:
+#         if relax_elastic_eps > 0:
+#             for i in (0, 1, 2, 3):
+#                 v = params_start[i]
+#                 B[i] = (v - relax_elastic_eps*abs(v),
+#                         v + relax_elastic_eps*abs(v))
+#         # else keep as clamped
+#     else:
+#         for i in (0, 1, 2, 3):
+#             B[i] = (float(LB[i]), float(UB[i]))
+
+#     # Free thermal/phase-line knobs
+#     idx_map = dict(T0=9, g0=15, q0=21, aa=27, bb=28, cc=29, Sstar=30)
+#     for key, do_free in free_flags.items():
+#         if do_free:
+#             i = idx_map[key]
+#             B[i] = (float(LB[i]), float(UB[i]))
+
+#     return B
 
 
 def _make_outfun_full(*datasets):
@@ -835,106 +1113,5 @@ def _make_outfun_full(*datasets):
     return _make_outfun(*datasets)
 
 
-def run_stage_B(params_from_stageA, datasets,
-                lower_bound, upper_bound,
-                free_flags=_STAGEB_DEFAULT_FREE,
-                lock_elastic=True,
-                maxiter=500, ftol=1e-9, gtol=1e-3):
-    print("=== Stage B: Fitting thermal + phase-line parameters (full cost) ===")
-
-    boundsB = _stageB_bounds(
-        params_start=params_from_stageA,
-        lower=lower_bound, upper=upper_bound,
-        free_flags=free_flags,
-        lock_elastic=lock_elastic,
-        relax_elastic_eps=0.0  # set small (e.g., 1e-3) to allow tiny movement
-    )
-
-    # show what is free
-    print("[Stage B] Free parameters:", [
-          k for k, v in free_flags.items() if v])
-    if lock_elastic:
-        print("[Stage B] Elastic [v00,a1,a2,a3] locked to Stage-A values")
-
-    # sanity check initial full cost
-    tot0, dev0 = combined_cost_function(params_from_stageA, *datasets)
-    print(f"[Stage B] initial total = {tot0:.6g}")
-    for k, v in dev0.items():
-        print(f"  {k}: {v:.6g}")
-
-    cb = _make_outfun_full(*datasets)
-
-    res = minimize(
-        fun=_cost_only,                        # uses combined_cost_function
-        x0=np.asarray(params_from_stageA, float),
-        args=datasets,
-        method="L-BFGS-B",
-        bounds=boundsB,
-        callback=cb,
-        options=dict(
-            disp=True,
-            maxiter=maxiter,
-            ftol=ftol,
-            gtol=gtol,
-            maxls=40,
-        )
-    )
-
-    print("\n[Stage B] Optimization status:", res.message)
-    print("[Stage B] Final cost:", res.fun)
-
-    # Pretty print the parameters we changed
-    idx_map = dict(T0=9, g0=15, q0=21, aa=27, bb=28, cc=29, Sstar=30)
-    print("\n[Stage B] Fitted thermal/phase-line parameters:")
-    for k, i in idx_map.items():
-        if free_flags.get(k, False):
-            print(f"  {k:6s} (idx {i:2d}): {res.x[i]: .6g}")
-
-    # Save params
-    from datetime import datetime
-    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    np.save(f"stageB_params_{stamp}.npy", res.x)
-    print(f"[Stage B] Saved params -> stageB_params_{stamp}.npy")
-
-    return res.x, res.fun
-
-
-def stage_B(params_stageA):
-    krypton_data = load_all_gas_data('krypton', read_from_excel=False)
-    datasets = extract_datasets(krypton_data)
-
-    paramsB, fB = run_stage_B(
-        params_from_stageA=params_stageA,
-        datasets=datasets,
-        lower_bound=LOWER_BOUND,
-        upper_bound=UPPER_BOUND,
-        free_flags=_STAGEB_DEFAULT_FREE,  # change here if you want to freeze any
-        lock_elastic=True,                # keep elastic from Stage A
-        maxiter=500, ftol=1e-9, gtol=1e-3
-    )
-
-    # Plot overlays to inspect p_sub, p_melt, cp, alpha, etc.
-    plot_all_overlays_grid(
-        params=paramsB,
-        datasets=datasets,
-        Tt=KRYPTON_T_t,
-        pt=KRYPTON_P_t,
-        compute_thermo_props=compute_thermo_props,
-        St_REFPROP=KRYPTON_REFERENCE_ENTROPY,
-        Ht_REFPROP=KRYPTON_REFERENCE_ENTHALPY,
-        ncols=3,
-        figsize=(14, 10)
-    )
-
-    formatted = ", ".join(f"{p:.6g}" for p in paramsB)
-    print("\n[Stage B] Full parameter vector:")
-    print(formatted)
-    print("[Stage B] Final cost:", fB)
-
 main()
-# # 1) Stage A
-# paramsA, fA = run_stage_A(PARAMS_INIT, extract_datasets(load_all_gas_data('krypton', False)),
-#                           LOWER_BOUND, UPPER_BOUND)
 
-# # 2) Stage B (uses Stage A params as the start point)
-# stage_B(paramsA)

@@ -212,12 +212,12 @@ T6 = np.array([0.0001] + list(range(2, 84, 2)) + [83.806])
 
 FUNCTION_TOL = 1e-8
 GRADIENT_TOL = 1e-6
-MAX_ITERATIONS = 3
+MAX_ITERATIONS = 5
 
 # --- Weights for each deviation term ---
-W_VM_SUB = 30.0
-W_VM_MELT = 20.0
-W_VM_HIGHP = 5
+W_VM_SUB = 1
+W_VM_MELT = 1
+W_VM_HIGHP = 1
 W_CP_SUB = 5.0
 W_ALPHA_SUB = 3.0
 W_BETAT_SUB = 5.0

@@ -10,4 +10,3 @@ Year	Author	Temperature	Cell Volume
 1978	Macrander	127.34	29.61597406866184
 1978	Macrander	131.86	29.50306870254157
 1978	Macrander	138.94	29.31588544609698
-  			
