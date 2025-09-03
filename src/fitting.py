@@ -173,7 +173,7 @@ def combined_cost_function(params, *datasets):
     V6 = np.full_like(T6, np.nan, dtype=float)
     for i, T in enumerate(T6):
         # p6[i] = psub(T, pt, Tt)
-        p6[i] = psub_curve(T)
+        p6[i] = safe_psub(T)
         pr = compute_thermo_props(T, p6[i], params)
         if np.all(np.isfinite(pr)):
             G6[i] = pr[6]   # Gruneisen
@@ -388,37 +388,30 @@ def stageA():
     print("\n=== Stage A: Fit elastic + optionally θ_D ===")
     krypton_data = load_all_gas_data('krypton', read_from_excel=False)
     datasets = extract_datasets(krypton_data)
-    # boundsA = make_stageA_bounds(PARAMS_INIT, LOWER_BOUND, UPPER_BOUND,
-    #                              free_elastic=(0, 1, 2, 3),
-    #                              v00_idx=0,
-    #                              v00_range=(10.0, 40.0),
-    #                              elastic_range=(-1e6, 1e6),
-    #                              free_theta_idx=None)
-    sens = vm_sub_sensitivities(PARAMS_INIT)
-    #print(sens[:10])  # top 10 most influential
-    thermal_idxs = [sens[0][0]]  # or two: [sens[0][0], sens[1][0]]
+    # 1) Build bounds: elastic free, p27/p15 with small symmetric ranges around 0
     boundsA = make_stageA_bounds(
         PARAMS_INIT, LOWER_BOUND, UPPER_BOUND,
         free_elastic=(0, 1, 2, 3),   # v00, a1, a2, a3
         v00_idx=0,
-        v00_range=(20, 30),
-        elastic_range=(-1e4, 1e4),   # tighter range helps conditioning
-        free_theta_idx=27,  # <-- or the Debye θ index if you have it
-        theta_range=(200.0, 2000.0)
+        v00_range=(26.0, 28.0),      # keep near physical range
+        elastic_range=(-1e4, 1e4),
+        free_theta_idx=None          # <-- don't use θ-like range for p27
     )
     B = list(boundsA)
-
-
     # was (200, 2000) – likely incorrect for a coeff that starts at 0
-    B[27] = (-3.0, 3.0)
-    B[15] = (-1.0, 1.0)   # second-most influential; optional but helpful
+    B[27] = (-6.0, 6.0)
+    B[15] = (-2.0, 2.0)   # second-most influential; optional but helpful
     boundsA = B
 
-    print("bounds[27] =", boundsA[27])        # should NOT be (p0,p0)
-    print("init p27  =", PARAMS_INIT[27])
+    # print("bounds[27] =", boundsA[27])        # should NOT be (p0,p0)
+    # print("init p27  =", PARAMS_INIT[27])
 
     # 4) prefit v00 to give the solver a head start
     x0 = prefit_v00(PARAMS_INIT, datasets)
+    x0[0] = 27.3        # pull baseline down toward the 20 K median
+    x0[27] = 0.0         # neutral start for curvature
+    x0[15] = 0.0         # get off the bound
+    # x0 = sweep_p27(x0, datasets, lo=boundsA[27][0], hi=boundsA[27][1], n=37)
     # 5) optimise
     cb = _make_outfun_vm(*datasets)
     res = minimize(
@@ -436,10 +429,11 @@ def stageA():
     print("[Stage A] final cost:", res.fun)
     print("[Stage A] fitted elastic:",
           f"v00={res.x[0]:.6g}, a1={res.x[1]:.6g}, a2={res.x[2]:.6g}, a3={res.x[3]:.6g}")
+    print(f"[Stage A] fitted p27={res.x[27]:.6g}, p15={res.x[15]:.6g}")
+    diagnose_subline(res.x, datasets,  Tt=KRYPTON_T_t)
     # Quick visual checks for Vm only
     quick_plot_vm_only(res.x, datasets, Tt=KRYPTON_T_t)
 
-# 4) Coarse sweep for p27 so we start on the right side of the landscape
 
 
 def sweep_p27(params, datasets, lo=-3.0, hi=3.0, n=31):
@@ -457,7 +451,7 @@ def sweep_p27(params, datasets, lo=-3.0, hi=3.0, n=31):
     return base
 def vm_sub_sensitivities(params, idxs_to_test=None, rel_step=1e-2):
     Ts = np.linspace(20.0, min(110.0, KRYPTON_T_t-2.0), 30)
-    ps = psub_curve(Ts)
+    ps = safe_psub(Ts)
     base = _safe_props_vector(Ts, ps, params, idx=IDX["Vm"])
     ok = np.isfinite(base)
     Ts0, V0 = Ts[ok], base[ok]

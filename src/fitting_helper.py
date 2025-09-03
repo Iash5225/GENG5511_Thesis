@@ -14,8 +14,8 @@ from constants import *
 BIG = 1e4
 W_SUB = 1.0
 W_MELT = 0.0
-W_ANCH = 0.4   # try 0.3–0.5
-W_SLOPE = 0.5   # try 0.05–0.15
+W_ANCH = 1.2   # try 0.3–0.5
+W_SLOPE = 0.8   # try 0.05–0.15
 Vm_anchor = 0.8
 slope_pen = 0.2
 
@@ -264,48 +264,70 @@ def _abs_rmse(y, yhat):
     return float(np.sqrt(np.mean((y[m] - yhat[m])**2)))
 
 
+def diagnose_subline(params, datasets, Tt=KRYPTON_T_t):
+    (T_Vm_sub, p_Vm_sub, Vm_sub, *_) = datasets
+    T_hi = float(min(110.0, Tt-2.0))
+    win = (np.isfinite(T_Vm_sub) & np.isfinite(Vm_sub) &
+           (T_Vm_sub >= 8.0) & (T_Vm_sub <= T_hi))
+    Tsub = np.asarray(T_Vm_sub[win], float)
+    Vexp = np.asarray(Vm_sub[win],   float)
+
+    def med(Tc, half=5.0):
+        m = np.abs(Tsub - Tc) <= half
+        return float(np.nanmedian(Vexp[m])) if np.any(m) else float(np.nanmedian(Vexp))
+    T_lo = 20.0
+    V_lo_exp, V_hi_exp = med(T_lo), med(T_hi)
+    V_lo_mod = _safe_props_vector(
+        [T_lo], [safe_psub(T_lo)], params, idx=IDX["Vm"])[0]
+    V_hi_mod = _safe_props_vector(
+        [T_hi], [safe_psub(T_hi)], params, idx=IDX["Vm"])[0]
+    Vmod = _safe_props_vector(Tsub, safe_psub(Tsub), params, idx=IDX["Vm"])
+    ok = np.isfinite(Vmod)
+    k_exp = np.polyfit(Tsub, Vexp, 1)[0]
+    k_mod = np.polyfit(Tsub[ok], Vmod[ok], 1)[
+        0] if np.sum(ok) >= 2 else float('nan')
+    print(f"Δ@20K={V_lo_mod-V_lo_exp:+.3f}, Δ@{T_hi:.0f}K={V_hi_mod-V_hi_exp:+.3f}, slope_mod={k_mod:.5f}, slope_exp={k_exp:.5f}")
+
 def combined_cost_vm(params, *datasets):
-    """
-    Stage A Vm-only objective with strong slope/monotonicity control on the subline.
-    """
     (T_Vm_sub,  p_Vm_sub,  Vm_sub,
      T_Vm_melt, p_Vm_melt, Vm_melt, *_) = datasets
 
-    # Triple-point temperature (fallback to constant if Tt not in scope)
     try:
         Tt_val = float(Tt)
     except NameError:
         Tt_val = float(KRYPTON_T_t)
 
-    # Weights (use your globals for core terms; strengthen MONO a lot)
     Wc = {
         "SUB":   W_SUB,
         "MELT":  W_MELT,
         "ANCH":  W_ANCH,
-        "SLOPE": W_SLOPE,  # you'll likely want 0.3–0.5
-        "CURV":  0.05,     # tiny
-        "MONO":  5.0,      # strong penalty for negative model slope
-        "SLOPE_SIGN": 1.0,  # extra cost if slope signs disagree
+        "SLOPE": W_SLOPE,
+        "CURV":  0.05,
+        "MONO":  5.0,
+        "SLOPE_SIGN": 1.0,
     }
 
-    # ---------- Core RMSE terms ----------
+    # ---- cache for this evaluation ----
+    _cache = {}
+
+    # ---- RMSE (all points) ----
     Vm_sub_dev = BIG
     msub = (np.isfinite(T_Vm_sub) & np.isfinite(p_Vm_sub) &
             np.isfinite(Vm_sub) & (T_Vm_sub <= Tt_val))
     if np.any(msub):
-        Vmod_sub = _safe_props_vector(
-            T_Vm_sub[msub], p_Vm_sub[msub], params, idx=IDX["Vm"])
-        Vm_sub_dev = _abs_rmse(Vm_sub[msub], Vmod_sub)  # cm^3/mol
+        Vmod_sub = _safe_props_vector_cached(
+            T_Vm_sub[msub], p_Vm_sub[msub], params, idx=IDX["Vm"], cache=_cache)
+        Vm_sub_dev = _abs_rmse(Vm_sub[msub], Vmod_sub)
 
     Vm_melt_dev = BIG
     mmelt = (np.isfinite(T_Vm_melt) & np.isfinite(p_Vm_melt) &
              np.isfinite(Vm_melt) & (T_Vm_melt >= Tt_val))
     if np.any(mmelt):
-        Vmod_melt = _safe_props_vector(
-            T_Vm_melt[mmelt], p_Vm_melt[mmelt], params, idx=IDX["Vm"])
+        Vmod_melt = _safe_props_vector_cached(
+            T_Vm_melt[mmelt], p_Vm_melt[mmelt], params, idx=IDX["Vm"], cache=_cache)
         Vm_melt_dev = _abs_rmse(Vm_melt[mmelt], Vmod_melt)
 
-    # ---------- Subline helpers ----------
+    # ---- Subline helpers ----
     Vm_anchor = 0.0
     slope_pen = 0.0
     curv_pen = 0.0
@@ -313,7 +335,6 @@ def combined_cost_vm(params, *datasets):
     slope_sign_pen = 0.0
 
     try:
-        # window for anchors/slope (avoid ultra-low T noise; remain below Tt)
         T_hi_cap = float(min(110.0, Tt_val - 2.0))
         win = (np.isfinite(T_Vm_sub) & np.isfinite(Vm_sub) &
                (T_Vm_sub >= 8.0) & (T_Vm_sub <= T_hi_cap))
@@ -321,55 +342,43 @@ def combined_cost_vm(params, *datasets):
             Tsub = np.asarray(T_Vm_sub[win], float)
             Vexp = np.asarray(Vm_sub[win],   float)
 
-            # --- Anchors: median Vm near 20 K and near T_hi_cap
+            # anchors
             def _median_near(Tc, half=5.0):
                 m = np.abs(Tsub - Tc) <= half
                 return float(np.nanmedian(Vexp[m])) if np.any(m) else float(np.nanmedian(Vexp))
-
             T_lo, T_hi = 20.0, T_hi_cap
             V_lo_exp = _median_near(T_lo)
             V_hi_exp = _median_near(T_hi)
 
-            V_lo_model = _safe_props_vector(
-                [T_lo], [psub_curve(T_lo)], params, idx=IDX["Vm"])[0]
-            V_hi_model = _safe_props_vector(
-                [T_hi], [psub_curve(T_hi)], params, idx=IDX["Vm"])[0]
-
+            V_lo_model = _safe_props_vector_cached(
+                [T_lo], [safe_psub(T_lo)], params, idx=IDX["Vm"], cache=_cache)[0]
+            V_hi_model = _safe_props_vector_cached(
+                [T_hi], [safe_psub(T_hi)], params, idx=IDX["Vm"], cache=_cache)[0]
             if np.isfinite(V_lo_model) and np.isfinite(V_hi_model):
                 Vm_anchor = (V_lo_model - V_lo_exp)**2 + \
                     (V_hi_model - V_hi_exp)**2
 
-            # --- Model along the same subline window
-            Vmod = _safe_props_vector(
-                Tsub, psub_curve(Tsub), params, idx=IDX["Vm"])
+            # slope/curv/monotonicity (reuse cache)
+            p_win = safe_psub(Tsub)
+            Vmod = _safe_props_vector_cached(
+                Tsub, p_win, params, idx=IDX["Vm"], cache=_cache)
             m_ok = np.isfinite(Vmod)
-
             if np.sum(m_ok) >= 4:
-                # Linear slopes
                 k_exp = np.polyfit(Tsub, Vexp, 1)[0]
                 k_mod = np.polyfit(Tsub[m_ok], Vmod[m_ok], 1)[0]
-
-                # Slope magnitude match
                 slope_pen = (k_mod - k_exp)**2
-
-                # Extra penalty if slope signs disagree
                 if np.sign(k_mod) != np.sign(k_exp):
                     slope_sign_pen = (abs(k_mod) + abs(k_exp))**2
-
-                # Curvature match (tiny)
+                # optional curvature (tiny)
                 if Tsub.size >= 3 and np.sum(m_ok) >= 3:
                     c_exp = np.polyfit(Tsub, Vexp, 2)[0]
                     c_mod = np.polyfit(Tsub[m_ok], Vmod[m_ok], 2)[0]
                     curv_pen = (c_mod - c_exp)**2
-
-                # Monotonicity: penalize negative model slope
                 if k_mod < 0.0:
                     mono_pen = (-k_mod)**2
-
     except Exception:
-        pass  # keep helper penalties at zero if anything fails
+        pass
 
-    # ---------- Weighted total ----------
     total = (Wc["SUB"] * Vm_sub_dev +
              Wc["MELT"] * Vm_melt_dev +
              Wc["ANCH"] * Vm_anchor +
@@ -497,6 +506,23 @@ def _make_outfun_vm(*datasets):
     return cb
 
 
+def _safe_props_vector_cached(T_arr, p_arr, params, idx, cache):
+    T_arr = np.asarray(T_arr, float)
+    p_arr = np.asarray(p_arr, float)
+    out = np.full(T_arr.shape, np.nan, dtype=float)
+    for i, (T, p) in enumerate(zip(T_arr, p_arr)):
+        key = (float(T), float(p))
+        props = cache.get(key)
+        if props is None:
+            try:
+                props = compute_thermo_props(float(T), float(p), params)
+            except Exception:
+                props = None
+            cache[key] = props
+        if props is not None and np.all(np.isfinite(props)):
+            out[i] = props[IDX["Vm"]]
+    return out
+
 def quick_plot_vm_only(params, datasets, Tt):
     (T_Vm_sub, p_Vm_sub, Vm_sub,
      T_Vm_melt, p_Vm_melt, Vm_melt, *_) = datasets
@@ -537,6 +563,20 @@ def quick_plot_vm_only(params, datasets, Tt):
     plt.tight_layout()
     plt.show()
 
+# 1) Safe wrapper around psub
+
+
+def safe_psub(T):
+    """
+    Real, positive sublimation pressure; NaN outside domain.
+    """
+    p = np.asarray(psub_curve(T))
+    if np.iscomplexobj(p):
+        near_real = np.abs(p.imag) < 1e-12
+        p = np.where(near_real, p.real, np.nan)
+    p = p.astype(float, copy=False)
+    p[~np.isfinite(p) | (p <= 0.0)] = np.nan
+    return p
 
 __all__ = [
         "psub_curve",
@@ -556,4 +596,7 @@ __all__ = [
         "_cost_only_vm",
         "_make_outfun_vm",
         "quick_plot_vm_only",
+        "_safe_props_vector_cached",
+        "diagnose_subline",
+        "safe_psub",
     ]
