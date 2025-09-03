@@ -57,8 +57,8 @@ def load_all_gas_data(gas_name, read_from_excel=True):
             txt(gas_name, 'thermal_coeff_data'), sep='\t')
         data['heat_capacity'] = pd.read_csv(
             txt(gas_name, 'heat_capacity_data'), sep='\t')
-        data['bulk_s'] = pd.read_csv(txt(gas_name, 'bulk_modulus_s'), sep='\t')
-        data['bulk_t'] = pd.read_csv(txt(gas_name, 'bulk_modulus_t'), sep='\t')
+        data['bulk_s'] = pd.read_csv(txt(gas_name, 'bulk_modulus_s2'), sep='\t')
+        data['bulk_t'] = pd.read_csv(txt(gas_name, 'bulk_modulus_t2'), sep='\t')
         data['cell_volume_sub'] = pd.read_csv(
             txt(gas_name, 'cell_volume_sub'), sep='\t')
         data['cell_volume_melt'] = pd.read_csv(

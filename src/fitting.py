@@ -31,15 +31,12 @@ def pmelt_curve(T): return melting_pressure_equation(
 )
 
 # Hidden Functions
-
-
 def _cost_only(params, *datasets):
     try:
         total, _ = combined_cost_function(params, *datasets)
         return float(total) if np.isfinite(total) else BIG
     except Exception:
         return BIG
-
 
 def _compute_triple_offsets(params):
     """Return (deltaH_triple, deltaS_triple) using meta if provided by compute_thermo_props."""
@@ -386,3 +383,103 @@ def export_eos_to_excel(params_fit,
             ws.autofilter(0, 0, max(0, len(df)), max(0, len(df.columns)-1))
 
     print(f"[export] Wrote {len(sheets)} sheets to {out_path}")
+
+def stageA():
+    print("\n=== Stage A: Fit elastic + optionally θ_D ===")
+    krypton_data = load_all_gas_data('krypton', read_from_excel=False)
+    datasets = extract_datasets(krypton_data)
+    # boundsA = make_stageA_bounds(PARAMS_INIT, LOWER_BOUND, UPPER_BOUND,
+    #                              free_elastic=(0, 1, 2, 3),
+    #                              v00_idx=0,
+    #                              v00_range=(10.0, 40.0),
+    #                              elastic_range=(-1e6, 1e6),
+    #                              free_theta_idx=None)
+    sens = vm_sub_sensitivities(PARAMS_INIT)
+    #print(sens[:10])  # top 10 most influential
+    thermal_idxs = [sens[0][0]]  # or two: [sens[0][0], sens[1][0]]
+    boundsA = make_stageA_bounds(
+        PARAMS_INIT, LOWER_BOUND, UPPER_BOUND,
+        free_elastic=(0, 1, 2, 3),   # v00, a1, a2, a3
+        v00_idx=0,
+        v00_range=(20, 30),
+        elastic_range=(-1e4, 1e4),   # tighter range helps conditioning
+        free_theta_idx=27,  # <-- or the Debye θ index if you have it
+        theta_range=(200.0, 2000.0)
+    )
+    B = list(boundsA)
+
+
+    # was (200, 2000) – likely incorrect for a coeff that starts at 0
+    B[27] = (-3.0, 3.0)
+    B[15] = (-1.0, 1.0)   # second-most influential; optional but helpful
+    boundsA = B
+
+    print("bounds[27] =", boundsA[27])        # should NOT be (p0,p0)
+    print("init p27  =", PARAMS_INIT[27])
+
+    # 4) prefit v00 to give the solver a head start
+    x0 = prefit_v00(PARAMS_INIT, datasets)
+    # 5) optimise
+    cb = _make_outfun_vm(*datasets)
+    res = minimize(
+        # uses your combined_cost_vm internally
+        fun=lambda x, *a: _cost_only_vm(x, *a),
+        x0=np.asarray(x0, dtype=float),
+        args=datasets,
+        method="L-BFGS-B",
+        bounds=boundsA,
+        callback=cb,
+        options=dict(disp=True, maxiter=MAX_ITERATIONS,
+                     ftol=FUNCTION_TOL, gtol=GRADIENT_TOL, maxls=60),
+    )
+    print("\n[Stage A] status:", res.message)
+    print("[Stage A] final cost:", res.fun)
+    print("[Stage A] fitted elastic:",
+          f"v00={res.x[0]:.6g}, a1={res.x[1]:.6g}, a2={res.x[2]:.6g}, a3={res.x[3]:.6g}")
+    # Quick visual checks for Vm only
+    quick_plot_vm_only(res.x, datasets, Tt=KRYPTON_T_t)
+
+# 4) Coarse sweep for p27 so we start on the right side of the landscape
+
+
+def sweep_p27(params, datasets, lo=-3.0, hi=3.0, n=31):
+    grid = np.linspace(lo, hi, n)
+    base = np.array(params, float)
+    best_cost, best_v = np.inf, None
+    for v in grid:
+        test = base.copy()
+        test[27] = v
+        cost, _ = combined_cost_vm(test, *datasets)
+        if np.isfinite(cost) and cost < best_cost:
+            best_cost, best_v = cost, v
+    print(f"[prefit] p27* = {best_v:.4g}  cost = {best_cost:.6g}")
+    base[27] = best_v
+    return base
+def vm_sub_sensitivities(params, idxs_to_test=None, rel_step=1e-2):
+    Ts = np.linspace(20.0, min(110.0, KRYPTON_T_t-2.0), 30)
+    ps = psub_curve(Ts)
+    base = _safe_props_vector(Ts, ps, params, idx=IDX["Vm"])
+    ok = np.isfinite(base)
+    Ts0, V0 = Ts[ok], base[ok]
+    k0 = np.polyfit(Ts0, V0, 1)[0]                  # slope dV/dT
+    c0 = np.polyfit(Ts0, V0, 2)[0] if Ts0.size >= 3 else 0.0  # curvature
+
+    n = len(params)
+    if idxs_to_test is None:
+        idxs_to_test = range(n)
+    out = []
+    for i in idxs_to_test:
+        p = np.array(params, float)
+        step = rel_step * (abs(p[i]) if p[i] != 0 else 1.0)
+        p[i] += step
+        Vi = _safe_props_vector(Ts, ps, p, idx=IDX["Vm"])
+        ok = np.isfinite(Vi)
+        if ok.sum() >= 5:
+            ki = np.polyfit(Ts[ok], Vi[ok], 1)[0]
+            ci = np.polyfit(Ts[ok], Vi[ok], 2)[0] if ok.sum() >= 3 else 0.0
+            out.append((i, (ki-k0)/max(1e-12, step), (ci-c0)/max(1e-12, step)))
+    # sort by |curvature sensitivity| then |slope sensitivity|
+    out.sort(key=lambda t: (abs(t[2]), abs(t[1])), reverse=True)
+    return out  # list of (param_index, dSlope/dp, dCurv/dp)
+
+stageA()

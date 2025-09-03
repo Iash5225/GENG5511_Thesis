@@ -148,6 +148,124 @@ def _safe_props_vector(T_arr, p_arr, params, idx):
     return out
 
 
+def extract_datasets(data):
+    """
+    Extracts thermodynamic property datasets from the given data dictionary.
+
+    Parameters:
+        data (dict): Dictionary containing sub-dictionaries of thermodynamic property data.
+
+    Returns:
+        tuple: A tuple containing arrays for all datasets in the specified order.
+    """
+    T_Vm_sub = data["cell_volume_sub"]['Temperature']
+
+    cv_sub_df = data["cell_volume_sub"]
+
+    # don’t drop NaNs yet, keep them so we can inspect
+    cv_sub_df["Temperature"] = pd.to_numeric(
+        cv_sub_df["Temperature"], errors="coerce")
+    cv_sub_df["Cell Volume"] = pd.to_numeric(
+        cv_sub_df["Cell Volume"], errors="coerce")
+
+    # Print any bad rows with author info
+    bad = cv_sub_df[~np.isfinite(cv_sub_df["Temperature"])]
+    if not bad.empty:
+        print("⚠️ Non-finite temperatures in sublimation dataset:")
+        print(bad[["Temperature", "Cell Volume", "Author", "Year"]])
+
+    # Check before calling
+    bad_T = T_Vm_sub[T_Vm_sub <= 0]
+    if not bad_T.empty:
+        print("⚠️ Found non-physical temperatures (<= 0 K):")
+        print(bad_T.to_string(index=True))
+    # Cell Volume Sublimation
+    T_Vm_sub = data["cell_volume_sub"]['Temperature']
+    p_Vm_sub = np.array([sublimation_pressure_equation(
+        T, KRYPTON_E_1_SUB,  KRYPTON_E_2_SUB, KRYPTON_E_3_SUB, KRYPTON_T_t, KRYPTON_P_t) for T in T_Vm_sub])
+    Vm_sub = data['cell_volume_sub']['Cell Volume']
+
+    # Cell Volume Melting
+    T_Vm_melt = data['cell_volume_melt']['Temperature']
+    p_Vm_melt = np.array([melting_pressure_equation(
+        T, KRYPTON_E_4, KRYPTON_E_5, KRYPTON_E_6, KRYPTON_E_7, KRYPTON_T_t, KRYPTON_P_t) for T in T_Vm_melt])
+    Vm_melt = data['cell_volume_melt']['Cell Volume']
+
+    # High Pressure Cell Volume (safe defaults if missing)
+    if 'cell_volume_highp' in data:
+        T_Vm_highp = data['cell_volume_highp']['Temperature']
+        p_Vm_highp = data['cell_volume_highp']['Pressure']
+        Vm_highp = data['cell_volume_highp']['Cell Volume']
+    else:
+        T_Vm_highp = np.array([])
+        p_Vm_highp = np.array([])
+        Vm_highp = np.array([])
+
+    # Heat Capacity Sublimation
+    T_cp_sub = data['heat_capacity']['Temperature']
+    p_cp_sub = np.array([sublimation_pressure_equation(
+        T, KRYPTON_E_1_SUB,  KRYPTON_E_2_SUB, KRYPTON_E_3_SUB, KRYPTON_T_t, KRYPTON_P_t) for T in T_cp_sub])
+    cp_sub = data['heat_capacity']['Heat Capacity']
+
+    # Thermal Expansion Sublimation
+    T_alpha_sub = data['thermal_coeff']['Temperature']
+    p_alpha_sub = np.array([sublimation_pressure_equation(
+        T, KRYPTON_E_1_SUB,  KRYPTON_E_2_SUB, KRYPTON_E_3_SUB, KRYPTON_T_t, KRYPTON_P_t) for T in T_alpha_sub])
+    alpha_sub = data['thermal_coeff']['Thermal Expansion Coefficient']
+
+    # Bulk Modulus (S)
+    T_BetaS_sub = data['bulk_s']['Temperature']
+    p_BetaS_sub = data['bulk_s']['Pressure']
+    BetaS_sub = data['bulk_s']['Beta S']
+
+    # Bulk Modulus (T)
+    T_BetaT_sub = data['bulk_t']['Temperature']
+    p_BetaT_sub = data['bulk_t']['Pressure']
+    BetaT_sub = data['bulk_t']['Beta T']
+
+    # Melting
+    T_melt = data['melting']['Temperature']
+    p_melt = data['melting']['Pressure']
+    G_fluid_melt = data['melting']['Gibbs Energy']
+    V_fluid_melt = data['melting']['Volume']
+
+    # Sublimation
+    T_sub = data['sublimation']['Temperature']
+    p_sub = data['sublimation']['Pressure']
+    G_fluid_sub = data['sublimation']['Gibbs Energy']
+    V_fluid_sub = data['sublimation']['Volume']
+    # Enthalpy Sublimation
+    T_H_sub = data['heatsub']['Temperature']
+    p_H_sub = data['heatsub']['Pressure']
+    delta_H_sub = 1000.0 * data['heatsub']['Change in Enthalpy']  # kJ → J
+    H_fluid_sub = 1000.0 * data['heatsub']['Enthalpy']
+
+    # Enthalpy Melting
+    T_H_melt = data['fusion']['Temperature']
+    p_H_melt = data['fusion']['Pressure']
+    delta_H_melt = 1000.0 * data['fusion']['Change in Enthalpy']
+    H_fluid_melt = 1000.0 * data['fusion']['Enthalpy']
+
+    Year_sub = np.array([])   # <-- add this
+
+    datasets = (
+        T_Vm_sub, p_Vm_sub, Vm_sub,
+        T_Vm_melt, p_Vm_melt, Vm_melt,
+        T_Vm_highp, p_Vm_highp, Vm_highp,
+        T_cp_sub, p_cp_sub, cp_sub,
+        T_alpha_sub, p_alpha_sub, alpha_sub,
+        T_BetaT_sub, p_BetaT_sub, BetaT_sub,
+        T_BetaS_sub, p_BetaS_sub, BetaS_sub,
+        # ---- EXACT ORDER NEEDED BY COMBINED_COST_FUNCTION ----
+        T_sub, p_sub, Year_sub, G_fluid_sub, V_fluid_sub,
+        T_melt, p_melt, G_fluid_melt, V_fluid_melt,
+        T_H_sub, p_H_sub, delta_H_sub, H_fluid_sub,
+        T_H_melt, p_H_melt, delta_H_melt, H_fluid_melt
+    )
+
+    assert len(datasets) == 38
+    return datasets
+
 def _rmse_abs(y, yhat):
     m = np.isfinite(y) & np.isfinite(yhat)
     return BIG if not np.any(m) else float(np.sqrt(np.mean((y[m]-yhat[m])**2)))

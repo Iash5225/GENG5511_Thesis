@@ -169,7 +169,7 @@ AXIS_FONT_SIZE=14
 #     0, 0, 0, 0, 0, 0.00242239049165781, 0, 0, 0, 0, 0, 0.0128218007844121, 0.388169436431343, 7.85061199420585, 130.371937461416])
 
 PARAMS_INIT = np.array([
-    22.555, 6901.0254, 9447.7265, 1046.1416, 0, 0, 0, 0, 0,
+    29, 6901.0254, 9447.7265, 1046.1416, 0, 0, 0, 0, 0,
     25.3970234, 0, 0, 0, 0, 0,
     -5, 0, 0, 0, 0, 0,
     -10, 0, 0, 0, 0, 0,
@@ -178,7 +178,7 @@ PARAMS_INIT = np.array([
 
 # Lower bounds
 LOWER_BOUND = np.array([
-    22.555, 0, 0, 0, 0, 0, 0, 0, 0,
+    25, 0, 0, 0, 0, 0, 0, 0, 0,
     20, 0, 0, 0, 0, 0,
     -5, 0, 0, 0, 0, 0,
     -10, 0, 0, 0, 0, 0,
@@ -187,7 +187,7 @@ LOWER_BOUND = np.array([
 
 # Upper bounds
 UPPER_BOUND = np.array([
-    22.555, 10000, 10000, 10000, 0, 0, 0, 0, 0,
+    40, 10000, 10000, 10000, 0, 0, 0, 0, 0,
     300, 0, 0, 0, 0, 0,
     5, 0, 0, 0, 0, 0,
     10, 0, 0, 0, 0, 0,
@@ -264,3 +264,9 @@ GAMMA_DEBYE_T_MAX = 30.0     # K: range over which gamma -> gamma_D0
 W_GAMMA_LOW_T = 3.0      # weight for (gamma - gamma_D0) penalty in 0–30 K
 
 W_GAMMA_MONO = 3.5      # already in your code; keep or tune
+
+St_REFPROP = KRYPTON_REFERENCE_ENTROPY  # Reference Entropy
+Ht_REFPROP = KRYPTON_REFERENCE_ENTHALPY
+Tt = KRYPTON_T_t
+pt = KRYPTON_P_t
+IDX = dict(Vm=0, KappaT=1, KappaS=2, Alpha=3, cp=4, H=10, G=11)
