@@ -1,3 +1,4 @@
+from scipy.optimize import minimize_scalar
 from math import isfinite
 from scipy.optimize import minimize
 import numpy as np
@@ -70,13 +71,29 @@ def vm_along_subline(Tseq, params, cache=None, idx=IDX["Vm"]):
     return out
 
 
-def subline_residuals(params, datasets):
-    # (subline Vm triple is first)
-    (T_Vm_sub, p_Vm_sub, Vm_sub, *_) = datasets
-    m = np.isfinite(T_Vm_sub) & np.isfinite(p_Vm_sub) & np.isfinite(Vm_sub)
+def safe_psub(T):
+    """Sublimation pressure with complex-safety; returns NaN for non-physical points."""
+    T = np.asarray(T, float)
+    p = sublimation_pressure_equation(
+        T, KRYPTON_E_1_SUB, KRYPTON_E_2_SUB, KRYPTON_E_3_SUB, KRYPTON_T_t, KRYPTON_P_t
+    )
+    if np.iscomplexobj(p):
+        p = np.where(np.abs(p.imag) < 1e-12, p.real, np.nan)
+    return np.asarray(p, float)
+
+
+
+def subline_residuals(params, datasets, Tt=KRYPTON_T_t):
+    (T_sub, _p_dummy, Vm_sub, *_) = datasets
+    T_cap = min(110.0, Tt - 2.0)
+    T = np.asarray(T_sub, float)
+    p = safe_psub(T)   # recompute!
+    m = (np.isfinite(T) & np.isfinite(p) & np.isfinite(Vm_sub) &
+         (T >= 8.0) & (T <= T_cap) & (p > 0.0))
     Vhat = _safe_props_vector_cached(
-        T_Vm_sub[m], p_Vm_sub[m], params, idx=IDX["Vm"], cache={})
+        T[m], p[m], params, idx=IDX["Vm"], cache={})
     return Vm_sub[m] - Vhat, m
+
 
 
 def melt_residuals(params, datasets, Tt):
@@ -216,6 +233,29 @@ def combined_cost_vm_huber(params, *datasets, Tt=None, teacher=None, weights=Non
     return total
 
 
+def slope_exp_from_data(T, V, Tt):
+    m = (T >= 8.0) & (T <= min(110.0, Tt-2.0))
+    return np.polyfit(T[m], V[m], 1)[0]
+
+
+def slope_penalty_for(p27, base, datasets, Tt):
+    p = base.copy()
+    p[27] = p27
+    Tgrid = np.linspace(8.0, min(110.0, Tt-2.0), 120)
+    Vmod = vm_along_subline(Tgrid, p)
+    ok = np.isfinite(Vmod)
+    if np.sum(ok) < 6:
+        return 1e9
+    k_mod = np.polyfit(Tgrid[ok], Vmod[ok], 1)[0]
+    (T_sub, _, V_sub, *_) = datasets
+    k_exp = slope_exp_from_data(np.asarray(
+        T_sub, float), np.asarray(V_sub, float), Tt)
+    return (k_mod - k_exp)**2
+
+
+
+
+
 def stageA_huber(datasets, x0, bounds, Tt, teacher=None,
                  weights=dict(SUB=1.0, MELT=0.0, ANCH=1.0,
                               SLOPE=0.7, TEACH=0.8, MONO=3.0, CONV=0.2),
@@ -236,12 +276,13 @@ def stageA_huber(datasets, x0, bounds, Tt, teacher=None,
         res = minimize(
             fun=lambda p, *a: float(
                 combined_cost_vm_huber(p, *a, Tt=Tt, teacher=teacher, weights=weights,
-                                       w_sub=w_sub, msub_mask=m_sub, w_melt=w_melt, mmelt_mask=m_melt)
+                                    w_sub=w_sub, msub_mask=m_sub, w_melt=w_melt, mmelt_mask=m_melt)
             ),
             x0=x, args=datasets, method="L-BFGS-B", bounds=bounds,
-            options=dict(disp=True, maxiter=200, ftol=FUNCTION_TOL,
-                         gtol=GRADIENT_TOL, maxls=60, eps=1e-3),
+            options=dict(disp=True, maxiter=MAX_ITERATIONS, ftol=FUNCTION_TOL,
+                        gtol=GRADIENT_TOL, maxls=60),
         )
+
         x = res.x
 
         # reweight with updated residuals (classic Huber IRLS)
@@ -257,39 +298,40 @@ def stageA_huber(datasets, x0, bounds, Tt, teacher=None,
 print("\n=== Stage A (Huber IRLS, subline first) ===")
 krypton_data = load_all_gas_data('krypton', read_from_excel=False)
 datasets = extract_datasets(krypton_data)
-
-# Optional teacher (smoothing spline); or pass teacher=None
+print(f"Datasets Extracted")
 teacher = make_subline_teacher(datasets, Tt=KRYPTON_T_t)
+print(f"Teacher Curve Prepared")
+# Bounds: baseline around 20 K median + free a1..a3 + thermal knobs
+v00_star = target_v00(datasets)
+print(f"Target v00*: {v00_star:.4f} cm3/mol")
 
-# Bounds: tighten v00 around 20 K median (baseline), free a1..a3 & thermal knob(s)
-v00_star = target_v00(datasets)         # your helper from earlier
 boundsA = make_stageA_bounds(PARAMS_INIT, LOWER_BOUND, UPPER_BOUND,
                              free_elastic=(0, 1, 2, 3), v00_idx=0,
                              v00_range=(v00_star-0.3, v00_star+0.3),
                              elastic_range=(-1e4, 1e4))
-B = list(boundsA)
-B[27] = (-6, 6)
-B[15] = (-2, 2)
-boundsA = B
 
-# Start vector (prefit v00)
+PARAMS_INIT[27] = -0.8202
+boundsA = list(boundsA)
+boundsA[27] = (max(-6.0, -0.8202 - 0.5), min(6.0, -0.8202 + 0.5))
+boundsA = tuple(boundsA)
+
+print(f"Stage A bounds: {boundsA}")
+# 1-D pre-tune of slope knob (p27)
+# res1d = minimize_scalar(slope_penalty_for, bounds=(-6, 6), method='bounded',
+#                         args=(PARAMS_INIT, datasets, KRYPTON_T_t))
+# PARAMS_INIT[27] = float(res1d.x)
+# print(f"1-D slope knob pre-tune: p27 = {PARAMS_INIT[27]:.4f}, penalty = {res1d.fun:.4f}")
+# Start vector
 x0 = prefit_v00(PARAMS_INIT, datasets)
 x0[0] = v00_star
 
-# Subline-only Huber fit (MELT=0.0)
+# Subline-only Huber fit
 w_stageA = dict(SUB=1.0, MELT=0.0, ANCH=1.0, SLOPE=0.7,
                 TEACH=0.8, MONO=3.0, CONV=0.2)
-paramsA = stageA_huber(datasets, x0, boundsA, Tt=KRYPTON_T_t, teacher=teacher, weights=w_stageA,
-                       delta_sub=1.345, delta_melt=1.345, n_outer=4)
+paramsA = stageA_huber(datasets, x0, boundsA, Tt=KRYPTON_T_t,
+                       teacher=teacher, weights=w_stageA,
+                       delta_sub=1.345, delta_melt=1.345, n_outer=N_OUTER)
 
-# (Optional) short refine with melt on
-# print("\n=== Short refine with MELT on (still Huber) ===")
-# w_refine = dict(SUB=1.0, MELT=1.0, ANCH=0.8, SLOPE=0.4,
-#                 TEACH=0.5, MONO=2.0, CONV=0.2)
-# paramsA2 = stageA_huber(datasets, paramsA, boundsA, Tt=KRYPTON_T_t, teacher=teacher, weights=w_refine,
-#                         delta_sub=1.345, delta_melt=1.345, n_outer=2)
-
-# Plot & diagnostics
 quick_plot_vm_only(paramsA, datasets, Tt=KRYPTON_T_t)
 diagnose_subline(paramsA, datasets, Tt=KRYPTON_T_t)
 print(f"Stage A (Huber) params: {paramsA}")
