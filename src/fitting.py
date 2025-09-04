@@ -10,6 +10,7 @@ from constants import *
 from fitting_helper import *
 from plot_eos import plot_all_overlays_grid
 from thermal_script import melting_pressure_equation, sublimation_pressure_equation
+from scipy.interpolate import UnivariateSpline
 
 # Constants
 BIG = 1e4
@@ -385,6 +386,8 @@ def export_eos_to_excel(params_fit,
     print(f"[export] Wrote {len(sheets)} sheets to {out_path}")
 
 def stageA():
+
+
     print("\n=== Stage A: Fit elastic + optionally θ_D ===")
     krypton_data = load_all_gas_data('krypton', read_from_excel=False)
     datasets = extract_datasets(krypton_data)
@@ -476,4 +479,49 @@ def vm_sub_sensitivities(params, idxs_to_test=None, rel_step=1e-2):
     out.sort(key=lambda t: (abs(t[2]), abs(t[1])), reverse=True)
     return out  # list of (param_index, dSlope/dp, dCurv/dp)
 
-stageA()
+def stageA2():
+    # Build once (right after you load/extract datasets)
+    krypton_data = load_all_gas_data('krypton', read_from_excel=False)
+    datasets = extract_datasets(krypton_data)
+    teacher = make_subline_teacher(datasets, Tt=KRYPTON_T_t)
+
+    # Subline-focused weights first; re-enable MELT later for a short refine
+    stageA_weights = dict(SUB=1.0, MELT=0.0, ANCH=1.2,
+                        SLOPE=0.8, TEACH=0.8, MONO=3.0, CONV=0.2)
+
+    # Prefit v00 + give p27 room, p15 modest
+    x0 = prefit_v00(PARAMS_INIT, datasets)
+    B = list(make_stageA_bounds(PARAMS_INIT, LOWER_BOUND, UPPER_BOUND,
+                                free_elastic=(0, 1, 2, 3), v00_idx=0,
+                                v00_range=(target_v00(datasets)-0.4,
+                                        target_v00(datasets)+0.4),
+                                elastic_range=(-1e4, 1e4)))
+    B[27] = (-6.0, 6.0)
+    B[15] = (-2.0, 2.0)
+    boundsA = B
+
+    # Optimize (note: no heavy callback)
+    res = minimize(
+        fun=lambda x, *a: float(combined_cost_vm(x, *a, teacher=teacher, Tt=KRYPTON_T_t,
+                                                weights=stageA_weights)[0]),
+        x0=np.asarray(x0, float),
+        args=datasets, method="L-BFGS-B", bounds=boundsA,
+        options=dict(disp=True, maxiter=MAX_ITERATIONS,
+                    ftol=FUNCTION_TOL, gtol=GRADIENT_TOL)  
+    )
+
+    # Diagnose/plot
+    diagnose_subline(res.x, datasets, Tt=KRYPTON_T_t)
+    quick_plot_vm_only(res.x, datasets, Tt=KRYPTON_T_t)
+
+    # # Then a short refine with melt on:
+    # refine_weights = dict(SUB=1.0, MELT=1.0, ANCH=0.8,
+    #                     SLOPE=0.4, TEACH=0.5, MONO=2.0, CONV=0.2)
+    # res2 = minimize(
+    #     fun=lambda x, *a: float(combined_cost_vm(x, *a, teacher=teacher, Tt=KRYPTON_T_t,
+    #                                             weights=refine_weights)[0]),
+    #     x0=res.x, args=datasets, method="L-BFGS-B", bounds=boundsA,
+    #     options=dict(disp=True, maxiter=200, eps=1e-3)
+    # )
+
+stageA2()
