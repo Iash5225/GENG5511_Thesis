@@ -71,6 +71,25 @@ def vm_along_subline(Tseq, params, cache=None, idx=IDX["Vm"]):
     return out
 
 
+# --- scale so a1..a3 are O(1) in the optimizer ---
+S = np.ones_like(PARAMS_INIT, float)
+S[1:4] = 1e-3   # a1,a2,a3 ~ 1e4 → 1e1
+
+
+def to_params(z): return np.asarray(z, float) * S      # z → real params
+def from_params(p): return np.asarray(p, float) / S      # real → z
+
+
+def nudge_inside_vec(v, bounds, eps=1e-4):
+    v = np.array(v, float)
+    for i, (lb, ub) in enumerate(bounds):
+        if lb < ub:
+            v[i] = min(max(v[i], lb+eps), ub-eps)
+        else:
+            v[i] = lb  # fixed
+    return v
+
+
 def safe_psub(T):
     """Sublimation pressure with complex-safety; returns NaN for non-physical points."""
     T = np.asarray(T, float)
@@ -253,42 +272,41 @@ def slope_penalty_for(p27, base, datasets, Tt):
     return (k_mod - k_exp)**2
 
 
-
-
-
 def stageA_huber(datasets, x0, bounds, Tt, teacher=None,
                  weights=dict(SUB=1.0, MELT=0.0, ANCH=1.0,
                               SLOPE=0.7, TEACH=0.8, MONO=3.0, CONV=0.2),
                  delta_sub=1.345, delta_melt=1.345, n_outer=4):
-    """
-    Run Huber IRLS from the beginning. Start with SUB only; turn MELT on later.
-    """
-    x = np.asarray(x0, float)
+    x = np.asarray(x0, float)  # real param space
 
-    # initial residuals & weights
+    # initial residuals/weights (real space)
     r_sub, m_sub = subline_residuals(x, datasets)
     w_sub, s_sub = huber_weights(r_sub, delta=delta_sub)
-
     r_melt, m_melt = melt_residuals(x, datasets, Tt)
     w_melt, s_melt = huber_weights(r_melt, delta=delta_melt)
 
     for k in range(n_outer):
+        # --- build scaled problem for this outer iteration ---
+        bounds_z = [(lb/si, ub/si) for (lb, ub), si in zip(bounds, S)]
+        z0 = from_params(x)
+        z0 = nudge_inside_vec(z0, bounds_z)  # avoid "X0 at bounds"
+
+        # optimize in z; map to real params inside objective
         res = minimize(
-            fun=lambda p, *a: float(
-                combined_cost_vm_huber(p, *a, Tt=Tt, teacher=teacher, weights=weights,
-                                    w_sub=w_sub, msub_mask=m_sub, w_melt=w_melt, mmelt_mask=m_melt)
+            fun=lambda z, *a: float(
+                combined_cost_vm_huber(
+                    to_params(z), *a, Tt=Tt, teacher=teacher, weights=weights,
+                    w_sub=w_sub, msub_mask=m_sub, w_melt=w_melt, mmelt_mask=m_melt
+                )
             ),
-            x0=x, args=datasets, method="L-BFGS-B", bounds=bounds,
-            options=dict(disp=True, maxiter=MAX_ITERATIONS, ftol=FUNCTION_TOL,
-                        gtol=GRADIENT_TOL, maxls=60),
+            x0=z0, args=datasets, method="L-BFGS-B", bounds=bounds_z,
+            options=dict(disp=True, maxiter=MAX_ITERATIONS,
+                         ftol=FUNCTION_TOL, gtol=GRADIENT_TOL, maxls=60),
         )
+        x = to_params(res.x)  # back to real space
 
-        x = res.x
-
-        # reweight with updated residuals (classic Huber IRLS)
+        # reweight for next IRLS outer loop (still in real space)
         r_sub, _ = subline_residuals(x, datasets)
         w_sub, s_sub = huber_weights(r_sub, delta=delta_sub, scale=s_sub)
-
         r_melt, _ = melt_residuals(x, datasets, Tt)
         w_melt, s_melt = huber_weights(r_melt, delta=delta_melt, scale=s_melt)
 
