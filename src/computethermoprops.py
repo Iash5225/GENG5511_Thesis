@@ -28,6 +28,54 @@ SAFE_DPDV = 1e-6  # MPa / (cm^3/mol)
 # -----------------------
 
 
+def _debye3_cheb(x):
+    # your current Chebyshev path
+    if x < _XLOW:
+        return ((x - 7.5)*x + 20.0)/20.0
+    t = (x*x/8.0) - 1.0              # map to [-1,1]
+    return _cheval(_ADEB3, t) - 0.375*x
+
+
+def _debye3_asym(x):
+    if x > _XLIM2:
+        return 0.0
+    val = 1.0/(_DEBINF * x**3)
+    if x < _XLIM1:
+        ex = math.exp(-x)
+        if x > _XUP:
+            tail = ((x + 3.0)*x + 6.0)*x + 6.0
+            val -= 3.0 * tail * ex / (x**3)
+        else:
+            nexp = int(math.floor(_XLIM1/x))
+            rk = float(nexp)
+            xk = rk*x
+            summ = 0.0
+            for _ in range(nexp, 0, -1):
+                xki = 1.0/xk
+                term = (((6.0*xki + 6.0)*xki + 3.0)*xki + 1.0)/rk
+                summ = summ*ex + term
+                rk -= 1.0
+                xk -= x
+            val -= 3.0*summ*ex
+    return val
+
+
+def Debye3(x):
+    if x <= 0.0:
+        return 0.0
+    x = float(x)
+    x0, x1 = 3.6, 4.4               # blend window
+    if x <= x0:
+        return _debye3_cheb(x)
+    if x >= x1:
+        return _debye3_asym(x)
+    # C^1 smoothstep weight
+    t = (x - x0) / (x1 - x0)
+    t = 0.0 if t < 0 else (1.0 if t > 1 else t)
+    w = t**3 * (10 - 15*t + 6*t**2)   # C^2 smoothstep
+    return (1.0 - w)*_debye3_cheb(x) + w*_debye3_asym(x)
+
+
 def _safe_expm1(x):
     # accurate for small x, bounded for large x
     return np.expm1(np.clip(x, -_MAXEXP, _MAXEXP))
@@ -85,55 +133,86 @@ if _ADEB3.size >= 2:
 # _XLIM2 = (1.0/_DEBINF)**(1.0/3.0) / (2.2251e-308)**(1.0/3.0)
 
 
-def Debye3(x):
-    """Normalized Debye D3(x) = 3/x^3 ∫ t^3/(e^t-1) dt  (0 ≤ D3 ≤ 1)."""
-    if x <= 0.0:
-        return 0.0
-    if x <= 4.0:
-        if x < _XLOW:
-            # small-x series: 1 - 3x/8 + x^2/20
-            return ((x - 7.5)*x + 20.0)/20.0
-        t = (x*x/8.0) - 0.5 - 0.5   # map to [-1,1]
-        return _cheval(_ADEB3, t) - 0.375*x
-    # x > 4:
-    if x > _XLIM2:
-        return 0.0
-    val = 1.0/(_DEBINF * x**3)     # = 18*zeta(4)/x^3
-    if x < _XLIM1:
-        ex = math.exp(-x)
-        if x > _XUP:
-            # 3*exp(-x)(x^3+3x^2+6x+6)/x^3 term
-            tail = ((x + 3.0)*x + 6.0)*x + 6.0
-            val -= 3.0 * tail * ex / (x**3)
-        else:
-            # refined Poisson summation tail
-            nexp = int(math.floor(_XLIM1/x))
-            rk = float(nexp)
-            xk = rk*x
-            summ = 0.0
-            for _ in range(nexp, 0, -1):
-                xki = 1.0/xk
-                term = (((6.0*xki + 6.0)*xki + 3.0)*xki + 1.0)/rk
-                summ = summ*ex + term
-                rk -= 1.0
-                xk -= x
-            val -= 3.0*summ*ex
-    return val
+# def Debye3(x):
+#     """Normalized Debye D3(x) = 3/x^3 ∫ t^3/(e^t-1) dt  (0 ≤ D3 ≤ 1)."""
+#     if x <= 0.0:
+#         return 0.0
+#     if x <= 4.0:
+#         if x < _XLOW:
+#             # small-x series: 1 - 3x/8 + x^2/20
+#             return ((x - 7.5)*x + 20.0)/20.0
+#         t = (x*x/8.0) - 0.5 - 0.5   # map to [-1,1]
+#         return _cheval(_ADEB3, t) - 0.375*x
+#     # x > 4:
+#     if x > _XLIM2:
+#         return 0.0
+#     val = 1.0/(_DEBINF * x**3)     # = 18*zeta(4)/x^3
+#     if x < _XLIM1:
+#         ex = math.exp(-x)
+#         if x > _XUP:
+#             # 3*exp(-x)(x^3+3x^2+6x+6)/x^3 term
+#             tail = ((x + 3.0)*x + 6.0)*x + 6.0
+#             val -= 3.0 * tail * ex / (x**3)
+#         else:
+#             # refined Poisson summation tail
+#             nexp = int(math.floor(_XLIM1/x))
+#             rk = float(nexp)
+#             xk = rk*x
+#             summ = 0.0
+#             for _ in range(nexp, 0, -1):
+#                 xki = 1.0/xk
+#                 term = (((6.0*xki + 6.0)*xki + 3.0)*xki + 1.0)/rk
+#                 summ = summ*ex + term
+#                 rk -= 1.0
+#                 xk -= x
+#             val -= 3.0*summ*ex
+#     return val
 
 
-def Debye3D(x):
-    """Derivative D3'(x) of the normalized Debye function D3(x)."""
-    if x <= 0.0:
-        return 0.0
-    if x <= 4.0:
-        if x < _XLOW:
-            return (4.0*x - 15.0)/40.0
-        t = (x*x/8.0) - 0.5 - 0.5
-        return 0.25*x*_cheval(_D, t) - 0.375
-    # x > 4:
+# def Debye3D(x):
+#     """Derivative D3'(x) of the normalized Debye function D3(x)."""
+#     if x <= 0.0:
+#         return 0.0
+#     if x <= 4.0:
+#         if x < _XLOW:
+#             return (4.0*x - 15.0)/40.0
+#         t = (x*x/8.0) - 0.5 - 0.5
+#         return 0.25*x*_cheval(_D, t) - 0.375
+#     # x > 4:
+#     if x > _XLIM2:
+#         return 0.0
+#     val = -3.0/(_DEBINF * x**4)    # derivative of 18*zeta(4)/x^3
+#     if x < _XLIM1:
+#         ex = math.exp(-x)
+#         if x > _XUP:
+#             tail = ((((x + 3.0)*x + 9.0)*x + 18.0)*x + 18.0) / (x**4)
+#             val += 3.0*tail*ex
+#         else:
+#             nexp = int(math.floor(_XLIM1/x))
+#             rk = float(nexp)
+#             xk = rk*x
+#             summ = 0.0
+#             for _ in range(nexp, 0, -1):
+#                 xki = 1.0/xk
+#                 term = (((18.0*xki + 18.0)*xki + 9.0)*xki + 3.0)*xki + 1.0
+#                 summ = summ*ex + term
+#                 rk -= 1.0
+#                 xk -= x
+#             val += 3.0*summ*ex
+#     return val
+
+
+def _debye3d_cheb(x):
+    if x < _XLOW:
+        return (4.0*x - 15.0)/40.0
+    t = (x*x/8.0) - 1.0
+    return 0.25*x*_cheval(_D, t) - 0.375
+
+
+def _debye3d_asym(x):
     if x > _XLIM2:
         return 0.0
-    val = -3.0/(_DEBINF * x**4)    # derivative of 18*zeta(4)/x^3
+    val = -3.0/(_DEBINF * x**4)
     if x < _XLIM1:
         ex = math.exp(-x)
         if x > _XUP:
@@ -152,6 +231,21 @@ def Debye3D(x):
                 xk -= x
             val += 3.0*summ*ex
     return val
+
+
+def Debye3D(x):
+    if x <= 0.0:
+        return 0.0
+    x = float(x)
+    x0, x1 = 3.6, 4.4
+    if x <= x0:
+        return _debye3d_cheb(x)
+    if x >= x1:
+        return _debye3d_asym(x)
+    t = (x - x0) / (x1 - x0)
+    t = 0.0 if t < 0 else (1.0 if t > 1 else t)
+    w = t**3 * (10 - 15*t + 6*t**2)   # C^2 smoothstep
+    return (1.0 - w)*_debye3d_cheb(x) + w*_debye3d_asym(x)
 
 
 # -----------------------
@@ -309,22 +403,28 @@ def compute_thermo_props(T: float, p: float, parameters):
     dpdt = Gamma[0] * cv
 
     cv = cv - (aa * R * T / max(Th[0], _EPS_T)) * fz2 * fv
+    
     dpdt = (dpdt / max(v, _EPS_V)) - aa * \
         (cc / max(v00, _EPS_V)) * R * fz1 * fv
 
-    dpdv_safe = np.sign(dpdv) * max(abs(dpdv), _TINY)
+    # --- thermo closures from slopes ---
+    dpdv_den = dpdv if abs(dpdv) > SAFE_DPDV else math.copysign(
+        SAFE_DPDV, dpdv if dpdv != 0 else -1.0
+    )
 
-    KappaT = -1.0 / (max(v, _EPS_V) * dpdv_den)
-    KAPPA_FLOOR = 1e-9   # MPa^-1  (tune if needed; must be > 0)
-    #KappaT = float(np.clip(KappaT, 1e-9, 1e+2))     # MPa^-1
+    # exact cp via identity (decoupled from any kappa_T floor)
+    cp = cv - T * (dpdt * dpdt) / dpdv_den
 
+    # now compute reportable Alpha, KappaT using the same denominator
     Alpha = -(dpdt / dpdv_den) / max(v, _EPS_V)
-   # Alpha = float(np.clip(Alpha, -1e-2, 1e-2))     # K^-1 (solid-scale)
-    # cp = cv - T * (dpdt*dpdt) / dpdv_den
-    cp = cv + T * (Alpha**2) * v / max(KappaT, KAPPA_FLOOR)
-   # cp = float(np.clip(cp, 1e-3, 1e+5))         # J/mol-K
-    
+    KappaT = -1.0 / (max(v, _EPS_V) * dpdv_den)
+    # optional display-floor ONLY (do not feed back into cp)
+    KappaT = float(np.clip(KappaT, 1e-9, 1e+2))
+
+    # for KappaS we only need a safe dpdv in the denominator
+    dpdv_safe = np.sign(dpdv) * max(abs(dpdv), _TINY)
     KappaS = -cv / (max(cp, _TINY) * max(v, _EPS_V) * dpdv_safe)
+
    
    # entropy: stable log1p(1 - e^{-x})
     expmx = np.exp(-min(x, _MAXEXP))

@@ -113,6 +113,11 @@ def prop_model_line(Ts, branch: str, idx: int):
 def vm_model_line(Ts, branch): return prop_model_line(Ts, branch, idx=0)
 def cp_model_line(Ts, branch): return prop_model_line(Ts, branch, idx=4)
 
+
+def alpha_model_line(Ts, branch):  # α(T) along a branch
+    return prop_model_line(Ts, branch, idx=3)  # idx 3 = Alpha [K^-1]
+
+
 # ---------- cp identity quick check ----------
 def check_cp_identity(params, p_of_T, Tlist, label=""):
     print(f"\n[cp identity check] {label}")
@@ -141,8 +146,12 @@ def main():
     cp_sub_line  = cp_model_line(Ts_sub,  "sub")
     cp_melt_line = cp_model_line(Ts_melt, "melt")
 
+    alpha_sub_line = alpha_model_line(Ts_sub,  "sub")
+    alpha_melt_line = alpha_model_line(Ts_melt, "melt")
+
+
     # 2x2 grid
-    fig, ax = plt.subplots(2, 2, figsize=(13, 9), sharex="col")
+    fig, ax = plt.subplots(3, 2, figsize=(13, 9), sharex="col")
     probe_near_20K(PARAMS_ARGON, [15, 18, 19, 20, 21, 22, 24, 26], p_sub)
 
     # Vm — sub
@@ -174,6 +183,25 @@ def main():
     ax[1, 0].set_xlabel("T [K]")
     ax[1, 0].set_ylabel(r"$c_p$ [J mol$^{-1}$ K$^{-1}$]")
     ax[1, 0].legend()
+
+
+        # α — sublimation
+    ax[2, 0].plot(Ts_sub, alpha_sub_line*1e4, lw=2, label=r"$\alpha$ model (sub)")
+    ax[2, 0].axvline(T_t, ls="--", lw=1, color="gray")
+    ax[2, 0].set_title(r"Thermal expansivity $\alpha$ along sublimation")
+    ax[2, 0].set_xlabel("T [K]")
+    ax[2, 0].set_ylabel(r"$\alpha \times 10^{-4}$ K$^{-1}$")
+    ax[2, 0].legend()
+
+    # α — melting
+    ax[2, 1].plot(Ts_melt, alpha_melt_line*1e4, lw=2,
+                label=r"$\alpha$ model (melt)")
+    ax[2, 1].axvline(T_t, ls="--", lw=1, color="gray")
+    ax[2, 1].set_title(r"Thermal expansivity $\alpha$ along melting")
+    ax[2, 1].set_xlabel("T [K]")
+    ax[2, 1].set_ylabel(r"$\alpha \times 10^{-4}$ K$^{-1}$")
+    ax[2, 1].legend()
+
 
     # # cp — melt (model + optional exp)
     # if cp_melt_df is not None:
