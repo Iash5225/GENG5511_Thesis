@@ -3,11 +3,25 @@ import math
 # -----------------------
 # Constants / small guards
 # -----------------------
-R = 8.31451   # J/(mol·K)
-_EPS = 1e-4     # generic tiny
-_EPS_T = 1e-9      # K
-_EPS_V = 1e-9      # cm^3/mol
-_MAXEXP = 60.0  # cap exponent arguments to [-60, 60] (e^60 ~ 1e26; safe)
+R = 8.31451
+_TINY = 1e-6
+_EPS_T = 1e-9
+_EPS_V = 1e-9
+_MAXEXP = 60.0
+
+# Debye section:
+_MACHEPS = 1.11e-16
+_XLOW = math.sqrt(8.0*_MACHEPS)
+_XUP = -math.log(2.0*_MACHEPS)
+# ... etc. (use _MACHEPS here only)
+# Debye section (machine eps only used for the Debye series logic)
+
+_XLIM1 = -math.log(2.2251e-308)
+_DEBINF = 5.13299112734217e-02
+_XLIM2 = (1.0/_DEBINF)**(1.0/3.0) / (2.2251e-308)**(1.0/3.0)
+
+SAFE_DPDV = 1e-6  # MPa / (cm^3/mol)
+# _MACHEPS = 1.11e-16  # only for Debye series switches
 
 # -----------------------
 # Debye helpers (as you had)
@@ -61,14 +75,14 @@ if _ADEB3.size >= 2:
         _D[k-1] = _D[k+1] + 2.0*k * _ADEB3[k]
 
 # 18*zeta(4) = pi^4/5; 1/(18*zeta(4)) = this value
-_DEBINF = 5.13299112734217e-02
-# Machine-like constants (double)
-_EPS = 1.11e-16
-_XLOW = math.sqrt(8.0*_EPS)         # ~ sqrt(8*eps)
-_XUP = -math.log(2.0*_EPS)         # switch to exp tail
-_XLIM1 = -math.log(2.2251e-308)     # -log(xmin)
-# XLIM2 = (1/DEBINF)^(1/3) / (xmin)^(1/3)
-_XLIM2 = (1.0/_DEBINF)**(1.0/3.0) / (2.2251e-308)**(1.0/3.0)
+# _DEBINF = 5.13299112734217e-02
+# # Machine-like constants (double)
+# _EPS = 1.11e-16
+# _XLOW = math.sqrt(8.0*_EPS)         # ~ sqrt(8*eps)
+# _XUP = -math.log(2.0*_EPS)         # switch to exp tail
+# _XLIM1 = -math.log(2.2251e-308)     # -log(xmin)
+# # XLIM2 = (1/DEBINF)^(1/3) / (xmin)^(1/3)
+# _XLIM2 = (1.0/_DEBINF)**(1.0/3.0) / (2.2251e-308)**(1.0/3.0)
 
 
 def Debye3(x):
@@ -283,7 +297,8 @@ def compute_thermo_props(T: float, p: float, parameters):
     fz2 = 2.0 * zT**2 * (6.0 + 3.0*bb*zT**2 + bb**2 *
                          zT**4) / (1.0 + bb * zT**2)**3
     fv = np.exp(cc * (v - v00) / max(v00, _EPS_V))
-
+    dpdv_den = dpdv if abs(dpdv) > SAFE_DPDV else math.copysign(
+        SAFE_DPDV, dpdv if dpdv != 0 else -1.0)
 
     x = Theta[0] / max(T, _EPS_T)
     x = max(x, 1e-8)  # avoid log(0)
@@ -297,21 +312,19 @@ def compute_thermo_props(T: float, p: float, parameters):
     dpdt = (dpdt / max(v, _EPS_V)) - aa * \
         (cc / max(v00, _EPS_V)) * R * fz1 * fv
 
-    dpdv_safe = np.sign(dpdv) * max(abs(dpdv), _EPS)
+    dpdv_safe = np.sign(dpdv) * max(abs(dpdv), _TINY)
 
-
-    KappaT = -1.0 / (max(v, _EPS_V) * dpdv_safe)
+    KappaT = -1.0 / (max(v, _EPS_V) * dpdv_den)
     KAPPA_FLOOR = 1e-9   # MPa^-1  (tune if needed; must be > 0)
-    KappaT = float(np.clip(KappaT, 1e-9, 1e+2))     # MPa^-1
+    #KappaT = float(np.clip(KappaT, 1e-9, 1e+2))     # MPa^-1
 
-
-    Alpha = -(dpdt / dpdv_safe) / max(v, _EPS_V)
-    Alpha = float(np.clip(Alpha, -1e-2, 1e-2))     # K^-1 (solid-scale)
-
+    Alpha = -(dpdt / dpdv_den) / max(v, _EPS_V)
+   # Alpha = float(np.clip(Alpha, -1e-2, 1e-2))     # K^-1 (solid-scale)
+    # cp = cv - T * (dpdt*dpdt) / dpdv_den
     cp = cv + T * (Alpha**2) * v / max(KappaT, KAPPA_FLOOR)
-    cp = float(np.clip(cp, 1e-3, 1e+5))         # J/mol-K
+   # cp = float(np.clip(cp, 1e-3, 1e+5))         # J/mol-K
     
-    KappaS = -cv / (max(cp, _EPS) * max(v, _EPS_V) * dpdv_safe)
+    KappaS = -cv / (max(cp, _TINY) * max(v, _EPS_V) * dpdv_safe)
    
    # entropy: stable log1p(1 - e^{-x})
     expmx = np.exp(-min(x, _MAXEXP))
@@ -335,7 +348,7 @@ def compute_thermo_props(T: float, p: float, parameters):
     G = H - T * S
 
     # Grüneisen parameter (thermal)
-    Gruneisen = Alpha * v / (max(cv, _EPS) * max(KappaT, _EPS))
+    Gruneisen = Alpha * v / (max(cv, _TINY) * max(KappaT, _TINY))
 
     props = np.zeros(12, dtype=float)
     props[0] = v

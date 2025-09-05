@@ -710,38 +710,49 @@ def _safe_props_vector_cached(T_arr, p_arr, params, idx, cache):
             out[i] = props[IDX["Vm"]]
     return out
 
+
 def quick_plot_vm_only(params, datasets, Tt):
     (T_Vm_sub, p_Vm_sub, Vm_sub,
      T_Vm_melt, p_Vm_melt, Vm_melt, *_) = datasets
 
-    # Model predictions along each experimental point
-    Vm_sub_model = _safe_props_vector(
-        T_Vm_sub,  p_Vm_sub,  params, idx=IDX["Vm"])
-    Vm_melt_model = _safe_props_vector(
-        T_Vm_melt, p_Vm_melt, params, idx=IDX["Vm"])
+    # --- convert to NumPy early ---
+    x_sub = np.asarray(T_Vm_sub,  dtype=float)
+    p_sub = np.asarray(p_Vm_sub,  dtype=float)
+    y_sub = np.asarray(Vm_sub,    dtype=float)
+
+    x_melt = np.asarray(T_Vm_melt, dtype=float)
+    p_melt = np.asarray(p_Vm_melt, dtype=float)
+    y_melt = np.asarray(Vm_melt,   dtype=float)
+
+    # model predictions (NumPy arrays)
+    y_sub_mod = np.asarray(_safe_props_vector(
+        x_sub,  p_sub,  params, idx=IDX["Vm"]), float)
+    y_melt_mod = np.asarray(_safe_props_vector(
+        x_melt, p_melt, params, idx=IDX["Vm"]), float)
 
     fig, ax = plt.subplots(1, 2, figsize=(11, 4.5), sharey=True)
 
-    # --- Sublimation side (T <= Tt) ---
-    msub = np.isfinite(T_Vm_sub) & (T_Vm_sub <= Tt) & np.isfinite(
-        Vm_sub) & np.isfinite(Vm_sub_model)
-    ax[0].scatter(T_Vm_sub[msub], Vm_sub[msub],
-                  s=20, label="Exp (sub)", alpha=0.6)
-    ax[0].scatter(T_Vm_sub[msub], Vm_sub_model[msub],
-                  s=30, color="red", marker="o", label="Model (sub)")
+    # --- Sublimation (T <= Tt) ---
+    msub = np.isfinite(x_sub) & (x_sub <= Tt) & np.isfinite(
+        y_sub) & np.isfinite(y_sub_mod)
+    ax[0].scatter(x_sub[msub], y_sub[msub], s=20, alpha=0.6, label="Exp (sub)")
+    order_sub = np.argsort(x_sub[msub])
+    ax[0].plot(x_sub[msub][order_sub], y_sub_mod[msub][order_sub],
+               color="red", lw=2, label="Model (sub)")
     ax[0].axvline(Tt, ls="--", lw=1, color="gray")
     ax[0].set_title("Vm along sublimation")
     ax[0].set_xlabel("T [K]")
-    ax[0].set_ylabel(r"$V_m$ [cm$^3$/mol]$")
+    ax[0].set_ylabel(r"$V_m$ [cm$^3$/mol]")
     ax[0].legend()
 
-    # --- Melting side (T >= Tt) ---
-    mmelt = np.isfinite(T_Vm_melt) & (T_Vm_melt >= Tt) & np.isfinite(
-        Vm_melt) & np.isfinite(Vm_melt_model)
-    ax[1].scatter(T_Vm_melt[mmelt], Vm_melt[mmelt],
-                  s=20, label="Exp (melt)", alpha=0.6)
-    ax[1].scatter(T_Vm_melt[mmelt], Vm_melt_model[mmelt],
-                  s=30, color="red", marker="o", label="Model (melt)")
+    # --- Melting (T >= Tt) ---
+    mmelt = np.isfinite(x_melt) & (x_melt >= Tt) & np.isfinite(
+        y_melt) & np.isfinite(y_melt_mod)
+    ax[1].scatter(x_melt[mmelt], y_melt[mmelt], s=20,
+                  alpha=0.6, label="Exp (melt)")
+    order_melt = np.argsort(x_melt[mmelt])
+    ax[1].plot(x_melt[mmelt][order_melt], y_melt_mod[mmelt][order_melt],
+               color="red", lw=2, label="Model (melt)")
     ax[1].axvline(Tt, ls="--", lw=1, color="gray")
     ax[1].set_title("Vm along melting")
     ax[1].set_xlabel("T [K]")
@@ -749,6 +760,8 @@ def quick_plot_vm_only(params, datasets, Tt):
 
     plt.tight_layout()
     plt.show()
+
+
 
 # 1) Safe wrapper around psub
 

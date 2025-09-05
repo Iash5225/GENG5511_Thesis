@@ -249,7 +249,7 @@ history = {
 IDX = dict(Vm=0, KappaT=1, KappaS=2, Alpha=3, cp=4, H=10, G=11)
 
 # ---------- Physical-constraint knobs ----------
-CP_SPLIT_K = 7.0            # K: split between "low" and "high" heat-capacity weighting
+CP_SPLIT_K = 25.0           # K: split between "low" and "high" heat-capacity weighting
 CP_W_BELOW = 3.0             # stronger weight where cp -> 0
 CP_W_ABOVE = 1.0
 

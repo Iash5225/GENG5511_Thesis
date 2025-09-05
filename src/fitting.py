@@ -438,6 +438,156 @@ def stageA():
     quick_plot_vm_only(res.x, datasets, Tt=KRYPTON_T_t)
 
 
+def huber_rmse_rel(y_exp, y_mod, w=None, delta=2.0, floor=1e-3):
+    """
+    Huber RMSE on *relative* residuals: r = (y_mod - y_exp)/max(|y_exp|, floor).
+    'delta' in units of sigma (relative). Returns a scalar.
+    """
+    y_exp = np.asarray(y_exp, float)
+    y_mod = np.asarray(y_mod, float)
+    den = np.maximum(np.abs(y_exp), floor)
+    r = (y_mod - y_exp) / den
+    if w is None:
+        w = np.ones_like(r)
+    w = np.asarray(w, float)
+
+    a = np.abs(r)
+    quad = a <= delta
+    # classic Huber loss
+    L = np.where(quad, 0.5 * r**2, delta * (a - 0.5 * delta))
+    # weighted mean, then sqrt to look like RMSE
+    return float(np.sqrt(np.average(L, weights=w)))
+
+
+def make_stageCP_bounds(xref):
+    b = [(v, v) for v in np.asarray(xref, float)]  # freeze all by default
+    def setb(i, lo, hi): b[i] = (float(lo), float(hi))
+    # Debye / Grüneisen
+    setb(9,  40.0, 120.0)   # theta0
+    setb(15, 1.0,  4.0)     # gamma0
+    setb(21, 0.0,  0.02)    # q small & >=0
+    # anharmonic
+    setb(27, -0.08, 0.02)   # allow aa negative
+    setb(28,  0.1,  2.0)
+    setb(29,  5.0,  15.0)
+    return b
+
+
+def make_stageCP_bounds(xref):
+    """
+    Freeze all params at xref except thermal ones:
+    [9] theta0, [15] gamma0, [21] q, [27:30] aa,bb,cc.
+    """
+    b = [(float(v), float(v)) for v in np.asarray(xref, float)]
+    def setb(i, lo, hi): b[i] = (float(lo), float(hi))
+
+    # Debye / Grüneisen
+    setb(9,  40.0, 120.0)   # theta0 [K]
+    setb(15, 1.0,   4.0)    # gamma0 [-]
+    setb(21, 0.0,  0.02)    # q [-] (keep small & >=0)
+
+    # Anharmonic correction (allow aa negative to raise cp)
+    setb(27, -0.08, 0.02)   # aa
+    setb(28,  0.10,  2.0)   # bb
+    setb(29,  5.0,  15.0)   # cc
+    return b
+
+
+def stageCP(x_start=None):
+    """
+    Fit only c_p along sublimation (T <= Tt) by adjusting thermal parameters:
+    p[9], p[15], p[21], p[27:30]. Elastic (p[0:4]) stays fixed.
+    """
+    # --- data ---
+    kr = load_all_gas_data('krypton', read_from_excel=False)
+    (T_Vm_sub, p_Vm_sub, Vm_sub,
+     T_Vm_melt, p_Vm_melt, Vm_melt,
+     T_Vm_highp, p_Vm_highp, Vm_highp,
+     T_cp_sub, p_cp_sub, cp_sub,
+     T_alpha_sub, p_alpha_sub, alpha_sub,
+     T_BetaT_sub, p_BetaT_sub, BetaT_sub,
+     T_BetaS_sub, p_BetaS_sub, BetaS_sub,
+     T_sub, p_sub, Year_sub, G_fluid_sub, V_fluid_sub,
+     T_melt, p_melt, G_fluid_melt, V_fluid_melt,
+     T_H_sub, p_H_sub, delta_H_sub, H_fluid_sub,
+     T_H_melt, p_H_melt, delta_H_melt, H_fluid_melt) = extract_datasets(kr)
+
+    m = (np.isfinite(T_cp_sub) & np.isfinite(p_cp_sub) &
+         np.isfinite(cp_sub) & (T_cp_sub <= KRYPTON_T_t))
+    T = np.asarray(T_cp_sub, float)[m]
+    P = np.asarray(p_cp_sub,  float)[m]
+    Y = np.asarray(cp_sub,    float)[m]   # J/(mol·K)
+
+    # --- starting guess ---
+    if x_start is None:
+        x_start = np.zeros(31, float)
+        # keep your current elastic (or seed roughly if unknown)
+        x_start[0] = 27.3
+        x_start[1:4] = [2600., 7000., 10.0]
+
+        # >>> Krypton thermal guess (better than argon’s) <<<
+        x_start[9] = 65.0    # theta0 [K]  (lower lifts low-T cp)
+        x_start[15] = 3.0     # gamma0
+        x_start[21] = 0.003   # q
+        x_start[27] = -0.03   # aa  (negative raises cp)
+        x_start[28] = 0.9     # bb
+        x_start[29] = 10.0    # cc
+        x_start[30] = KRYPTON_REFERENCE_ENTROPY  # doesn’t affect cp
+
+    # --- objective (robust, weighted) ---
+    W = np.where(T < CP_SPLIT_K, CP_W_BELOW, CP_W_ABOVE)
+
+    def obj(x):
+        ymod = _safe_props_vector(T, P, x, idx=IDX["cp"])
+        # robust relative RMSE with a small floor for stability
+        return huber_rmse_rel(Y, ymod, w=W, delta=2.0, floor=1e-3)
+
+    # --- quick diagnostic around ~20 K with current start ---
+    def debug_terms(Ts, x):
+        for TT in Ts:
+            pp = psub_curve(TT)
+            pr = compute_thermo_props(TT, pp, x)
+            Cv, Cp = pr[5], pr[4]
+            print(f"T={TT:5.1f} K  Cv={Cv:8.4f}  Cp={Cp:8.4f}")
+
+    print("\n[cp] probe with start:")
+    debug_terms((15, 18, 20, 22, 25, 30), x_start)
+
+    # --- optimize ---
+    bnds = make_stageCP_bounds(x_start)
+    res = minimize(
+        fun=lambda x: float(obj(x)),
+        x0=np.asarray(x_start, float),
+        method="L-BFGS-B",
+        bounds=bnds,
+        options=dict(disp=True, maxiter=MAX_ITERATIONS,
+                     ftol=FUNCTION_TOL, gtol=GRADIENT_TOL)
+    )
+
+    print("\n[Stage CP] status:", res.message)
+    print("[Stage CP] loss:", res.fun)
+    print("[Stage CP] fitted:",
+          f"theta0={res.x[9]:.4g}, gamma0={res.x[15]:.4g}, q={res.x[21]:.4g}, "
+          f"aa={res.x[27]:.4g}, bb={res.x[28]:.4g}, cc={res.x[29]:.4g}")
+
+    print("\n[cp] probe with fitted params:")
+    debug_terms((15, 18, 20, 22, 25, 30), res.x)
+
+    # --- quick plot ---
+    yfit = _safe_props_vector(T, P, res.x, idx=IDX["cp"])
+    order = np.argsort(T)
+    plt.figure(figsize=(6.8, 4.4))
+    plt.scatter(T, Y, s=16, alpha=0.7, label="cp exp (sub)")
+    plt.plot(T[order], yfit[order], lw=2, label="cp model")
+    plt.xlabel("T [K]")
+    plt.ylabel(r"$c_p$ [J mol$^{-1}$ K$^{-1}$]")
+    plt.title("Krypton cp along sublimation")
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+    return res.x
+
 
 def sweep_p27(params, datasets, lo=-3.0, hi=3.0, n=31):
     grid = np.linspace(lo, hi, n)
@@ -546,4 +696,12 @@ def stageA2():
     #     options=dict(disp=True, maxiter=200, eps=1e-3)
     # )
 
-stageA2()
+
+# 1) Elastic & subline shape
+xA = stageA2()       # (if you return res.x inside stageA2, else capture from print/log)
+
+# 2) cp-only thermal fit (start from xA if you have it; else None uses argon guess)
+xCP = stageCP(x_start=xA)
+
+# 3) optional joint tighten
+# xFinal = stage_joint_refine(xCP)
