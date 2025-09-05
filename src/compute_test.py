@@ -15,39 +15,216 @@ def _safe_expm1(x: float) -> float:
     return math.expm1(max(min(x, _MAXEXP), -_MAXEXP))
 
 
-def Debye3(x: float) -> float:
-    if x <= 0.0:
-        return 0.0
-    n = 400
-    a, b = 0.0, x
-    h = (b - a) / n
+# debye3_funcs.py
 
-    def f(t: float) -> float:
-        if t < 1e-6:
-            # t^3/(e^t-1) ~ t^2 - t^3/2 + t^4/12
-            return t*t * (1.0 - 0.5*t + (t*t)/12.0)
-        if t > 50.0:
-            # asymptotic tail is tiny
-            return (t**3) * math.exp(-min(t, _MAXEXP))
-        return (t**3) / _safe_expm1(t)
+# Chebyshev coefficients (VBA ADEB3)
+_ADEB3 = np.array([
+    2.70773706832744,
+    0.340068135211092,
+    -1.29451501844409e-02,
+    7.96375538017382e-04,
+    -5.46360009590824e-05,
+    3.92430195988049e-06,
+    -2.8940328235386e-07,
+    2.173176139625e-08,
+    -1.65420999498e-09,
+    1.2727961892e-10,
+    -9.87963459e-12,
+    7.725074e-13,
+    -6.077972e-14,
+    4.80759e-15,
+    -3.8204e-16,
+    3.048e-17,
+    -2.44e-18,
+    2e-19,
+    -2e-20
+], dtype=float)
 
-    s = f(a) + f(b)
-    for k in range(1, n, 2):
-        s += 4.0 * f(a + k*h)
-    for k in range(2, n, 2):
-        s += 2.0 * f(a + k*h)
-    return s * h / 3.0
+_DEBINF = 5.13299112734217e-02  # VBA constant
 
 
-def Debye3D(x: float) -> float:
-    if x <= 0.0:
-        return 0.0
-    if x < 1e-6:
-        # derivative of the small-t series above
-        return x*x * (1.0 - 0.5*x)
-    if x > 50.0:
-        return (x**3) * math.exp(-min(x, _MAXEXP))
-    return (x**3) / _safe_expm1(x)
+def _cheval(coeffs, t):
+    """Chebyshev series evaluation on [-1,1] (Clenshaw)."""
+    b0 = 0.0
+    b1 = 0.0
+    b2 = 0.0
+    tt = 2.0 * t
+    for ak in coeffs[::-1]:
+        b2, b1, b0 = b1, b0, ak + tt * b1 - b2
+    return 0.5 * (b0 - b2)
+
+# Precompute derivative Chebyshev coefficients D from ADEB3 (as in VBA)
+
+
+def _cheb_deriv_coeffs(a):
+    # a[0]..a[N-1] correspond to T0..TN-1
+    N = len(a)
+    D = np.zeros(N, dtype=float)
+    # VBA uses 1-based with D(19)=0, D(18)=36*ADEB3(19); here (0-based):
+    if N >= 2:
+        D[N-2] = 36.0 * a[N-1]
+    # D(i-1) = D(i+1) + 2*(i-1)*a(i)  (1-based) -> translate to 0-based:
+    # for k = N-2 down to 1: D[k-1] = D[k+1] + 2*k * a[k]
+    for k in range(N-2, 0, -1):
+        right = D[k+1] if (k+1) < N else 0.0
+        D[k-1] = right + 2.0 * k * a[k]
+    return D
+
+
+_ADEB3_D = _cheb_deriv_coeffs(_ADEB3)
+
+
+def debye3(x):
+    """
+    Debye function of order 3:
+      D3(x) = 3/x^3 ∫_0^x t^3/(exp(t)-1) dt
+    Matches the VBA algorithm: Chebyshev for x<=4, asymptotics for x>4.
+    Vectorized.
+    """
+    x = np.asarray(x, dtype=float)
+    out = np.zeros_like(x)
+
+    tiny = np.finfo(float).tiny   # ~2.225074e-308
+    eps = np.finfo(float).eps    # ~2.220446e-16
+
+    XLOW = np.sqrt(8.0 * eps)
+    XUPPER = -np.log(2.0 * eps)
+    XLIM1 = -np.log(tiny)
+    XLIM2 = (1.0/_DEBINF)**(1.0/3.0) / (tiny**(1.0/3.0))
+
+    neg = x < 0.0
+    small = (x >= 0.0) & (x <= 4.0)
+    large = x > 4.0
+
+    out[neg] = 0.0
+
+    if np.any(small):
+        xs = x[small]
+        sm = xs < XLOW
+        if np.any(sm):
+            z = xs[sm]
+            out[small][sm] = 1.0 - 3.0*z/8.0 + (z*z)/20.0
+        cm = ~sm
+        if np.any(cm):
+            z = xs[cm]
+            t = (z*z/8.0) - 1.0
+            out[small][cm] = _cheval(_ADEB3, t) - 0.375*z  # 3/8 = 0.375
+
+    if np.any(large):
+        xl = x[large]
+        val = np.zeros_like(xl)
+
+        zero_mask = xl > XLIM2
+        nz = ~zero_mask
+        if np.any(nz):
+            z = xl[nz]
+            base = 1.0 / (_DEBINF * z**3)
+            tail = np.zeros_like(z)
+            m = z < XLIM1
+            if np.any(m):
+                zm = z[m]
+                expmx = np.exp(-zm)
+                direct = zm > XUPPER
+                if np.any(direct):
+                    zd = zm[direct]
+                    poly = (((zd + 3.0)*zd + 6.0)*zd + 6.0) / (zd**3)
+                    tail[direct] = poly * expmx[direct]
+                series = ~direct
+                if np.any(series):
+                    zs = zm[series]
+                    rk = np.floor(XLIM1 / zs)
+                    nexp = rk.astype(int)
+                    xk = rk * zs
+                    sumv = np.zeros_like(zs)
+                    # emulate the 1-by-1 backward loop
+                    for i in range(nexp.max(), 0, -1):
+                        xki = 1.0 / xk
+                        t = (((6.0*xki + 6.0)*xki + 3.0)*xki + 1.0) / rk
+                        sumv = sumv * np.exp(-zs) + t
+                        rk = rk - 1.0
+                        xk = xk - zs
+                    tail[series] = sumv * np.exp(-zs)
+            val[nz] = base - 3.0 * tail
+        out[large] = val
+        out[large & zero_mask] = 0.0
+
+    return out
+
+
+def debye3d(x):
+    """
+    Derivative of Debye3: d/dx Debye3(x).
+    This matches the MATLAB/VBA 'Debye3D' you posted (NOT the integrand).
+    Vectorized.
+    """
+    x = np.asarray(x, dtype=float)
+    out = np.zeros_like(x)
+
+    tiny = np.finfo(float).tiny
+    eps = np.finfo(float).eps
+
+    XLOW = np.sqrt(8.0 * eps)
+    XUPPER = -np.log(2.0 * eps)
+    XLIM1 = -np.log(tiny)
+    XLIM2 = (1.0/_DEBINF)**(1.0/3.0) / (tiny**(1.0/3.0))
+
+    neg = x < 0.0
+    small = (x >= 0.0) & (x <= 4.0)
+    large = x > 4.0
+
+    out[neg] = 0.0
+
+    if np.any(small):
+        xs = x[small]
+        sm = xs < XLOW
+        if np.any(sm):
+            z = xs[sm]
+            out[small][sm] = (4.0*z - 15.0) / 40.0
+        cm = ~sm
+        if np.any(cm):
+            z = xs[cm]
+            t = (z*z/8.0) - 1.0
+            out[small][cm] = 0.25*z*_cheval(_ADEB3_D, t) - 0.375  # -3/8
+
+    if np.any(large):
+        xl = x[large]
+        val = np.zeros_like(xl)
+
+        zero_mask = xl > XLIM2
+        nz = ~zero_mask
+        if np.any(nz):
+            z = xl[nz]
+            base = -3.0 / (_DEBINF * z**4)
+            tail = np.zeros_like(z)
+            m = z < XLIM1
+            if np.any(m):
+                zm = z[m]
+                expmx = np.exp(-zm)
+                direct = zm > XUPPER
+                if np.any(direct):
+                    zd = zm[direct]
+                    poly = ((((zd + 3.0)*zd + 9.0)*zd + 18.0)
+                            * zd + 18.0) / (zd**4)
+                    tail[direct] = poly * expmx[direct]
+                series = ~direct
+                if np.any(series):
+                    zs = zm[series]
+                    rk = np.floor(XLIM1 / zs)
+                    nexp = rk.astype(int)
+                    xk = rk * zs
+                    sumv = np.zeros_like(zs)
+                    for i in range(nexp.max(), 0, -1):
+                        xki = 1.0 / xk
+                        t = ((((18.0*xki + 18.0)*xki + 9.0)*xki + 3.0)*xki + 1.0)
+                        sumv = sumv * np.exp(-zs) + t
+                        rk = rk - 1.0
+                        xk = xk - zs
+                    tail[series] = sumv * np.exp(-zs)
+            val[nz] = base + 3.0 * tail
+        out[large] = val
+        out[large & zero_mask] = 0.0
+
+    return out
 
 
 # ----- fixed “paper” parameters (exactly as in your VBA) -----
