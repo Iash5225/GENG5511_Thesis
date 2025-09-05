@@ -480,6 +480,28 @@ def vm_sub_sensitivities(params, idxs_to_test=None, rel_step=1e-2):
     return out  # list of (param_index, dSlope/dp, dCurv/dp)
 
 def stageA2():
+
+        # --- Argon-style initial guess for Krypton (31 params, your EOS layout) ---
+        # indices:
+        # [0]=v00, [1:4]=a1..a3, [4:9]=unused, [9:15]=Theta[0..5],
+        # [15:21]=gamma[0..5], [21:27]=q[0..5], [27:30]=aa,bb,cc, [30]=S*(g,Tt,pt)
+    PARAMS_INIT = np.zeros(31, dtype=float)
+
+    # elastic polynomial in ln z
+    PARAMS_INIT[0] = 22.555           # v00  [cm^3/mol]  (argon guess)
+    PARAMS_INIT[1:4] = [2656.5, 7298.0, 10.0]  # a1,a2,a3 [MPa]
+
+    # Debye/Grüneisen branch 0
+    PARAMS_INIT[9] = 86.44            # theta_D0 [K]
+    PARAMS_INIT[15] = 2.68             # gamma0   [-]
+    PARAMS_INIT[21] = 0.0024           # q        [-]
+
+    # anharmonic thermal correction
+    PARAMS_INIT[27:30] = [0.0128, 0.388, 7.85]   # aa, bb, cc
+
+    # start entropy reference aligned to REFPROP to make ΔS_triple ~ 0 initially
+    PARAMS_INIT[30] = St_REFPROP         # J/(mol·K)
+
     # Build once (right after you load/extract datasets)
     krypton_data = load_all_gas_data('krypton', read_from_excel=False)
     datasets = extract_datasets(krypton_data)

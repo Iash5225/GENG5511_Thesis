@@ -1,5 +1,5 @@
 import numpy as np
-
+import math
 # -----------------------
 # Constants / small guards
 # -----------------------
@@ -19,40 +19,126 @@ def _safe_expm1(x):
     return np.expm1(np.clip(x, -_MAXEXP, _MAXEXP))
 
 
-def Debye3(x: float) -> float:
+# ---- Chebyshev evaluator (Clenshaw) on [-1,1]
+
+def _cheval(coeffs, t):
+    b0 = b1 = 0.0
+    for a in coeffs[::-1]:
+        b0, b1 = a + 2.0*t*b0 - b1, b0
+    return 0.5*(b0 - b1)
+
+
+# ---- Normalized Debye D3(x)  and its derivative D3'(x)  ----
+# Coefficients from your VBA (20-digit), for x in [0,4] mapped by t = (x^2/8 - 1/2) - 1/2
+_ADEB3 = np.array([
+    2.70773706832744,
+    0.340068135211092,
+    -1.29451501844409e-02,
+    7.96375538017382e-04,
+    -5.46360009590824e-05,
+    3.92430195988049e-06,
+    -2.89403282353860e-07,
+    2.17317613962500e-08,
+    -1.65420999498000e-09,
+    1.27279618920000e-10,
+    -9.87963459000000e-12,
+    7.72507400000000e-13,
+    -6.07797200000000e-14,
+    4.80759000000000e-15,
+    -3.82040000000000e-16,
+    3.04800000000000e-17,
+    -2.44000000000000e-18,
+    2.00000000000000e-19,
+    -2.00000000000000e-20
+], dtype=float)
+
+# Precompute derivative-series coefficients (matches VBA loop)
+_D = np.zeros_like(_ADEB3)
+_D[-1] = 0.0
+if _ADEB3.size >= 2:
+    _D[-2] = 36.0 * _ADEB3[-1]
+    for k in range(_ADEB3.size-2, 0, -1):
+        _D[k-1] = _D[k+1] + 2.0*k * _ADEB3[k]
+
+# 18*zeta(4) = pi^4/5; 1/(18*zeta(4)) = this value
+_DEBINF = 5.13299112734217e-02
+# Machine-like constants (double)
+_EPS = 1.11e-16
+_XLOW = math.sqrt(8.0*_EPS)         # ~ sqrt(8*eps)
+_XUP = -math.log(2.0*_EPS)         # switch to exp tail
+_XLIM1 = -math.log(2.2251e-308)     # -log(xmin)
+# XLIM2 = (1/DEBINF)^(1/3) / (xmin)^(1/3)
+_XLIM2 = (1.0/_DEBINF)**(1.0/3.0) / (2.2251e-308)**(1.0/3.0)
+
+
+def Debye3(x):
+    """Normalized Debye D3(x) = 3/x^3 ∫ t^3/(e^t-1) dt  (0 ≤ D3 ≤ 1)."""
     if x <= 0.0:
         return 0.0
-    n = 400
-    a, b = 0.0, x
-    h = (b - a) / n
+    if x <= 4.0:
+        if x < _XLOW:
+            # small-x series: 1 - 3x/8 + x^2/20
+            return ((x - 7.5)*x + 20.0)/20.0
+        t = (x*x/8.0) - 0.5 - 0.5   # map to [-1,1]
+        return _cheval(_ADEB3, t) - 0.375*x
+    # x > 4:
+    if x > _XLIM2:
+        return 0.0
+    val = 1.0/(_DEBINF * x**3)     # = 18*zeta(4)/x^3
+    if x < _XLIM1:
+        ex = math.exp(-x)
+        if x > _XUP:
+            # 3*exp(-x)(x^3+3x^2+6x+6)/x^3 term
+            tail = ((x + 3.0)*x + 6.0)*x + 6.0
+            val -= 3.0 * tail * ex / (x**3)
+        else:
+            # refined Poisson summation tail
+            nexp = int(math.floor(_XLIM1/x))
+            rk = float(nexp)
+            xk = rk*x
+            summ = 0.0
+            for _ in range(nexp, 0, -1):
+                xki = 1.0/xk
+                term = (((6.0*xki + 6.0)*xki + 3.0)*xki + 1.0)/rk
+                summ = summ*ex + term
+                rk -= 1.0
+                xk -= x
+            val -= 3.0*summ*ex
+    return val
 
-    def f(t):
-        if t < 1e-6:
-            # t^3/(e^t - 1) ~ t^2 - t^3/2 + t^4/12
-            return t*t * (1.0 - 0.5*t + (t*t)/12.0)
-        if t > 50.0:
-            # asymptotic: t^3 e^{-t}
-            return (t**3) * np.exp(-min(t, _MAXEXP))
-        return t**3 / _safe_expm1(t)
 
-    s = f(a) + f(b)
-    for i in range(1, n, 2):
-        s += 4.0 * f(a + i*h)
-    for i in range(2, n, 2):
-        s += 2.0 * f(a + i*h)
-    return s * h / 3.0
-
-
-def Debye3D(x: float) -> float:
-    # derivative of the integral is the integrand at x
+def Debye3D(x):
+    """Derivative D3'(x) of the normalized Debye function D3(x)."""
     if x <= 0.0:
         return 0.0
-    if x < 1e-6:
-        # derivative of series above: t^2 - 3/2 t^3 + ...
-        return x*x * (1.0 - 0.5*x)  # good enough in the tiny limit
-    if x > 50.0:
-        return (x**3) * np.exp(-min(x, _MAXEXP))
-    return (x**3) / _safe_expm1(x)
+    if x <= 4.0:
+        if x < _XLOW:
+            return (4.0*x - 15.0)/40.0
+        t = (x*x/8.0) - 0.5 - 0.5
+        return 0.25*x*_cheval(_D, t) - 0.375
+    # x > 4:
+    if x > _XLIM2:
+        return 0.0
+    val = -3.0/(_DEBINF * x**4)    # derivative of 18*zeta(4)/x^3
+    if x < _XLIM1:
+        ex = math.exp(-x)
+        if x > _XUP:
+            tail = ((((x + 3.0)*x + 9.0)*x + 18.0)*x + 18.0) / (x**4)
+            val += 3.0*tail*ex
+        else:
+            nexp = int(math.floor(_XLIM1/x))
+            rk = float(nexp)
+            xk = rk*x
+            summ = 0.0
+            for _ in range(nexp, 0, -1):
+                xki = 1.0/xk
+                term = (((18.0*xki + 18.0)*xki + 9.0)*xki + 3.0)*xki + 1.0
+                summ = summ*ex + term
+                rk -= 1.0
+                xk -= x
+            val += 3.0*summ*ex
+    return val
+
 
 # -----------------------
 # Core EOS pieces (generalized)

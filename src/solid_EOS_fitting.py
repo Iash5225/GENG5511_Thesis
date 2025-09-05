@@ -215,12 +215,14 @@ def extract_datasets(data):
 
     # Bulk Modulus (S)
     T_BetaS_sub = data['bulk_s']['Temperature']
-    p_BetaS_sub = data['bulk_s']['Pressure']
+    p_BetaS_sub = data['bulk_t']['Pressure']
+    # p_BetaS_sub = None
     BetaS_sub = data['bulk_s']['Beta S']
 
     # Bulk Modulus (T)
     T_BetaT_sub = data['bulk_t']['Temperature']
     p_BetaT_sub = data['bulk_t']['Pressure']
+    # p_BetaT_sub = None
     BetaT_sub = data['bulk_t']['Beta T']
 
     # Melting
@@ -360,9 +362,9 @@ def combined_cost_function(params, *datasets):
     Vm_ref_exp = 28.0
 
 
-    Vm_ref_model = compute_thermo_props(100.0, 1.0, params)[IDX["Vm"]]
-    penalty = 5.0 * (Vm_ref_model - Vm_ref_exp)**2   # weight 5 is tunable
-    total += penalty
+    # Vm_ref_model = compute_thermo_props(100.0, 1.0, params)[IDX["Vm"]]
+    # penalty = 5.0 * (Vm_ref_model - Vm_ref_exp)**2   # weight 5 is tunable
+    # total += penalty
 
 
     # cp (sublimation)
@@ -417,7 +419,7 @@ def combined_cost_function(params, *datasets):
         alpha_sub_dev = rms_percent(alpha_sub[m], model)
 
     # BetaT (sublimation)
-    m = (np.isfinite(T_BetaT_sub) & np.isfinite(p_BetaT_sub)
+    m = (np.isfinite(T_BetaT_sub) 
          & np.isfinite(BetaT_sub) & (T_BetaT_sub <= Tt))
     BetaT_sub_dev = BIG
     if np.any(m):
@@ -426,13 +428,13 @@ def combined_cost_function(params, *datasets):
         BetaT_sub_dev = rms_percent(BetaT_sub[m], model)
 
     # BetaS (sublimation) – note your finite count is only 25/74
-    m = (np.isfinite(T_BetaS_sub) & np.isfinite(p_BetaS_sub)
+    m = (np.isfinite(T_BetaS_sub)
          & np.isfinite(BetaS_sub) & (T_BetaS_sub <= Tt))
     BetaS_sub_dev = BIG
-    if np.any(m):
-        model = _safe_props_vector(
-            T_BetaS_sub[m], p_BetaS_sub[m], params, idx=2)
-        BetaS_sub_dev = rms_percent(BetaS_sub[m], model)
+    # if np.any(m):
+    #     model = _safe_props_vector(
+    #         T_BetaS_sub[m], p_BetaS_sub[m], params, idx=2)
+    #     BetaS_sub_dev = rms_percent(BetaS_sub[m], model)
 
     # Enthalpy of sublimation: kJ/mol (no unit juggling)
     m = (np.isfinite(T_H_sub) & np.isfinite(p_H_sub) &
@@ -816,7 +818,6 @@ def _stageA_bounds_free_vm_only(params_init, lower, upper):
     return B
 
 def quick_plot_vm_only(params, datasets, Tt):
-    import matplotlib.pyplot as plt
     (T_Vm_sub, p_Vm_sub, Vm_sub,
      T_Vm_melt, p_Vm_melt, Vm_melt, *_) = datasets
 
@@ -1008,7 +1009,7 @@ def stage_A():
 def main():
     krypton_data = load_all_gas_data('krypton', read_from_excel=False)
     datasets = extract_datasets(krypton_data)
-    debug_datasets(datasets, KRYPTON_T_t)
+    #debug_datasets(datasets, KRYPTON_T_t)
     # Fast content checks
     (T_Vm_sub, p_Vm_sub, Vm_sub,
     T_Vm_melt, p_Vm_melt, Vm_melt, *_) = datasets
@@ -1018,54 +1019,54 @@ def main():
     assert np.all(np.isfinite(T_Vm_melt)), "NaN T in Vm_melt"
     assert np.all(np.isfinite(Vm_melt)),   "NaN Vm_melt"
 
-    # Units (your pipeline expects: T[K], p[MPa], Vm[cm^3/mol])
-    print("Unit sanity: p_sub MPa range:", float(
-        np.nanmin(p_Vm_sub)), "→", float(np.nanmax(p_Vm_sub)))
-    print("Unit sanity: Vm_sub cm^3/mol range:",
-        float(np.nanmin(Vm_sub)), "→", float(np.nanmax(Vm_sub)))
-    vm_test = compute_thermo_props(100.0, 1.0, PARAMS_INIT)[IDX["Vm"]]
+    # # Units (your pipeline expects: T[K], p[MPa], Vm[cm^3/mol])
+    # print("Unit sanity: p_sub MPa range:", float(
+    #     np.nanmin(p_Vm_sub)), "→", float(np.nanmax(p_Vm_sub)))
+    # print("Unit sanity: Vm_sub cm^3/mol range:",
+    #     float(np.nanmin(Vm_sub)), "→", float(np.nanmax(Vm_sub)))
+    # vm_test = compute_thermo_props(100.0, 1.0, PARAMS_INIT)[IDX["Vm"]]
 
 
-    print("Vm(100K,1MPa) =", vm_test)
-    # Expect a few tens (e.g., ~28). If ~2.8e-5, convert inside model or _safe_props_vector.
+    # print("Vm(100K,1MPa) =", vm_test)
+    # # Expect a few tens (e.g., ~28). If ~2.8e-5, convert inside model or _safe_props_vector.
 
-    run_stageA_then_plot()
+    # run_stageA_then_plot()
 
-#     bounds = list(zip(LOWER_BOUND, UPPER_BOUND))
-#     params_fit, fval = run_optimization(PARAMS_INIT, bounds, datasets)
-#     plot_deviation_history()
+    bounds = list(zip(LOWER_BOUND, UPPER_BOUND))
+    params_fit, fval = run_optimization(PARAMS_INIT, bounds, datasets)
+    plot_deviation_history()
 
 
-#     plot_all_overlays_grid(
-#         params=params_fit,
-#         datasets=datasets,
-#         Tt=KRYPTON_T_t,
-#         pt=KRYPTON_P_t,
-#         compute_thermo_props=compute_thermo_props,
-#         St_REFPROP=KRYPTON_REFERENCE_ENTROPY,
-#         Ht_REFPROP=KRYPTON_REFERENCE_ENTHALPY,
-#         psub_curve=psub_curve,          # <— NEW
-#         pmelt_curve=pmelt_curve,        # <— NEW
-#         ncols=3,
-#         figsize=(14, 10),
-#     )
-#     # --- pretty print parameters ---
-#     formatted = ", ".join(f"{p:.2f}" for p in params_fit)
-#     print("Fitted parameters:")
-#     print(formatted)
-#     # --- pretty print parameters with names ---
-#     param_names = [
-#         r"$c_1$ / MPa",
-#         r"$c_2$ / MPa",
-#         r"$c_3$ / MPa",
-#         r"$\theta_{D,0}$ / K",
-#         r"$\gamma_{D,0}$",
-#         r"$q_D$",
-#         r"$b_1$",
-#         r"$b_2$",
-#         r"$b_3$",
-#         r"$S_m(g,T_t,p_t)$ / (J mol$^{-1}$ K$^{-1}$)"
-#     ]
+    plot_all_overlays_grid(
+        params=params_fit,
+        datasets=datasets,
+        Tt=KRYPTON_T_t,
+        pt=KRYPTON_P_t,
+        compute_thermo_props=compute_thermo_props,
+        St_REFPROP=KRYPTON_REFERENCE_ENTROPY,
+        Ht_REFPROP=KRYPTON_REFERENCE_ENTHALPY,
+        psub_curve=psub_curve,          # <— NEW
+        pmelt_curve=pmelt_curve,        # <— NEW
+        ncols=3,
+        figsize=(14, 10),
+    )
+    # --- pretty print parameters ---
+    formatted = ", ".join(f"{p:.2f}" for p in params_fit)
+    print("Fitted parameters:")
+    print(formatted)
+    # --- pretty print parameters with names ---
+    param_names = [
+        r"$c_1$ / MPa",
+        r"$c_2$ / MPa",
+        r"$c_3$ / MPa",
+        r"$\theta_{D,0}$ / K",
+        r"$\gamma_{D,0}$",
+        r"$q_D$",
+        r"$b_1$",
+        r"$b_2$",
+        r"$b_3$",
+        r"$S_m(g,T_t,p_t)$ / (J mol$^{-1}$ K$^{-1}$)"
+    ]
 
 #     print("\n=== Optimised Parameters ===")
 #     for name, val in zip(param_names, params_fit[:len(param_names)]):
