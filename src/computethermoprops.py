@@ -201,6 +201,32 @@ if _ADEB3.size >= 2:
 #             val += 3.0*summ*ex
 #     return val
 
+def Debye3_and_D(x):
+    """Return (D3, D3') with a single smooth blend across x≈4."""
+    if x <= 0.0:
+        return 0.0, 0.0
+    x = float(x)
+    x0, x1 = 3.6, 4.4  # same window you use for Debye3/Debye3D
+
+    if x <= x0:
+        return _debye3_cheb(x), _debye3d_cheb(x)
+    if x >= x1:
+        return _debye3_asym(x), _debye3d_asym(x)
+
+    # C^2 smoothstep (and its derivative)
+    t = (x - x0) / (x1 - x0)
+    t = 0.0 if t < 0 else (1.0 if t > 1 else t)
+    w = t**3 * (10 - 15*t + 6*t**2)
+    dw = (30*t**2 - 60*t**3 + 30*t**4) / (x1 - x0)  # d/dx of w
+
+    f0,  f0p = _debye3_cheb(x),  _debye3d_cheb(x)
+    f1,  f1p = _debye3_asym(x),  _debye3d_asym(x)
+    # D3, D3d = Debye3_and_D(x)
+
+    D3 = (1.0 - w)*f0 + w*f1
+    D3d = (1.0 - w)*f0p + w*f1p + dw*(f1 - f0)   # <-- the missing term
+    return D3, D3d
+
 
 def _debye3d_cheb(x):
     if x < _XLOW:
@@ -237,16 +263,40 @@ def Debye3D(x):
     if x <= 0.0:
         return 0.0
     x = float(x)
-    x0, x1 = 3.6, 4.4
+    x0, x1 = 3.6, 4.4           # same window you use in Debye3
     if x <= x0:
         return _debye3d_cheb(x)
     if x >= x1:
         return _debye3d_asym(x)
+
+    # same smoothstep and its derivative
     t = (x - x0) / (x1 - x0)
     t = 0.0 if t < 0 else (1.0 if t > 1 else t)
-    w = t**3 * (10 - 15*t + 6*t**2)   # C^2 smoothstep
-    return (1.0 - w)*_debye3d_cheb(x) + w*_debye3d_asym(x)
+    # C^2 smoothstep
+    w = t**3 * (10 - 15*t + 6*t**2)
+    dw = (30*t**2 - 60*t**3 + 30*t**4) / (x1 - x0)   # d/dx of w(t(x))
 
+    f0 = _debye3_cheb(x)
+    f1 = _debye3_asym(x)
+    f0p = _debye3d_cheb(x)
+    f1p = _debye3d_asym(x)
+
+    # derivative of the blended Debye3
+    return (1.0 - w)*f0p + w*f1p + dw*(f1 - f0)
+
+
+def Debye3D_num(x: float) -> float:
+    """Numerically consistent derivative of Debye3 via central difference."""
+    if x <= 0.0:
+        return 0.0
+    # step scales with x; large enough to avoid cancellation, small enough for accuracy
+    h = 1e-6 * max(1.0, abs(x))
+    x0 = x - h
+    x1 = x + h
+    # guard: keep in domain
+    if x0 <= 0.0:
+        x0 = 0.5*x
+    return (Debye3(x1) - Debye3(x0)) / (x1 - x0)
 
 # -----------------------
 # Core EOS pieces (generalized)
@@ -272,19 +322,30 @@ def evaluate_gas(T, v, v00, a, a1, a2, a3, Th, g, q, aa, bb, cc):
     # elastic polynomial in ln z
     z = v00 / max(v, _EPS_V)
     lnz = np.log(z)
+    x = Theta1 / max(T, _EPS_T)
+    D3,D3d = Debye3_and_D(x)
 
     pj_0 = z * (a1 * lnz + a2 * lnz**2 + a3 * lnz**3)
-    pj_1 = a[0] * (R * T * Gamma1 / max(v, _EPS_V)) * \
-        Debye3(Theta1 / max(T, _EPS_T))
+    pj_1 = a[0] * (R * T * Gamma1 / max(v, _EPS_V)) * D3
+    # pj_1 = a[0] * (R * T * Gamma1 / max(v, _EPS_V)) * \
+    #     Debye3(Theta1 / max(T, _EPS_T))
 
     pcalc = pj_0 + pj_1
 
     # derivative wrt v
     dpj_0 = -(z / max(v, _EPS_V)) * (a1*(1.0 + lnz) +
                                      a2*lnz*(2.0 + lnz) + a3*lnz**2*(3.0 + lnz))
+    # dpj_1 = (pj_1 / max(v, _EPS_V)) * (q[0] - 1.0) \
+    #     - a[0] * R * Theta1 * (Gamma1 / max(v, _EPS_V))**2 * D3d
+
+    # ... keep pj_1 as-is (uses Debye3)
     dpj_1 = (pj_1 / max(v, _EPS_V)) * (q[0] - 1.0) \
         - a[0] * R * Theta1 * (Gamma1 / max(v, _EPS_V))**2 * \
-        Debye3D(Theta1 / max(T, _EPS_T))
+        Debye3D_num(Theta1 / max(T, _EPS_T))
+
+    # dpj_1 = (pj_1 / max(v, _EPS_V)) * (q[0] - 1.0) \
+    #     - a[0] * R * Theta1 * (Gamma1 / max(v, _EPS_V))**2 * \
+    #     Debye3D(Theta1 / max(T, _EPS_T))
     dpdv = dpj_0 + dpj_1
 
     # thermal correction
@@ -397,7 +458,9 @@ def compute_thermo_props(T: float, p: float, parameters):
     x = Theta[0] / max(T, _EPS_T)
     x = max(x, 1e-8)  # avoid log(0)
     D3 = Debye3(x)
-    D3d = Debye3D(x)
+    D3d = Debye3D_num(x)
+    # D3, D3d = Debye3_and_D(x)
+
 
     cv = a[0] * R * (D3 - x * D3d)
     dpdt = Gamma[0] * cv

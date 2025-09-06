@@ -210,9 +210,9 @@ PERCENT_SCALE = 100.0
 
 T6 = np.array([0.0001] + list(range(2, 84, 2)) + [83.806])
 PERCENT_SCALE = 100.0
-FUNCTION_TOL = 5e-3
-GRADIENT_TOL = 5e-3
-MAX_ITERATIONS = 2
+FUNCTION_TOL = 5e-6
+GRADIENT_TOL = 5e-6
+MAX_ITERATIONS = 10
 N_OUTER=1
 
 # --- Weights for each deviation term ---

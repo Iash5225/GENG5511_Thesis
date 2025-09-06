@@ -4,7 +4,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from computethermoprops import compute_thermo_props
+# from computethermoprops import compute_thermo_props, evaluate_gas
+from thermopropsv2 import compute_thermo_props
 # from testcompute import compute_thermo_props_for_result  # optional
 
 # ---------- Argon triple point & p(T) ----------
@@ -24,29 +25,26 @@ def p_sub(T):
     return np.where((T <= 0) | (T > T_t), np.nan, base)
 
 
-def probe_near_20K(params, Tlist, p_of_T):
-    from computethermoprops import compute_thermo_props
-    # or copy your evaluate_gas into scope
-    from computethermoprops import evaluate_gas
-    print("\n[T probe]  T    p(MPa)      v     dpdv     KappaT      cp     cv")
-    for T in Tlist:
-        p = float(p_of_T(T))
-        props = compute_thermo_props(T, p, params)
-        v = float(props[0])
-        cp = float(props[4])
-        cv = float(props[5])
-        # re-evaluate dpdv at that (T,v)
-        v00, a1, a2, a3 = params[0], params[1], params[2], params[3]
-        Th = np.array(params[9:15])
-        g = np.array(params[15:21])
-        q = np.array(params[21:27])
-        aa, bb, cc = params[27], params[28], params[29]
-        a = [3.0]
-        _, dpdv, *_ = evaluate_gas(T, v, v00, a, a1,
-                                   a2, a3, Th, g, q, aa, bb, cc)
-        KappaT = -1.0/(max(v, 1e-9)*dpdv) if dpdv != 0 else np.inf
-        print(
-            f"{T:8.3f} {p:9.4f} {v:8.4f} {dpdv:9.4f} {KappaT:10.4g} {cp:7.3f} {cv:7.3f}")
+# def probe_near_20K(params, Tlist, p_of_T):
+#     print("\n[T probe]  T    p(MPa)      v     dpdv     KappaT      cp     cv")
+#     for T in Tlist:
+#         p = float(p_of_T(T))
+#         props = compute_thermo_props(T, p, params)
+#         v = float(props[0])
+#         cp = float(props[4])
+#         cv = float(props[5])
+#         # re-evaluate dpdv at that (T,v)
+#         v00, a1, a2, a3 = params[0], params[1], params[2], params[3]
+#         Th = np.array(params[9:15])
+#         g = np.array(params[15:21])
+#         q = np.array(params[21:27])
+#         aa, bb, cc = params[27], params[28], params[29]
+#         a = [3.0]
+#         _, dpdv, *_ = evaluate_gas(T, v, v00, a, a1,
+#                                    a2, a3, Th, g, q, aa, bb, cc)
+#         KappaT = -1.0/(max(v, 1e-9)*dpdv) if dpdv != 0 else np.inf
+#         print(
+#             f"{T:8.3f} {p:9.4f} {v:8.4f} {dpdv:9.4f} {KappaT:10.4g} {cp:7.3f} {cv:7.3f}")
 
 
 def p_melt(T):
@@ -118,6 +116,46 @@ def alpha_model_line(Ts, branch):  # α(T) along a branch
     return prop_model_line(Ts, branch, idx=3)  # idx 3 = Alpha [K^-1]
 
 
+def enthalpy_change_line(Ts, branch, ref_T=T_t):
+    """ΔH(T) = H(T) − H(ref_T) along the requested branch. Returns ΔH in J/mol."""
+    p_of_T = p_sub if branch == "sub" else p_melt
+
+    # reference enthalpy at ref_T
+    p_ref = float(p_of_T(ref_T))
+    if not np.isfinite(p_ref):
+        raise ValueError("Reference T is outside the valid branch domain.")
+    H_ref = float(compute_thermo_props(
+        ref_T, p_ref * P_TO_EOS, PARAMS_ARGON)[10])
+
+    # evaluate H(T) and subtract
+    ps = p_of_T(Ts)
+    dH = np.full_like(Ts, np.nan, float)
+    for i, (T, p) in enumerate(zip(Ts, ps)):
+        if not np.isfinite(p):
+            continue
+        H = float(compute_thermo_props(
+            float(T), float(p) * P_TO_EOS, PARAMS_ARGON)[10])
+        dH[i] = H - H_ref
+    return dH  # J/mol
+
+
+def bulk_modulus_model_lines(Ts, branch):
+    """Return (K_T, K_S) along the branch in MPa (we'll scale to GPa when plotting)."""
+    ps = p_sub(Ts) if branch == "sub" else p_melt(Ts)
+    KT = np.full_like(Ts, np.nan, float)
+    KS = np.full_like(Ts, np.nan, float)
+    for i, (T, p) in enumerate(zip(Ts, ps)):
+        if not np.isfinite(p):
+            continue
+        props = compute_thermo_props(float(T), float(p)*P_TO_EOS, PARAMS_ARGON)
+        kappa_T = float(props[1])  # MPa^-1
+        kappa_S = float(props[2])  # MPa^-1
+        # guard against zero/negative/NaN
+        KT[i] = 1.0/kappa_T if np.isfinite(kappa_T) and kappa_T > 0 else np.nan
+        KS[i] = 1.0/kappa_S if np.isfinite(kappa_S) and kappa_S > 0 else np.nan
+    return KT, KS
+
+
 # ---------- cp identity quick check ----------
 def check_cp_identity(params, p_of_T, Tlist, label=""):
     print(f"\n[cp identity check] {label}")
@@ -148,11 +186,19 @@ def main():
 
     alpha_sub_line = alpha_model_line(Ts_sub,  "sub")
     alpha_melt_line = alpha_model_line(Ts_melt, "melt")
+    KT_sub_MPa, KS_sub_MPa = bulk_modulus_model_lines(Ts_sub,  "sub")
+
+
+    KT_melt_MPa, KS_melt_MPa = bulk_modulus_model_lines(Ts_melt, "melt")
+    dH_sub = enthalpy_change_line(Ts_sub,  "sub")   # J/mol
+
+
+    dH_melt = enthalpy_change_line(Ts_melt, "melt")  # J/mol
 
 
     # 2x2 grid
-    fig, ax = plt.subplots(3, 2, figsize=(13, 9), sharex="col")
-    probe_near_20K(PARAMS_ARGON, [15, 18, 19, 20, 21, 22, 24, 26], p_sub)
+    fig, ax = plt.subplots(4, 2, figsize=(13, 9), sharex="col")
+    # probe_near_20K(PARAMS_ARGON, [15, 18, 19, 20, 21, 22, 24, 26], p_sub)
 
     # Vm — sub
     ax[0, 0].scatter(sub["T"].to_numpy(), sub["Vm"].to_numpy(), s=16, alpha=0.7, label="Exp (sub)")
@@ -202,6 +248,26 @@ def main():
     ax[2, 1].set_ylabel(r"$\alpha \times 10^{-4}$ K$^{-1}$")
     ax[2, 1].legend()
 
+        # Bulk modulus — sublimation (both K_T and K_S)
+    ax[3, 0].plot(Ts_sub,  (KT_sub_MPa/1000.0), lw=2, label=r"$K_T$ (sub)")
+    ax[3, 0].plot(Ts_sub,  (KS_sub_MPa/1000.0), lw=2,
+                ls="--", label=r"$K_S$ (sub)")
+    ax[3, 0].axvline(T_t, ls="--", lw=1, color="gray")
+    ax[3, 0].set_title("Bulk modulus along sublimation")
+    ax[3, 0].set_xlabel("T [K]")
+    ax[3, 0].set_ylabel("Bulk modulus [GPa]")
+    ax[3, 0].legend()
+
+    # Bulk modulus — melting (both K_T and K_S)
+    ax[3, 1].plot(Ts_melt, (KT_melt_MPa/1000.0), lw=2, label=r"$K_T$ (melt)")
+    ax[3, 1].plot(Ts_melt, (KS_melt_MPa/1000.0), lw=2,
+                ls="--", label=r"$K_S$ (melt)")
+    ax[3, 1].axvline(T_t, ls="--", lw=1, color="gray")
+    ax[3, 1].set_title("Bulk modulus along melting")
+    ax[3, 1].set_xlabel("T [K]")
+    ax[3, 1].set_ylabel("Bulk modulus [GPa]")
+    ax[3, 1].legend()
+    
 
     # # cp — melt (model + optional exp)
     # if cp_melt_df is not None:
