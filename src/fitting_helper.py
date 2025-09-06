@@ -186,13 +186,14 @@ def extract_datasets(data):
 
     # Bulk Modulus (S)
     T_BetaS_sub = data['bulk_s']['Temperature']
+    p_BetaS_sub = safe_psub(T_BetaS_sub)
     # p_BetaS_sub = data['bulk_s']['Pressure']
     p_BetaS_sub = None
     BetaS_sub = data['bulk_s']['Beta S']
 
     # Bulk Modulus (T)
     T_BetaT_sub = data['bulk_t']['Temperature']
-    p_BetaT_sub = data['bulk_t']['Pressure']
+    p_BetaT_sub = safe_psub(T_BetaT_sub)
     BetaT_sub = data['bulk_t']['Beta T']
 
     # Melting

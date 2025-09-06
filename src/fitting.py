@@ -39,6 +39,215 @@ def _cost_only(params, *datasets):
     except Exception:
         return BIG
 
+
+def plot_alpha_sublimation(params, datasets, *, Tt=KRYPTON_T_t, ax=None, label="α model", save_path=None):
+    """
+    Plot alpha(T) (thermal expansion coefficient) along sublimation branch.
+    """
+    (T_Vm_sub, p_Vm_sub, Vm_sub,
+     T_Vm_melt, p_Vm_melt, Vm_melt,
+     T_Vm_highp, p_Vm_highp, Vm_highp,
+     T_cp_sub, p_cp_sub, cp_sub,
+     T_alpha_sub, p_alpha_sub, alpha_sub,
+     T_BetaT_sub, p_BetaT_sub, BetaT_sub,
+     T_BetaS_sub, p_BetaS_sub, BetaS_sub,
+     T_sub, p_sub, Year_sub, G_fluid_sub, V_fluid_sub,
+     T_melt, p_melt, G_fluid_melt, V_fluid_melt,
+     T_H_sub, p_H_sub, delta_H_sub, H_fluid_sub,
+     T_H_melt, p_H_melt, delta_H_melt, H_fluid_melt) = datasets
+
+    # mask valid points
+    m = (np.isfinite(T_alpha_sub) & np.isfinite(p_alpha_sub) &
+         np.isfinite(alpha_sub) & (T_alpha_sub <= Tt))
+    if not np.any(m):
+        raise ValueError(
+            "No finite alpha data on sublimation branch (T <= Tt).")
+
+    T = np.asarray(T_alpha_sub, float)[m]
+    P = np.asarray(p_alpha_sub,  float)[m]
+    Y = np.asarray(alpha_sub,    float)     # [1/K]
+
+    # model
+    yfit = (_safe_props_vector(T, P, params, idx=IDX["Alpha"])
+            if "_safe_props_vector" in globals()
+            else np.array([compute_thermo_props(float(t), float(p), params)[IDX["Alpha"]] for t, p in zip(T, P)], float))
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(6.8, 4.4))
+    order = np.argsort(T)
+    ax.scatter(T, Y, s=16, alpha=0.75, label="α exp (sub)")
+    ax.plot(T[order], yfit[order], lw=2, label=label)
+    ax.set_xlabel("T [K]")
+    ax.set_ylabel(r"$\alpha$ [K$^{-1}$]")
+    ax.set_title("Krypton: thermal expansion along sublimation")
+    ax.legend()
+    plt.tight_layout()
+    if save_path:
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(save_path, dpi=200)
+    return ax
+
+
+def plot_bulk_moduli_sublimation(params, datasets, *, Tt=KRYPTON_T_t, ax=None, save_path=None):
+    """
+    Plot isothermal (K_T) and adiabatic (K_S) bulk moduli along the sublimation branch.
+
+    Experimental inputs are compressibilities (BetaT_sub, BetaS_sub) in [1/MPa].
+    We invert them to bulk moduli: K = 1 / Beta (MPa).
+
+    Model values are computed from compute_thermo_props:
+      K_T(model) = 1 / KappaT,  K_S(model) = 1 / KappaS
+
+    Parameters
+    ----------
+    params : array-like
+        EOS parameter vector (len 31).
+    datasets : tuple
+        Output of extract_datasets(...).
+    Tt : float
+        Triple-point temperature [K].
+    ax : matplotlib.axes.Axes or None
+        If provided, plot into this axes; else create a new figure.
+    save_path : str or Path or None
+        If given, save figure to this path.
+
+    Returns
+    -------
+    ax : matplotlib.axes.Axes
+    """
+    (T_Vm_sub, p_Vm_sub, Vm_sub,
+     T_Vm_melt, p_Vm_melt, Vm_melt,
+     T_Vm_highp, p_Vm_highp, Vm_highp,
+     T_cp_sub, p_cp_sub, cp_sub,
+     T_alpha_sub, p_alpha_sub, alpha_sub,
+     T_BetaT_sub, p_BetaT_sub, BetaT_sub,
+     T_BetaS_sub, p_BetaS_sub, BetaS_sub,
+     T_sub, p_sub, Year_sub, G_fluid_sub, V_fluid_sub,
+     T_melt, p_melt, G_fluid_melt, V_fluid_melt,
+     T_H_sub, p_H_sub, delta_H_sub, H_fluid_sub,
+     T_H_melt, p_H_melt, delta_H_melt, H_fluid_melt) = datasets
+
+    create_fig = ax is None
+    if create_fig:
+        fig, ax = plt.subplots(figsize=(7.2, 4.6))
+
+    # ---------- K_T (isothermal bulk modulus) ----------
+    mT = (np.isfinite(T_BetaT_sub) & np.isfinite(
+        BetaT_sub) & (T_BetaT_sub <= Tt))
+    if np.any(mT):
+        Tt_exp = np.asarray(T_BetaT_sub, float)[mT]
+        Pt_exp = np.asarray(p_BetaT_sub,  float)[mT]
+        kappaT_exp = np.asarray(BetaT_sub, float)[mT]  # [1/MPa]
+        # guard against 0 or negative compressibilities
+        valid = np.isfinite(kappaT_exp) & (kappaT_exp > 0)
+        KT_exp = np.full_like(kappaT_exp, np.nan)
+        KT_exp[valid] = 1.0 / kappaT_exp[valid]  # MPa
+
+        # model at same (T,P)
+        KT_mod = _safe_props_vector(Tt_exp, Pt_exp, params, idx=IDX["KappaT"])
+        with np.errstate(divide='ignore', invalid='ignore'):
+            KT_mod = np.where((KT_mod > 0) & np.isfinite(
+                KT_mod), 1.0 / KT_mod, np.nan)
+
+        order = np.argsort(Tt_exp)
+        ax.scatter(Tt_exp, KT_exp, s=18, alpha=0.75, label=r"$K_T$ exp")
+        ax.plot(Tt_exp[order], KT_mod[order], lw=2.0, label=r"$K_T$ model")
+
+    # ---------- K_S (adiabatic bulk modulus) ----------
+    mS = (np.isfinite(T_BetaS_sub) & np.isfinite(
+        BetaS_sub) & (T_BetaS_sub <= Tt))
+    if np.any(mS):
+        Ts_exp = np.asarray(T_BetaS_sub, float)[mS]
+        # p_BetaS_sub may be None in your loader; if so, we pass NaN (model path only needs T,P pair)
+        if p_BetaS_sub is not None:
+            Ps_exp = np.asarray(p_BetaS_sub, float)[mS]
+        else:
+            Ps_exp = np.full_like(Ts_exp, np.nan)
+        kappaS_exp = np.asarray(BetaS_sub, float)[mS]  # [1/MPa]
+        validS = np.isfinite(kappaS_exp) & (kappaS_exp > 0)
+        KS_exp = np.full_like(kappaS_exp, np.nan)
+        KS_exp[validS] = 1.0 / kappaS_exp[validS]  # MPa
+
+        # model at same (T,P)
+        KS_mod = _safe_props_vector(Ts_exp, Ps_exp, params, idx=IDX["KappaS"])
+        with np.errstate(divide='ignore', invalid='ignore'):
+            KS_mod = np.where((KS_mod > 0) & np.isfinite(
+                KS_mod), 1.0 / KS_mod, np.nan)
+
+        order = np.argsort(Ts_exp)
+        ax.scatter(Ts_exp, KS_exp, s=18, alpha=0.75, label=r"$K_S$ exp")
+        ax.plot(Ts_exp[order], KS_mod[order], lw=2.0, label=r"$K_S$ model")
+
+    ax.set_xlabel("T [K]")
+    ax.set_ylabel(r"$K$ [MPa]")
+    ax.set_title("Krypton: bulk moduli along sublimation")
+    ax.legend()
+    ax.grid(False)
+    plt.tight_layout()
+
+    if save_path is not None:
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(save_path, dpi=200)
+
+    return ax
+
+def plot_kappa_sublimation(params, datasets, *, Tt=KRYPTON_T_t, ax=None, save_path=None):
+    """
+    Plot isothermal (κ_T) and adiabatic (κ_S) compressibility along sublimation.
+    """
+    (T_Vm_sub, p_Vm_sub, Vm_sub,
+     T_Vm_melt, p_Vm_melt, Vm_melt,
+     T_Vm_highp, p_Vm_highp, Vm_highp,
+     T_cp_sub, p_cp_sub, cp_sub,
+     T_alpha_sub, p_alpha_sub, alpha_sub,
+     T_BetaT_sub, p_BetaT_sub, BetaT_sub,
+     T_BetaS_sub, p_BetaS_sub, BetaS_sub,
+     T_sub, p_sub, Year_sub, G_fluid_sub, V_fluid_sub,
+     T_melt, p_melt, G_fluid_melt, V_fluid_melt,
+     T_H_sub, p_H_sub, delta_H_sub, H_fluid_sub,
+     T_H_melt, p_H_melt, delta_H_melt, H_fluid_melt) = datasets
+
+    fig, ax = (plt.subplots(figsize=(7, 4.5)) if ax is None else (None, ax))
+
+    # --- κ_T ---
+    mT = (np.isfinite(T_BetaT_sub) & np.isfinite(
+        BetaT_sub) & (T_BetaT_sub <= Tt))
+    if np.any(mT):
+        T = np.asarray(T_BetaT_sub, float)[mT]
+        P = np.asarray(p_BetaT_sub,  float)[mT]
+        Y = np.asarray(BetaT_sub, float)    # [1/MPa]
+        yfit = (_safe_props_vector(T, P, params, idx=IDX["KappaT"])
+                if "_safe_props_vector" in globals()
+                else np.array([compute_thermo_props(float(t), float(p), params)[IDX["KappaT"]] for t, p in zip(T, P)], float))
+        order = np.argsort(T)
+        ax.scatter(T, Y, s=16, alpha=0.7, label=r"$\kappa_T$ exp")
+        ax.plot(T[order], yfit[order], lw=2, label=r"$\kappa_T$ model")
+
+    # --- κ_S ---
+    mS = (np.isfinite(T_BetaS_sub) & np.isfinite(
+        BetaS_sub) & (T_BetaS_sub <= Tt))
+    if np.any(mS):
+        T = np.asarray(T_BetaS_sub, float)[mS]
+        P = np.asarray(p_BetaS_sub,  float)[
+            mS] if p_BetaS_sub is not None else np.full_like(T, np.nan)
+        Y = np.asarray(BetaS_sub, float)    # [1/MPa]
+        yfit = (_safe_props_vector(T, P, params, idx=IDX["KappaS"])
+                if "_safe_props_vector" in globals()
+                else np.array([compute_thermo_props(float(t), float(p), params)[IDX["KappaS"]] for t, p in zip(T, P)], float))
+        order = np.argsort(T)
+        ax.scatter(T, Y, s=16, alpha=0.7, label=r"$\kappa_S$ exp")
+        ax.plot(T[order], yfit[order], lw=2, label=r"$\kappa_S$ model")
+
+    ax.set_xlabel("T [K]")
+    ax.set_ylabel(r"$\kappa$ [MPa$^{-1}$]")
+    ax.set_title("Krypton: compressibility along sublimation")
+    ax.legend()
+    plt.tight_layout()
+    if save_path:
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(save_path, dpi=200)
+    return ax
+
 def _compute_triple_offsets(params):
     """Return (deltaH_triple, deltaS_triple) using meta if provided by compute_thermo_props."""
     tp = compute_thermo_props(Tt, pt, params)
@@ -524,6 +733,10 @@ def main():
     quick_plot_vm_only(res.x, datasets, Tt=KRYPTON_T_t)
     # cp plot
     plot_cp_sublimation(res.x, datasets, Tt=KRYPTON_T_t, save_path=None)
+    # alpha plot
+    plot_alpha_sublimation(res.x, datasets, Tt=KRYPTON_T_t, save_path=None) 
+    # kappa plot
+    # plot_bulk_moduli_sublimation(res.x, datasets, Tt=KRYPTON_T_t, save_path=None)
     plt.show()
 
 
