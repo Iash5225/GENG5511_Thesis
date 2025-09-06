@@ -466,127 +466,178 @@ def diagnose_subline(params, datasets, Tt=KRYPTON_T_t):
 #     return total, deviations
 
 
-def combined_cost_vm(params, *datasets, teacher=None, Tt=None,
-                     weights=None):
+# def combined_cost_vm(params, *datasets, teacher=None, Tt=None,
+#                      weights=None):
+#     """
+#     Vm-only objective with:
+#       - RMSE on sub & melt
+#       - anchors at ~20 K and ~T_hi
+#       - slope match on sub window
+#       - teacher penalty (dense, smoothed target curve)
+#       - monotonicity (dV/dT >= 0) and convexity (d2V/dT2 >= 0) on sub window
+#     """
+#     (T_Vm_sub,  p_Vm_sub,  Vm_sub,
+#      T_Vm_melt, p_Vm_melt, Vm_melt, *_) = datasets
+
+#     Tt_val = float(Tt if Tt is not None else KRYPTON_T_t)
+#     Tmax_sub = float(min(110.0, Tt_val - T_MARGIN))
+
+#     # default weights
+#     W = dict(SUB=1.0, MELT=0.0, ANCH=1.2, SLOPE=0.7,
+#              TEACH=1.0, MONO=4.0, CONV=0.3)
+#     if weights:
+#         W.update(weights)
+
+#     _cache = {}  # per-eval cache
+
+#     # ---------- core RMSE terms ----------
+#     Vm_sub_dev = BIG
+#     msub = (np.isfinite(T_Vm_sub) & np.isfinite(p_Vm_sub) &
+#             np.isfinite(Vm_sub) & (T_Vm_sub <= Tt_val))
+#     if np.any(msub):
+#         Vmod_sub = _safe_props_vector_cached(
+#             T_Vm_sub[msub], p_Vm_sub[msub], params, idx=IDX["Vm"], cache=_cache)
+#         Vm_sub_dev = _abs_rmse(Vm_sub[msub], Vmod_sub)
+
+#     Vm_melt_dev = BIG
+#     mmelt = (np.isfinite(T_Vm_melt) & np.isfinite(p_Vm_melt) &
+#              np.isfinite(Vm_melt) & (T_Vm_melt >= Tt_val))
+#     if np.any(mmelt):
+#         Vmod_melt = _safe_props_vector_cached(
+#             T_Vm_melt[mmelt], p_Vm_melt[mmelt], params, idx=IDX["Vm"], cache=_cache)
+#         Vm_melt_dev = _abs_rmse(Vm_melt[mmelt], Vmod_melt)
+
+#     # ---------- sub-window helpers ----------
+#     Vm_anchor = 0.0
+#     slope_pen = 0.0
+#     teacher_pen = 0.0
+#     mono_pen = 0.0
+#     conv_pen = 0.0
+
+#     # window (avoid ultra-low T noise; remain below Tt)
+#     win = (np.isfinite(T_Vm_sub) & np.isfinite(Vm_sub) &
+#            (T_Vm_sub >= 8.0) & (T_Vm_sub <= Tmax_sub))
+#     if np.any(win):
+#         Tsub = np.asarray(T_Vm_sub[win], float)
+#         Vexp = np.asarray(Vm_sub[win],   float)
+
+#         # anchors (experiment medians vs model at same T on p_sub)
+#         def _median_near(Tc, half=5.0):
+#             m = np.abs(Tsub - Tc) <= half
+#             return float(np.nanmedian(Vexp[m])) if np.any(m) else float(np.nanmedian(Vexp))
+#         T_lo = 20.0
+#         T_hi = Tmax_sub
+#         V_lo_exp = teacher["V_lo_exp"] if teacher else _median_near(T_lo)
+#         V_hi_exp = teacher["V_hi_exp"] if teacher else _median_near(T_hi)
+
+#         V_lo_model = _safe_props_vector_cached([T_lo], [safe_psub(T_lo)],
+#                                                params, idx=IDX["Vm"], cache=_cache)[0]
+#         V_hi_model = _safe_props_vector_cached([T_hi], [safe_psub(T_hi)],
+#                                                params, idx=IDX["Vm"], cache=_cache)[0]
+#         if np.isfinite(V_lo_model) and np.isfinite(V_hi_model):
+#             Vm_anchor = (V_lo_model - V_lo_exp)**2 + (V_hi_model - V_hi_exp)**2
+
+#         # slope match (robust)
+#         Vmod_subline = _safe_props_vector_cached(
+#             Tsub, safe_psub(Tsub), params, idx=IDX["Vm"], cache=_cache)
+#         ok = np.isfinite(Vmod_subline) & (
+#             26.0 < Vmod_subline) & (Vmod_subline < 31.5)
+#         if np.sum(ok) >= 4:
+#             k_exp = (teacher["k_exp"] if teacher is not None
+#                      else np.polyfit(Tsub, Vexp, 1)[0])
+#             k_mod = np.polyfit(Tsub[ok], Vmod_subline[ok], 1)[0]
+#             slope_pen = (k_mod - k_exp)**2
+
+#     # ---------- teacher curve + shape enforcement ----------
+#     if teacher is not None:
+#         Tg = teacher["Tg"]
+#         Vg_target = teacher["Vg_target"]
+#         Vg_model = _safe_props_vector_cached(
+#             Tg, safe_psub(Tg), params, idx=IDX["Vm"], cache=_cache)
+
+#         mask = np.isfinite(Vg_model)
+#         if np.any(mask):
+#             teacher_pen = np.nanmean((Vg_model[mask] - Vg_target[mask])**2)
+
+#             # local monotonicity & convexity (forward differences)
+#             Tg_m = Tg[mask]
+#             Vg_m = Vg_model[mask]
+#             if Vg_m.size >= 4:
+#                 dT = np.diff(Tg_m)
+#                 dV = np.diff(Vg_m) / dT
+#                 mono_pen = np.nanmean(np.clip(-dV, 0.0, None)**2)
+
+#                 d2V = np.diff(Vg_m, 2) / (dT[:-1]*dT[1:])
+#                 conv_pen = np.nanmean(np.clip(-d2V, 0.0, None)**2)
+
+#     # ---------- total ----------
+#     total = (W["SUB"]*Vm_sub_dev +
+#              W["MELT"]*Vm_melt_dev +
+#              W["ANCH"]*Vm_anchor +
+#              W["SLOPE"]*slope_pen +
+#              W["TEACH"]*teacher_pen +
+#              W["MONO"]*mono_pen +
+#              W["CONV"]*conv_pen)
+
+#     deviations = dict(
+#         Vm_sub=Vm_sub_dev, Vm_melt=Vm_melt_dev,
+#         Vm_anchor=Vm_anchor, Vm_slope=slope_pen,
+#         Vm_teacher=teacher_pen, Vm_mono=mono_pen, Vm_conv=conv_pen
+#     )
+#     return total, deviations
+
+def _rmse_percent(y_exp, y_mod, floor=1e-6):
     """
-    Vm-only objective with:
-      - RMSE on sub & melt
-      - anchors at ~20 K and ~T_hi
-      - slope match on sub window
-      - teacher penalty (dense, smoothed target curve)
-      - monotonicity (dV/dT >= 0) and convexity (d2V/dT2 >= 0) on sub window
+    Relative RMS (%) = sqrt(mean( [100*(y_exp - y_mod)/max(|y_exp|,floor)]^2 ))
+    """
+    y_exp = np.asarray(y_exp, float)
+    y_mod = np.asarray(y_mod, float)
+    den = np.maximum(np.abs(y_exp), floor)
+    rel = 100.0 * (y_exp - y_mod) / den
+    return float(np.sqrt(np.mean(rel**2)))
+def combined_cost_vm(params, *datasets, Tt=None, weights=None):
+    """
+    Vm-only objective using *percentage RMSE* (in %), no anchors/teacher/shape terms.
+
+    total = W["SUB"] * %RMSE(Vm on sub) + W["MELT"] * %RMSE(Vm on melt)
     """
     (T_Vm_sub,  p_Vm_sub,  Vm_sub,
      T_Vm_melt, p_Vm_melt, Vm_melt, *_) = datasets
 
     Tt_val = float(Tt if Tt is not None else KRYPTON_T_t)
-    Tmax_sub = float(min(110.0, Tt_val - T_MARGIN))
 
-    # default weights
-    W = dict(SUB=1.0, MELT=0.0, ANCH=1.2, SLOPE=0.7,
-             TEACH=1.0, MONO=4.0, CONV=0.3)
+    # default weights (both count equally by default)
+    W = dict(SUB=1.0, MELT=1.0)
     if weights:
         W.update(weights)
 
-    _cache = {}  # per-eval cache
+    _cache = {}
 
-    # ---------- core RMSE terms ----------
-    Vm_sub_dev = BIG
+    # --- %RMSE on sublimation branch (T <= Tt) ---
+    Vm_sub_pct = BIG
     msub = (np.isfinite(T_Vm_sub) & np.isfinite(p_Vm_sub) &
             np.isfinite(Vm_sub) & (T_Vm_sub <= Tt_val))
     if np.any(msub):
         Vmod_sub = _safe_props_vector_cached(
             T_Vm_sub[msub], p_Vm_sub[msub], params, idx=IDX["Vm"], cache=_cache)
-        Vm_sub_dev = _abs_rmse(Vm_sub[msub], Vmod_sub)
+        Vm_sub_pct = _rmse_percent(Vm_sub[msub], Vmod_sub)
 
-    Vm_melt_dev = BIG
+    # --- %RMSE on melting branch (T >= Tt) ---
+    Vm_melt_pct = BIG
     mmelt = (np.isfinite(T_Vm_melt) & np.isfinite(p_Vm_melt) &
              np.isfinite(Vm_melt) & (T_Vm_melt >= Tt_val))
     if np.any(mmelt):
         Vmod_melt = _safe_props_vector_cached(
             T_Vm_melt[mmelt], p_Vm_melt[mmelt], params, idx=IDX["Vm"], cache=_cache)
-        Vm_melt_dev = _abs_rmse(Vm_melt[mmelt], Vmod_melt)
+        Vm_melt_pct = _rmse_percent(Vm_melt[mmelt], Vmod_melt)
 
-    # ---------- sub-window helpers ----------
-    Vm_anchor = 0.0
-    slope_pen = 0.0
-    teacher_pen = 0.0
-    mono_pen = 0.0
-    conv_pen = 0.0
-
-    # window (avoid ultra-low T noise; remain below Tt)
-    win = (np.isfinite(T_Vm_sub) & np.isfinite(Vm_sub) &
-           (T_Vm_sub >= 8.0) & (T_Vm_sub <= Tmax_sub))
-    if np.any(win):
-        Tsub = np.asarray(T_Vm_sub[win], float)
-        Vexp = np.asarray(Vm_sub[win],   float)
-
-        # anchors (experiment medians vs model at same T on p_sub)
-        def _median_near(Tc, half=5.0):
-            m = np.abs(Tsub - Tc) <= half
-            return float(np.nanmedian(Vexp[m])) if np.any(m) else float(np.nanmedian(Vexp))
-        T_lo = 20.0
-        T_hi = Tmax_sub
-        V_lo_exp = teacher["V_lo_exp"] if teacher else _median_near(T_lo)
-        V_hi_exp = teacher["V_hi_exp"] if teacher else _median_near(T_hi)
-
-        V_lo_model = _safe_props_vector_cached([T_lo], [safe_psub(T_lo)],
-                                               params, idx=IDX["Vm"], cache=_cache)[0]
-        V_hi_model = _safe_props_vector_cached([T_hi], [safe_psub(T_hi)],
-                                               params, idx=IDX["Vm"], cache=_cache)[0]
-        if np.isfinite(V_lo_model) and np.isfinite(V_hi_model):
-            Vm_anchor = (V_lo_model - V_lo_exp)**2 + (V_hi_model - V_hi_exp)**2
-
-        # slope match (robust)
-        Vmod_subline = _safe_props_vector_cached(
-            Tsub, safe_psub(Tsub), params, idx=IDX["Vm"], cache=_cache)
-        ok = np.isfinite(Vmod_subline) & (
-            26.0 < Vmod_subline) & (Vmod_subline < 31.5)
-        if np.sum(ok) >= 4:
-            k_exp = (teacher["k_exp"] if teacher is not None
-                     else np.polyfit(Tsub, Vexp, 1)[0])
-            k_mod = np.polyfit(Tsub[ok], Vmod_subline[ok], 1)[0]
-            slope_pen = (k_mod - k_exp)**2
-
-    # ---------- teacher curve + shape enforcement ----------
-    if teacher is not None:
-        Tg = teacher["Tg"]
-        Vg_target = teacher["Vg_target"]
-        Vg_model = _safe_props_vector_cached(
-            Tg, safe_psub(Tg), params, idx=IDX["Vm"], cache=_cache)
-
-        mask = np.isfinite(Vg_model)
-        if np.any(mask):
-            teacher_pen = np.nanmean((Vg_model[mask] - Vg_target[mask])**2)
-
-            # local monotonicity & convexity (forward differences)
-            Tg_m = Tg[mask]
-            Vg_m = Vg_model[mask]
-            if Vg_m.size >= 4:
-                dT = np.diff(Tg_m)
-                dV = np.diff(Vg_m) / dT
-                mono_pen = np.nanmean(np.clip(-dV, 0.0, None)**2)
-
-                d2V = np.diff(Vg_m, 2) / (dT[:-1]*dT[1:])
-                conv_pen = np.nanmean(np.clip(-d2V, 0.0, None)**2)
-
-    # ---------- total ----------
-    total = (W["SUB"]*Vm_sub_dev +
-             W["MELT"]*Vm_melt_dev +
-             W["ANCH"]*Vm_anchor +
-             W["SLOPE"]*slope_pen +
-             W["TEACH"]*teacher_pen +
-             W["MONO"]*mono_pen +
-             W["CONV"]*conv_pen)
+    total = W["SUB"] * Vm_sub_pct + W["MELT"] * Vm_melt_pct
 
     deviations = dict(
-        Vm_sub=Vm_sub_dev, Vm_melt=Vm_melt_dev,
-        Vm_anchor=Vm_anchor, Vm_slope=slope_pen,
-        Vm_teacher=teacher_pen, Vm_mono=mono_pen, Vm_conv=conv_pen
+        Vm_sub_pct=Vm_sub_pct,
+        Vm_melt_pct=Vm_melt_pct,
     )
     return total, deviations
-
-
 def prefit_v00(params, datasets, grid=np.linspace(20, 32, 25)):
     best = None
     base = np.array(params, float)
