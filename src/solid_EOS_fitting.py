@@ -5,7 +5,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from pathlib import Path
 from read import load_all_gas_data
-from computethermoprops import *
+# from computethermoprops import *
+from thermopropsv2 import compute_thermo_props
 # from p_functions import pmelt,psub
 from constants import *     
 from fitting_helper import rms , _mean_sq
@@ -213,17 +214,24 @@ def extract_datasets(data):
         T, KRYPTON_E_1_SUB,  KRYPTON_E_2_SUB, KRYPTON_E_3_SUB, KRYPTON_T_t, KRYPTON_P_t) for T in T_alpha_sub])
     alpha_sub = data['thermal_coeff']['Thermal Expansion Coefficient']
 
-    # Bulk Modulus (S)
-    T_BetaS_sub = data['bulk_s']['Temperature']
-    p_BetaS_sub = data['bulk_t']['Pressure']
-    # p_BetaS_sub = None
-    BetaS_sub = data['bulk_s']['Beta S']
+
+    # # Bulk Modulus (S)
+    # T_BetaS_sub = data['bulk_s']['Temperature']
+    # p_BetaS_sub = data['bulk_t']['Pressure']
+    # # p_BetaS_sub = None
+    # BetaS_sub = data['bulk_s']['Beta S']
 
     # Bulk Modulus (T)
     T_BetaT_sub = data['bulk_t']['Temperature']
     p_BetaT_sub = data['bulk_t']['Pressure']
     # p_BetaT_sub = None
     BetaT_sub = data['bulk_t']['Beta T']
+
+    # Bulk Modulus (S)
+    T_BetaS_sub = T_BetaT_sub
+    p_BetaS_sub = p_BetaT_sub
+    # p_BetaS_sub = None
+    BetaS_sub = BetaT_sub
 
     # Melting
     T_melt = data['melting']['Temperature']

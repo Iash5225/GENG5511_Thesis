@@ -5,8 +5,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from pathlib import Path
 from read import load_all_gas_data
-from computethermoprops import *
+# from computethermoprops import *
 from constants import *
+from thermopropsv2 import compute_thermo_props
 from fitting_helper import *
 from plot_eos import plot_all_overlays_grid
 from thermal_script import melting_pressure_equation, sublimation_pressure_equation
