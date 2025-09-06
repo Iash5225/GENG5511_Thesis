@@ -156,27 +156,17 @@ MELTING_XENON_Y_MAX = 10**3
 MARKERSIZE=50
 AXIS_FONT_SIZE=14
 
-# Initial parameter guess (length = 31)
-# PARAMS_INIT = np.array([
-#     22.555, 6743.12, 9447.24378, 1046.14162, 0, 0, 0, 0, 0,
-#     81.43, 0, 0, 0, 0, 0,
-#     -4.72, 0, 0, 0, 0, 0,
-#     -10, 0, 0, 0, 0, 0,
-#    0, 100, 100, 100
-# ])
-
-# PARAMS_INIT = np.array([22.5550000000000, 2656.52642414977, 7298.23149507131, 10.2141048204410, 0, 0, 0, 0, 0, 86.4362106997872, 0, 0, 0, 0, 0, 2.67962223740954,
-#     0, 0, 0, 0, 0, 0.00242239049165781, 0, 0, 0, 0, 0, 0.0128218007844121, 0.388169436431343, 7.85061199420585, 130.371937461416])
 
 PARAMS_INIT = np.array([
-    2.73099959e+01, 2.65649997e+03, 7.29800000e+03, 1.00000000e+01,
+    27.29437497, 2656.51104046, 7297.99934773, 10.00010272,
     0, 0, 0, 0, 0,
-    8.64400000e+01, 0, 0, 0, 0, 0,
-    2.00000000e+00, 0, 0, 0, 0, 0,
-    2.40000000e-03, 0, 0, 0, 0, 0,
-    -7.02736702e-02, 3.88000000e-01, 7.85000000e+00,
-    1.19330000e+01  # S* (entropy reference)
+    86.44526741, 0, 0, 0, 0, 0,
+    3.66662633, 0, 0, 0, 0, 0,
+    -3.4, 0, 0, 0, 0, 0,
+    0.0, 1.86664856, 8.04987101,
+    KRYPTON_REFERENCE_ENTROPY  # S* (entropy reference)
 ])
+
 # Lower bounds
 LOWER_BOUND = np.array([
     25, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -195,7 +185,7 @@ UPPER_BOUND = np.array([
     100, 100, 100, 1000
 ])
 
-CP_TEMP_THRESHOLD_K = 12.0
+CP_TEMP_THRESHOLD_K = 20
 CP_WEIGHT_BELOW = 100.0
 CP_WEIGHT_ABOVE = 700.0
 
@@ -219,15 +209,15 @@ N_OUTER=1
 # --- Weights for each deviation term ---
 W_VM_SUB = 1
 W_VM_MELT = 1
-W_VM_HIGHP = 1
-W_CP_SUB = 5.0
-W_ALPHA_SUB = 3.0
-W_BETAT_SUB = 5.0
-W_BETAS_SUB = 1.0
-W_H_SOLID_SUB = 10.0
-W_H_SOLID_MELT = 3.0
-W_P_SUB = 2.0
-W_P_MELT = 3.0
+W_VM_HIGHP = 0
+W_CP_SUB = 1.0
+W_ALPHA_SUB = 0.0
+W_BETAT_SUB = 0.0
+W_BETAS_SUB = 0.0
+W_H_SOLID_SUB = 0.0
+W_H_SOLID_MELT = 0.0
+W_P_SUB = 0.0
+W_P_MELT = 0.0
 W_GAMMA_T = 8.0
 
 history = {

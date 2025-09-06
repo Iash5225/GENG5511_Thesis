@@ -12,12 +12,6 @@ import numpy as np
 
 R = 8.31451  # J/(mol K) ~ MPa*cm^3/(mol K) when dividing by v [cm^3/mol]
 
-
-# --- assumes you already defined cheval(), Debye3(), Debye3D() above ---
-
-R = 8.31451  # J/(mol K) ~ MPa*cm^3/(mol K) when dividing by v [cm^3/mol]
-
-
 def compute_thermo_props(T: float, p: float, parameters):
     """
     EXACT signature the costing function expects.

@@ -88,7 +88,7 @@ def combined_cost_function(params, *datasets):
     Vm_sub_dev = BIG
     if np.any(m):
         model = _safe_props_vector(T_Vm_sub[m], p_Vm_sub[m], params, idx=0)
-        Vm_sub_dev = _rmse_abs(Vm_sub[m], model)   # cm^3/mol
+        Vm_sub_dev = rms_percent(Vm_sub[m], model)   # cm^3/mol
 
     # Vm (melting): T >= Tt  —— use ABS RMSE in cm^3/mol
     m = (np.isfinite(T_Vm_melt) & np.isfinite(p_Vm_melt)
@@ -96,7 +96,7 @@ def combined_cost_function(params, *datasets):
     Vm_melt_dev = BIG
     if np.any(m):
         model = _safe_props_vector(T_Vm_melt[m], p_Vm_melt[m], params, idx=0)
-        Vm_melt_dev = _rmse_abs(Vm_melt[m], model)  # cm^3/mol
+        Vm_melt_dev = rms_percent(Vm_melt[m], model)  # cm^3/mol
     # Vm (high-p): no phase constraint (already experimental p)
     m = (np.isfinite(T_Vm_highp) & np.isfinite(
         p_Vm_highp) & np.isfinite(Vm_highp))
@@ -112,12 +112,15 @@ def combined_cost_function(params, *datasets):
     if np.any(m):
         Tm = np.asarray(T_cp_sub)[m]
         pm = np.asarray(p_cp_sub)[m]
-        y_exp = np.asarray(cp_sub)[m]
-        y_eos = _safe_props_vector(Tm, pm, params, idx=4)
-        # weights: stronger below CP_SPLIT_K because cp -> 0
-        w = np.where(Tm < CP_SPLIT_K, CP_W_BELOW, CP_W_ABOVE)
-        # relative RMS with weights
-        cp_sub_dev = _rms_weighted(y_exp, y_eos, w, floor=1e-6)
+        cp_exp = np.asarray(cp_sub)[m]
+        model = _safe_props_vector(Tm, pm, params, idx=4)
+        # percent deviations
+        dev = (cp_exp - model) / cp_exp
+        # weights depending on T threshold
+        weights = np.where(Tm < CP_TEMP_THRESHOLD_K,
+                       CP_WEIGHT_BELOW, CP_WEIGHT_ABOVE)
+        cp_sub_dev = float(np.sqrt(np.mean((weights * dev) ** 2)))
+
 
     # alpha (sublimation)
     m = (np.isfinite(T_alpha_sub) & np.isfinite(p_alpha_sub)
@@ -385,112 +388,6 @@ def export_eos_to_excel(params_fit,
 
     print(f"[export] Wrote {len(sheets)} sheets to {out_path}")
 
-def stageA():
-    print("\n=== Stage A: Fit elastic + optionally θ_D ===")
-    krypton_data = load_all_gas_data('krypton', read_from_excel=False)
-    datasets = extract_datasets(krypton_data)
-    # 1) Build bounds: elastic free, p27/p15 with small symmetric ranges around 0
-    boundsA = make_stageA_bounds(
-        PARAMS_INIT, LOWER_BOUND, UPPER_BOUND,
-        free_elastic=(0, 1, 2, 3),   # v00, a1, a2, a3
-        v00_idx=0,
-        v00_range=(26.0, 28.0),      # keep near physical range
-        elastic_range=(-1e4, 1e4),
-        free_theta_idx=None          # <-- don't use θ-like range for p27
-    )
-    B = list(boundsA)
-    # was (200, 2000) – likely incorrect for a coeff that starts at 0
-    B[27] = (-6.0, 6.0)
-    B[15] = (-2.0, 2.0)   # second-most influential; optional but helpful
-    boundsA = B
-
-    # print("bounds[27] =", boundsA[27])        # should NOT be (p0,p0)
-    # print("init p27  =", PARAMS_INIT[27])
-
-    # 4) prefit v00 to give the solver a head start
-    x0 = prefit_v00(PARAMS_INIT, datasets)
-    x0[0] = 27.3        # pull baseline down toward the 20 K median
-    x0[27] = 0.0         # neutral start for curvature
-    x0[15] = 0.0         # get off the bound
-    # x0 = sweep_p27(x0, datasets, lo=boundsA[27][0], hi=boundsA[27][1], n=37)
-    # 5) optimise
-    cb = _make_outfun_vm(*datasets)
-    res = minimize(
-        # uses your combined_cost_vm internally
-        fun=lambda x, *a: _cost_only_vm(x, *a),
-        x0=np.asarray(x0, dtype=float),
-        args=datasets,
-        method="L-BFGS-B",
-        bounds=boundsA,
-        callback=cb,
-        options=dict(disp=True, maxiter=MAX_ITERATIONS,
-                     ftol=FUNCTION_TOL, gtol=GRADIENT_TOL, maxls=60),
-    )
-    print("\n[Stage A] status:", res.message)
-    print("[Stage A] final cost:", res.fun)
-    print("[Stage A] fitted elastic:",
-          f"v00={res.x[0]:.6g}, a1={res.x[1]:.6g}, a2={res.x[2]:.6g}, a3={res.x[3]:.6g}")
-    print(f"[Stage A] fitted p27={res.x[27]:.6g}, p15={res.x[15]:.6g}")
-    diagnose_subline(res.x, datasets,  Tt=KRYPTON_T_t)
-    # Quick visual checks for Vm only
-    quick_plot_vm_only(res.x, datasets, Tt=KRYPTON_T_t)
-
-
-def huber_rmse_rel(y_exp, y_mod, w=None, delta=2.0, floor=1e-3):
-    """
-    Huber RMSE on *relative* residuals: r = (y_mod - y_exp)/max(|y_exp|, floor).
-    'delta' in units of sigma (relative). Returns a scalar.
-    """
-    y_exp = np.asarray(y_exp, float)
-    y_mod = np.asarray(y_mod, float)
-    den = np.maximum(np.abs(y_exp), floor)
-    r = (y_mod - y_exp) / den
-    if w is None:
-        w = np.ones_like(r)
-    w = np.asarray(w, float)
-
-    a = np.abs(r)
-    quad = a <= delta
-    # classic Huber loss
-    L = np.where(quad, 0.5 * r**2, delta * (a - 0.5 * delta))
-    # weighted mean, then sqrt to look like RMSE
-    return float(np.sqrt(np.average(L, weights=w)))
-
-
-def make_stageCP_bounds(xref):
-    b = [(v, v) for v in np.asarray(xref, float)]  # freeze all by default
-    def setb(i, lo, hi): b[i] = (float(lo), float(hi))
-    # Debye / Grüneisen
-    setb(9,  40.0, 120.0)   # theta0
-    setb(15, 1.0,  4.0)     # gamma0
-    setb(21, 0.0,  0.02)    # q small & >=0
-    # anharmonic
-    setb(27, -0.08, 0.02)   # allow aa negative
-    setb(28,  0.1,  2.0)
-    setb(29,  5.0,  15.0)
-    return b
-
-
-def make_stageCP_bounds(xref):
-    """
-    Freeze all params at xref except thermal ones:
-    [9] theta0, [15] gamma0, [21] q, [27:30] aa,bb,cc.
-    """
-    b = [(float(v), float(v)) for v in np.asarray(xref, float)]
-    def setb(i, lo, hi): b[i] = (float(lo), float(hi))
-
-    # Debye / Grüneisen
-    setb(9,  40.0, 120.0)   # theta0 [K]
-    setb(15, 1.0,   4.0)    # gamma0 [-]
-    setb(21, 0.0,  0.02)    # q [-] (keep small & >=0)
-
-    # Anharmonic correction (allow aa negative to raise cp)
-    setb(27, -0.08, 0.02)   # aa
-    setb(28,  0.10,  2.0)   # bb
-    setb(29,  5.0,  15.0)   # cc
-    return b
-
-
 def plot_cp_sublimation(params, datasets, *, Tt=KRYPTON_T_t, ax=None, label="cp model", save_path=None):
     """
     Plot cp(T) along the sublimation branch (T <= Tt) against experimental data.
@@ -572,177 +469,13 @@ def plot_cp_sublimation(params, datasets, *, Tt=KRYPTON_T_t, ax=None, label="cp 
     return ax
 
 
-def stageCP(x_start=None):
-    """
-    Fit only c_p along sublimation (T <= Tt) by adjusting thermal parameters:
-    p[9], p[15], p[21], p[27:30]. Elastic (p[0:4]) stays fixed.
-    """
-    # --- data ---
-    kr = load_all_gas_data('krypton', read_from_excel=False)
-    (T_Vm_sub, p_Vm_sub, Vm_sub,
-     T_Vm_melt, p_Vm_melt, Vm_melt,
-     T_Vm_highp, p_Vm_highp, Vm_highp,
-     T_cp_sub, p_cp_sub, cp_sub,
-     T_alpha_sub, p_alpha_sub, alpha_sub,
-     T_BetaT_sub, p_BetaT_sub, BetaT_sub,
-     T_BetaS_sub, p_BetaS_sub, BetaS_sub,
-     T_sub, p_sub, Year_sub, G_fluid_sub, V_fluid_sub,
-     T_melt, p_melt, G_fluid_melt, V_fluid_melt,
-     T_H_sub, p_H_sub, delta_H_sub, H_fluid_sub,
-     T_H_melt, p_H_melt, delta_H_melt, H_fluid_melt) = extract_datasets(kr)
-
-    m = (np.isfinite(T_cp_sub) & np.isfinite(p_cp_sub) &
-         np.isfinite(cp_sub) & (T_cp_sub <= KRYPTON_T_t))
-    T = np.asarray(T_cp_sub, float)[m]
-    P = np.asarray(p_cp_sub,  float)[m]
-    Y = np.asarray(cp_sub,    float)[m]   # J/(mol·K)
-
-    # --- starting guess ---
-    if x_start is None:
-        x_start = np.zeros(31, float)
-        # keep your current elastic (or seed roughly if unknown)
-        x_start[0] = 27.3
-        x_start[1:4] = [2600., 7000., 10.0]
-
-        # >>> Krypton thermal guess (better than argon’s) <<<
-        x_start[9] = 65.0    # theta0 [K]  (lower lifts low-T cp)
-        x_start[15] = 3.0     # gamma0
-        x_start[21] = 0.003   # q
-        x_start[27] = -0.03   # aa  (negative raises cp)
-        x_start[28] = 0.9     # bb
-        x_start[29] = 10.0    # cc
-        x_start[30] = KRYPTON_REFERENCE_ENTROPY  # doesn’t affect cp
-
-    # --- objective (robust, weighted) ---
-    W = np.where(T < CP_SPLIT_K, CP_W_BELOW, CP_W_ABOVE)
-
-    def obj(x):
-        ymod = _safe_props_vector(T, P, x, idx=IDX["cp"])
-        # robust relative RMSE with a small floor for stability
-        return huber_rmse_rel(Y, ymod, w=W, delta=2.0, floor=1e-3)
-
-    # --- optimize ---
-    bnds = make_stageCP_bounds(x_start)
-    res = minimize(
-        fun=lambda x: float(obj(x)),
-        x0=np.asarray(x_start, float),
-        method="L-BFGS-B",
-        bounds=bnds,
-        options=dict(disp=True, maxiter=MAX_ITERATIONS,
-                     ftol=FUNCTION_TOL, gtol=GRADIENT_TOL)
-    )
-
-    print("\n[Stage CP] status:", res.message)
-    print("[Stage CP] loss:", res.fun)
-    print("[Stage CP] fitted:",
-          f"theta0={res.x[9]:.4g}, gamma0={res.x[15]:.4g}, q={res.x[21]:.4g}, "
-          f"aa={res.x[27]:.4g}, bb={res.x[28]:.4g}, cc={res.x[29]:.4g}")
-
-
-    # --- quick plot ---
-    yfit = _safe_props_vector(T, P, res.x, idx=IDX["cp"])
-    order = np.argsort(T)
-    plt.figure(figsize=(6.8, 4.4))
-    plt.scatter(T, Y, s=16, alpha=0.7, label="cp exp (sub)")
-    plt.plot(T[order], yfit[order], lw=2, label="cp model")
-    plt.xlabel("T [K]")
-    plt.ylabel(r"$c_p$ [J mol$^{-1}$ K$^{-1}$]")
-    plt.title("Krypton cp along sublimation")
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
-
     return res.x
-
-# def stageA2():
-
-#         # --- Argon-style initial guess for Krypton (31 params, your EOS layout) ---
-#         # indices:
-#         # [0]=v00, [1:4]=a1..a3, [4:9]=unused, [9:15]=Theta[0..5],
-#         # [15:21]=gamma[0..5], [21:27]=q[0..5], [27:30]=aa,bb,cc, [30]=S*(g,Tt,pt)
-#     PARAMS_INIT = np.zeros(31, dtype=float)
-
-#     # elastic polynomial in ln z
-#     PARAMS_INIT[0] = 22.555           # v00  [cm^3/mol]  (argon guess)
-#     PARAMS_INIT[1:4] = [2656.5, 7298.0, 10.0]  # a1,a2,a3 [MPa]
-
-#     # Debye/Grüneisen branch 0
-#     PARAMS_INIT[9] = 86.44            # theta_D0 [K]
-#     PARAMS_INIT[15] = 2.68             # gamma0   [-]
-#     PARAMS_INIT[21] = 0.0024           # q        [-]
-
-#     # anharmonic thermal correction
-#     PARAMS_INIT[27:30] = [0.0128, 0.388, 7.85]   # aa, bb, cc
-
-#     # start entropy reference aligned to REFPROP to make ΔS_triple ~ 0 initially
-#     PARAMS_INIT[30] = St_REFPROP         # J/(mol·K)
-
-#     # Build once (right after you load/extract datasets)
-#     krypton_data = load_all_gas_data('krypton', read_from_excel=False)
-#     datasets = extract_datasets(krypton_data)
-#     teacher = make_subline_teacher(datasets, Tt=KRYPTON_T_t)
-
-#     # Subline-focused weights first; re-enable MELT later for a short refine
-#     stageA_weights = dict(SUB=1.0, MELT=0.0, ANCH=1.2,
-#                         SLOPE=0.8, TEACH=0.8, MONO=3.0, CONV=0.2)
-
-#     # Prefit v00 + give p27 room, p15 modest
-#     x0 = prefit_v00(PARAMS_INIT, datasets)
-#     B = list(make_stageA_bounds(PARAMS_INIT, LOWER_BOUND, UPPER_BOUND,
-#                                 free_elastic=(0, 1, 2, 3), v00_idx=0,
-#                                 v00_range=(target_v00(datasets)-0.4,
-#                                         target_v00(datasets)+0.4),
-#                                 elastic_range=(-1e4, 1e4)))
-#     B[27] = (-6.0, 6.0)
-#     B[15] = (-2.0, 2.0)
-#     boundsA = B
-
-#     # Optimize (note: no heavy callback)
-#     res = minimize(
-#         fun=lambda x, *a: float(combined_cost_vm(x, *a, teacher=teacher, Tt=KRYPTON_T_t,
-#                                                 weights=stageA_weights)[0]),
-#         x0=np.asarray(x0, float),
-#         args=datasets, method="L-BFGS-B", bounds=boundsA,
-#         options=dict(disp=True, maxiter=MAX_ITERATIONS,
-#                     ftol=FUNCTION_TOL, gtol=GRADIENT_TOL)  
-#     )
-
-#     # Diagnose/plot
-#     # diagnose_subline(res.x, datasets, Tt=KRYPTON_T_t)
-#     quick_plot_vm_only(res.x, datasets, Tt=KRYPTON_T_t)
-#     print("\n[Stage A2] status:", res.message)
-#     print("final parameters:", res.x)
-
 
 def stageA2():
     """
     Vm-only fit using percent-RMSE objective (no teacher/anchors/slope terms).
     Starts from the Argon-style initial guess and uses your LOWER/UPPER bounds.
     """
-    import numpy as np
-    from scipy.optimize import minimize
-
-    # --- Argon-style initial guess for Krypton (31 params, your EOS layout) ---
-    # indices:
-    # [0]=v00, [1:4]=a1..a3, [4:9]=unused, [9:15]=Theta[0..5],
-    # [15:21]=gamma[0..5], [21:27]=q[0..5], [27:30]=aa,bb,cc, [30]=S*(g,Tt,pt)
-    PARAMS_INIT = np.zeros(31, dtype=float)
-
-    # elastic polynomial in ln z
-    PARAMS_INIT[0] = 22.555                       # v00  [cm^3/mol]
-    PARAMS_INIT[1:4] = [2656.5, 7298.0, 10.0]     # a1,a2,a3 [MPa]
-
-    # Debye/Grüneisen branch 0
-    PARAMS_INIT[9] = 86.44    # theta_D0 [K]
-    PARAMS_INIT[15] = 2.68     # gamma0   [-]
-    PARAMS_INIT[21] = 0.0024   # q        [-]
-
-    # anharmonic thermal correction
-    PARAMS_INIT[27:30] = [0.0128, 0.388, 7.85]    # aa, bb, cc
-
-    # entropy reference aligned to REFPROP so ΔS_triple ~ 0 initially
-    PARAMS_INIT[30] = St_REFPROP                  # J/(mol·K)
-
     # --- Load datasets once ---
     krypton_data = load_all_gas_data('krypton', read_from_excel=False)
     datasets = extract_datasets(krypton_data)
@@ -767,36 +500,10 @@ def stageA2():
     quick_plot_vm_only(res.x, datasets, Tt=KRYPTON_T_t)
 
     print("\n[Stage A2] status:", res.message)
-    print("final parameters:", res.x)
+    print("final parameters:", res.x.tolist())
     return res.x
 
-
-
-
 def main():
-        # === 2. Bounds (start with everything frozen) ===
-    LOWER_BOUND = PARAMS_INIT.copy()
-    UPPER_BOUND = PARAMS_INIT.copy()
-
-
-    # freeze elastic (v00, a1..a3)
-    for i in (0, 1, 2, 3):
-        v = float(PARAMS_INIT[i])
-        LOWER_BOUND[i] = v
-        UPPER_BOUND[i] = v
-
-    # === 3. Open up cp-related parameters only ===
-    LOWER_BOUND[9],  UPPER_BOUND[9] = 40.0, 120.0   # theta0
-    LOWER_BOUND[15], UPPER_BOUND[15] = 0.8,   4.5   # gamma0
-    LOWER_BOUND[21], UPPER_BOUND[21] = -0.02,  0.05  # q
-    LOWER_BOUND[27], UPPER_BOUND[27] = -0.2,   0.2   # aa
-    LOWER_BOUND[28], UPPER_BOUND[28] = 0.05,  3.0   # bb
-    LOWER_BOUND[29], UPPER_BOUND[29] = 2.0,  30.0   # cc
-
-    # freeze entropy reference S*
-    LOWER_BOUND[30] = PARAMS_INIT[30]
-    UPPER_BOUND[30] = PARAMS_INIT[30]
-
     # === 4. Package for scipy.optimize.minimize ===
     bounds = [(lo, hi) for lo, hi in zip(LOWER_BOUND, UPPER_BOUND)]
     krypton_data = load_all_gas_data('krypton', read_from_excel=False)
@@ -810,6 +517,8 @@ def main():
         options=dict(disp=True, maxiter=MAX_ITERATIONS,
                      ftol=FUNCTION_TOL, gtol=GRADIENT_TOL)
     )
+    print("\n[Stage A2] status:", res.message)
+    print("final parameters:", res.x.tolist())
     #plot_all_overlays_grid(res.x, datasets, Tt=KRYPTON_T_t, pt=KRYPTON_P_t, compute_thermo_props=compute_thermo_props,
     #                     St_REFPROP=KRYPTON_REFERENCE_ENTROPY, Ht_REFPROP=KRYPTON_REFERENCE_ENTHALPY, psub_curve=psub_curve, pmelt_curve=pmelt_curve)
     quick_plot_vm_only(res.x, datasets, Tt=KRYPTON_T_t)
@@ -819,11 +528,11 @@ def main():
 
 
 # 1) Elastic & subline shape
-xA = stageA2()       # (if you return res.x inside stageA2, else capture from print/log)
+# xA = stageA2()       # (if you return res.x inside stageA2, else capture from print/log)
 
 # # 2) cp-only thermal fit (start from xA if you have it; else None uses argon guess)
 # xCP = stageCP(x_start=xA
 
-# main()
+main()
 
 
