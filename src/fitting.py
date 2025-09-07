@@ -439,7 +439,7 @@ def main():
     print(formatted)
     plot_all_overlays_grid(params_fit, datasets, Tt=Tt, pt=pt, compute_thermo_props=compute_thermo_props,
                            St_REFPROP=St_REFPROP, Ht_REFPROP=Ht_REFPROP, psub_curve=psub_curve, pmelt_curve=pmelt_curve)
-    GLOBAL_RECORDER.plot_history()
+    GLOBAL_RECORDER.plot_history(ncols=6)
     plt.show()
 
 

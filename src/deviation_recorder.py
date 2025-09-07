@@ -2,7 +2,8 @@ from enum import IntEnum
 import numpy as np
 from dataclasses import dataclass, field
 import matplotlib.pyplot as plt
-
+import math
+# from math import ceil
 class Metric(IntEnum):
     VM_SUB = 0
     VM_MELT = 1
@@ -55,14 +56,61 @@ class DeviationRecorder:
             [] for _ in range(len(Metric))
         ]
 
-    def plot_history(self):
-        plt.figure(figsize=(12, 8))
+    # def plot_history(self):
+    #     plt.figure(figsize=(12, 8))
+    #     for i, metric in enumerate(Metric):
+    #         plt.subplot(4, 4, i + 1)
+    #         plt.plot(self.history[metric], marker='o', linestyle='-')
+    #         plt.title(_METRIC_LABELS[metric])
+    #         plt.xlabel('Iteration')
+    #         plt.ylabel('Deviation')
+    #         plt.grid(True)
+    #     plt.tight_layout()
+    #     plt.show()
+    def plot_history(self, ncols: int = 8, col_w: float = 3.2, row_h: float = 2.6):
+        """
+        Make a horizontally wide subplot grid for deviation histories.
+
+        Parameters
+        ----------
+        ncols : int
+            Number of subplot columns (increase for wider layout).
+        col_w : float
+            Width per column in inches.
+        row_h : float
+            Height per row in inches.
+        """
+        n_metrics = len(Metric)
+        nrows = int(math.ceil(n_metrics / ncols))
+
+        fig, axes = plt.subplots(
+            nrows, ncols,
+            figsize=(col_w * ncols, row_h * nrows),
+            sharex=False, sharey=False
+        )
+
+        # Normalize axes to 2D array
+        axes = np.atleast_2d(axes)
+
         for i, metric in enumerate(Metric):
-            plt.subplot(4, 4, i + 1)
-            plt.plot(self.history[metric], marker='o', linestyle='-')
-            plt.title(_METRIC_LABELS[metric])
-            plt.xlabel('Iteration')
-            plt.ylabel('Deviation')
-            plt.grid(True)
-        plt.tight_layout()
-        plt.show()
+            r, c = divmod(i, ncols)
+            ax = axes[r, c]
+            y = np.asarray(self.history[metric], dtype=float)
+            x = np.arange(1, y.size + 1)
+            if y.size:
+                ax.plot(x, y, marker='o', ms=3, lw=1.5)
+            else:
+                ax.text(0.5, 0.5, "no data", ha="center", va="center", fontsize=9)
+            ax.set_title(_METRIC_LABELS[metric], fontsize=10)
+            ax.set_xlabel("Evaluation", fontsize=9)
+            ax.set_ylabel("Deviation", fontsize=9)
+            ax.grid(True, alpha=0.25)
+            ax.tick_params(labelsize=8)
+
+        # Hide any unused axes
+        for j in range(n_metrics, nrows * ncols):
+            r, c = divmod(j, ncols)
+            axes[r, c].axis("off")
+
+        fig.tight_layout()
+        return fig, axes
