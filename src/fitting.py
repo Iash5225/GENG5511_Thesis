@@ -47,19 +47,6 @@ def pmelt_curve(T): return melting_pressure_equation(
         T, float), KRYPTON_E_4, KRYPTON_E_5, KRYPTON_E_6, KRYPTON_E_7, KRYPTON_T_t, KRYPTON_P_t
 )
 
-# Hidden Functions
-
-
-# def _cost_only(params, *datasets):
-#     try:
-#         total, _ = combined_cost_function(params, *datasets)
-#         GLOBAL_RECORDER.record(Metric.TOTAL, total)
-#         return float(total) if np.isfinite(total) else BIG
-#     except Exception as e:
-#         print("Error in cost function evaluation.", repr(e), flush=True)
-#         traceback.print_exc()
-#         return BIG
-
 def _cost_only(params, *datasets):
     try:
         total, devs = combined_cost_function(params, *datasets)
@@ -171,7 +158,7 @@ def combined_cost_function(params, *datasets):
         model = _safe_props_vector(
             T_BetaT_sub[m], p_BetaT_sub[m], params, idx=1)
         BetaT_sub_dev = rms_percent(BetaT_sub[m], model)
-    # BetaS (sublimation) – note your finite count is only 25/74
+    # BetaS (sublimation)
     m = (np.isfinite(T_BetaS_sub) & np.isfinite(p_BetaS_sub)
          & np.isfinite(BetaS_sub) & (T_BetaS_sub <= Tt))
     BetaS_sub_dev = BIG
@@ -420,6 +407,7 @@ def export_eos_to_excel(params_fit,
 def main():
     # === 4. Package for scipy.optimize.minimize ===
     bounds = [(lo, hi) for lo, hi in zip(LOWER_BOUND, UPPER_BOUND)]
+    
     krypton_data = load_all_gas_data('krypton', read_from_excel=False)
     datasets = extract_datasets(krypton_data)
     res = minimize(
@@ -439,7 +427,7 @@ def main():
     print(formatted)
     plot_all_overlays_grid(params_fit, datasets, Tt=Tt, pt=pt, compute_thermo_props=compute_thermo_props,
                            St_REFPROP=St_REFPROP, Ht_REFPROP=Ht_REFPROP, psub_curve=psub_curve, pmelt_curve=pmelt_curve)
-    GLOBAL_RECORDER.plot_history(ncols=6)
+    GLOBAL_RECORDER.plot_history(ncols=5)
     plt.show()
 
 

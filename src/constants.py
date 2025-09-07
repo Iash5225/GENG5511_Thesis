@@ -38,11 +38,11 @@ MAX_LIMIT = np.log(np.sqrt(np.finfo(float).max)) - 1  # Limit for large X
 
 # REFPROP NIST Constants
 KRYPTON_REFERENCE_ENTROPY = 11.933 # kJ/kgK
-KRYPTON_REFERENCE_ENTHALPY = 1193.3  # kJ/kg
+KRYPTON_REFERENCE_ENTHALPY = 1193.3  # J/kg
 NEON_REFERENCE_ENTROPY = 49.555 # kJ/kgK
-NEON_REFERENCE_ENTHALPY = 4955.5  # kJ/kg
+NEON_REFERENCE_ENTHALPY = 4955.5  # J/kg
 XENON_REFERENCE_ENTROPY = 7.6163 # kJ/kgK
-XENON_REFERENCE_ENTHALPY = 761.63  # kJ/kg
+XENON_REFERENCE_ENTHALPY = 761.63  # J/kg
 
 
 # Constants for melting pressure equation
@@ -164,7 +164,7 @@ PARAMS_INIT = np.array([
     3.66662633, 0, 0, 0, 0, 0,
     -3.4, 0, 0, 0, 0, 0,
     0.0, 1.86664856, 8.04987101,
-    KRYPTON_REFERENCE_ENTROPY  # S* (entropy reference)
+    119.33  # S* (entropy reference)
 ])
 
 # Lower bounds
@@ -206,19 +206,19 @@ N_OUTER=1
 PMELT_EXTRA_WEIGHT_T_K = 500.0
 PMELT_EXTRA_FACTOR = 5.0
 CP_TEMP_THRESHOLD_K = 12
-CP_WEIGHT_BELOW = 30
-CP_WEIGHT_ABOVE = 210
-W_VM_SUB = 50
-W_VM_MELT = 50
-W_VM_HIGHP = 0
-W_CP_SUB = 25.0
-W_ALPHA_SUB = 25.0
-W_BETAT_SUB = 20.0
-W_BETAS_SUB = 30.0
-W_H_SOLID_SUB = 25.0
-W_H_SOLID_MELT = 25.0
-W_P_SUB = 1.0
-W_P_MELT = 1.0
+CP_WEIGHT_BELOW = 1
+CP_WEIGHT_ABOVE = 1
+W_VM_SUB = 5
+W_VM_MELT = 5
+W_VM_HIGHP = 1
+W_CP_SUB = 3
+W_ALPHA_SUB = 3
+W_BETAT_SUB = 3
+W_BETAS_SUB = 1
+W_H_SOLID_SUB = 1
+W_H_SOLID_MELT = 1
+W_P_SUB = 0.0
+W_P_MELT = 0.0
 W_GAMMA_T = 1.0
 
 history = {
@@ -249,9 +249,7 @@ PMELT_T_HI_K = 500.0         # K: emphasize melting pressures at high T
 # extra weight multiplier for T >= 500 K (on top of log-RMS)
 PMELT_W_HI = 4.0
 
-# enforce alpha >= 0 as T -> 0 (apply up to this temp)
-ALPHA_POS_T_K = 30.0
-W_ALPHA_POS = 5.0          # deviation weight for alpha positivity penalty
+
 
 GAMMA_DEBYE_T_MAX = 30.0     # K: range over which gamma -> gamma_D0
 W_GAMMA_LOW_T = 3.0      # weight for (gamma - gamma_D0) penalty in 0–30 K
