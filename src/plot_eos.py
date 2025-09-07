@@ -142,27 +142,27 @@ def plot_all_overlays_grid(params, datasets, Tt, pt,
         panels.append((r"$\alpha$ — sublimation", "T / K",
                       r"$\alpha$ (K$^{-1}$)", T, y_exp, y_eos))
 
-    # # KappaT (from BetaT_sub)
-    # m = (np.asarray(T_BetaT_sub) <= Tt)
-    # if np.any(m):
-    #     T = np.asarray(T_BetaT_sub)[m]
-    #     p = np.asarray(p_BetaT_sub)[m]
-    #     y_exp = np.asarray(BetaT_sub)[m]
-    #     y_eos = _safe_props_vector(
-    #         T, p, params, IDX["KappaT"], compute_thermo_props)
-    #     panels.append((r"$\kappa_T$ — sublimation", "T / K",
-    #                   r"$\kappa_T$ (MPa$^{-1}$)", T, y_exp, y_eos))
+    # KappaT (from BetaT_sub)
+    m = (np.asarray(T_BetaT_sub) <= Tt)
+    if np.any(m):
+        T = np.asarray(T_BetaT_sub)[m]
+        p = np.asarray(p_BetaT_sub)[m]
+        y_exp = np.asarray(BetaT_sub)[m]
+        y_eos = _safe_props_vector(
+            T, p, params, IDX["KappaT"], compute_thermo_props)
+        panels.append((r"$\kappa_T$ — sublimation", "T / K",
+                      r"$\kappa_T$ (MPa$^{-1}$)", T, y_exp, y_eos))
 
-    # # KappaS (from BetaS_sub)
-    # m = (np.asarray(T_BetaS_sub) <= Tt)
-    # if np.any(m):
-    #     T = np.asarray(T_BetaS_sub)[m]
-    #     p = np.asarray(p_BetaS_sub)[m]
-    #     y_exp = np.asarray(BetaS_sub)[m]
-    #     y_eos = _safe_props_vector(
-    #         T, p, params, IDX["KappaS"], compute_thermo_props)
-    #     panels.append((r"$\kappa_S$ — sublimation", "T / K",
-    #                   r"$\kappa_S$ (MPa$^{-1}$)", T, y_exp, y_eos))
+    # KappaS (from BetaS_sub)
+    m = (np.asarray(T_BetaS_sub) <= Tt)
+    if np.any(m):
+        T = np.asarray(T_BetaS_sub)[m]
+        p = np.asarray(p_BetaS_sub)[m]
+        y_exp = np.asarray(BetaS_sub)[m]
+        y_eos = _safe_props_vector(
+            T, p, params, IDX["KappaS"], compute_thermo_props)
+        panels.append((r"$\kappa_S$ — sublimation", "T / K",
+                      r"$\kappa_S$ (MPa$^{-1}$)", T, y_exp, y_eos))
 
     # H_solid (sublimation branch)
     m = (np.isfinite(T_H_sub) & np.isfinite(delta_H_sub) &
@@ -276,7 +276,7 @@ def plot_all_overlays_grid(params, datasets, Tt, pt,
             EOS_FILEPATH, f"experimental_vs_eos_{timestamp}.png")
         fig.savefig(filename, dpi=300)
         print(f"Figure saved to {filename}")
-
+        plt.show()
         plt.close(fig)  # free memory
 
 

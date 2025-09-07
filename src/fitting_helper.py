@@ -12,10 +12,6 @@ from scipy.interpolate import UnivariateSpline
 
 # solid_EOS_fitting.py
 BIG = 1e4
-W_SUB = 1.0
-W_MELT = 0.0
-W_ANCH = 1.2   # try 0.3–0.5
-W_SLOPE = 0.8   # try 0.05–0.15
 Vm_anchor = 0.8
 T_MARGIN = 2.0  # K, stay below Tt by this margin
 
@@ -188,7 +184,7 @@ def extract_datasets(data):
     T_BetaS_sub = data['bulk_s']['Temperature']
     p_BetaS_sub = safe_psub(T_BetaS_sub)
     # p_BetaS_sub = data['bulk_s']['Pressure']
-    p_BetaS_sub = None
+    # p_BetaS_sub = None
     BetaS_sub = data['bulk_s']['Beta S']
 
     # Bulk Modulus (T)
@@ -346,17 +342,7 @@ def _cost_only_vm(params, *datasets):
     except Exception:
         return BIG
 
-def _make_outfun_vm(*datasets):
-    """Per-iteration logger for Stage A (Vm-only)."""
-    def cb(xk):
-        tot, dev = combined_cost_vm(xk, *datasets)
-        # history["total"].append(tot)
-        # for k, v in dev.items():
-        #     history[k].append(v)
-        print(f"[Stage A] total={tot:.6g} | Vm_sub={dev.get('Vm_sub', np.nan):.6g} | "
-              f"Vm_melt={dev.get('Vm_melt', np.nan):.6g} | "
-              f"anchor={dev.get('Vm_anchor', np.nan):.6g} | slope={dev.get('Vm_slope', np.nan):.6g}")
-    return cb
+
 
 def _safe_props_vector_cached(T_arr, p_arr, params, idx, cache):
     T_arr = np.asarray(T_arr, float)
