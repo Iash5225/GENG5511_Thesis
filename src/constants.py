@@ -38,7 +38,7 @@ MAX_LIMIT = np.log(np.sqrt(np.finfo(float).max)) - 1  # Limit for large X
 
 # REFPROP NIST Constants
 KRYPTON_REFERENCE_ENTROPY = 11.933 # kJ/kgK
-KRYPTON_REFERENCE_ENTHALPY = 1193.3  # J/kg
+KRYPTON_REFERENCE_ENTHALPY = 1193.3  #kJ/kg
 NEON_REFERENCE_ENTROPY = 49.555 # kJ/kgK
 NEON_REFERENCE_ENTHALPY = 4955.5  # J/kg
 XENON_REFERENCE_ENTROPY = 7.6163 # kJ/kgK
@@ -158,13 +158,13 @@ AXIS_FONT_SIZE=14
 
 
 PARAMS_INIT = np.array([
-    27.29437497, 2656.51104046, 7297.99934773, 10.00010272,
+    27.21, 2739.48, 7328.48, 122.62,
     0, 0, 0, 0, 0,
-    86.44526741, 0, 0, 0, 0, 0,
-    3.66662633, 0, 0, 0, 0, 0,
-    -3.4, 0, 0, 0, 0, 0,
-    0.0, 1.86664856, 8.04987101,
-    119.33  # S* (entropy reference)
+    88.97, 0, 0, 0, 0, 0,
+    4.05, 0, 0, 0, 0, 0,
+    -3.02, 0, 0, 0, 0, 0,
+    0.0, 1.92, 7.94,
+    119.23  # S* (entropy reference)
 ])
 
 # Lower bounds
@@ -186,32 +186,32 @@ UPPER_BOUND = np.array([
 ])
 
 
-
-
-GAMMA_TEMP_GRID = np.array([0.0001] + list(range(2, 84, 2)) + [83.806])
 GAMMA_POS_SLOPE_OFFSET = 45.0
 GAMMA_POS_SLOPE_MULT =200.0
 GAMMA_NEG_SLOPE_MULT = 50.0
 
 PERCENT_SCALE = 100.0
 
-T6 = np.array([0.0001] + list(range(2, 84, 2)) + [83.806])
 PERCENT_SCALE = 100.0
-FUNCTION_TOL = 5e-9
+FUNCTION_TOL = 5e-15
 GRADIENT_TOL = 5e-9
 MAX_ITERATIONS = 10
+EPS=1e-6
+MAXLS = 100
 N_OUTER=1
 
 # --- Weights for each deviation term ---
 PMELT_EXTRA_WEIGHT_T_K = 500.0
 PMELT_EXTRA_FACTOR = 5.0
-CP_TEMP_THRESHOLD_K = 12
+CP_TEMP_THRESHOLD_K = 40
 CP_WEIGHT_BELOW = 1
 CP_WEIGHT_ABOVE = 1
-W_VM_SUB = 5
-W_VM_MELT = 5
+
+
+W_VM_SUB = 1
+W_VM_MELT = 1
 W_VM_HIGHP = 1
-W_CP_SUB = 3
+W_CP_SUB = 1
 W_ALPHA_SUB = 3
 W_BETAT_SUB = 3
 W_BETAS_SUB = 1
@@ -237,8 +237,6 @@ history = {
     "Gamma_T": []
 }
 
-# indices in compute_thermo_props
-IDX = dict(Vm=0, KappaT=1, KappaS=2, Alpha=3, cp=4, H=10, G=11)
 
 # ---------- Physical-constraint knobs ----------
 CP_SPLIT_K = 25.0           # K: split between "low" and "high" heat-capacity weighting
@@ -248,16 +246,8 @@ CP_W_ABOVE = 1.0
 PMELT_T_HI_K = 500.0         # K: emphasize melting pressures at high T
 # extra weight multiplier for T >= 500 K (on top of log-RMS)
 PMELT_W_HI = 4.0
-
-
-
 GAMMA_DEBYE_T_MAX = 30.0     # K: range over which gamma -> gamma_D0
 W_GAMMA_LOW_T = 3.0      # weight for (gamma - gamma_D0) penalty in 0–30 K
 
 W_GAMMA_MONO = 3.5      # already in your code; keep or tune
 
-St_REFPROP = KRYPTON_REFERENCE_ENTROPY  # Reference Entropy
-Ht_REFPROP = KRYPTON_REFERENCE_ENTHALPY
-Tt = KRYPTON_T_t
-pt = KRYPTON_P_t
-IDX = dict(Vm=0, KappaT=1, KappaS=2, Alpha=3, cp=4, H=10, G=11)
