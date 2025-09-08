@@ -21,8 +21,6 @@ pt = KRYPTON_P_t
 IDX = dict(Vm=0, KappaT=1, KappaS=2, Alpha=3, cp=4, H=10, G=11)
 GLOBAL_RECORDER = DeviationRecorder()
 
-# Auxiliary functions
-# near your imports
 NAME_TO_METRIC = {
     "Vm_sub":       Metric.VM_SUB,
     "Vm_melt":      Metric.VM_MELT,
@@ -223,7 +221,6 @@ def combined_cost_function(params, *datasets):
     }
     return total_deviation, deviations
 
-
 def main():
     # === 4. Package for scipy.optimize.minimize ===
     bounds = [(lo, hi) for lo, hi in zip(LOWER_BOUND, UPPER_BOUND)]
@@ -247,16 +244,6 @@ def main():
     plot_all_overlays_grid(params_fit, datasets, Tt=Tt, pt=pt, compute_thermo_props=compute_thermo_props,
                            St_REFPROP=St_REFPROP, Ht_REFPROP=Ht_REFPROP, psub_curve=psub_curve, pmelt_curve=pmelt_curve)
     GLOBAL_RECORDER.plot_history(ncols=5)
-    plt.show()
-    # gas= 'krypton'
-    # datasets, meta = extract_datasets_with_meta(krypton_data)
-    # master = build_master_pointwise_df(datasets, meta, params_fit)
-    # summary = summarise_by_author(master, rel_epsilon=0.0, float_fmt="{:.2f}")
-    # summary.to_csv(f"{gas}_author_deviation_summary.csv", index=False)
-    # print(summary)
-    # check = master[master.Property == "psub"].head(10)
-    # print(check[["T", "p_exp", "y_model", "dp_to_curve"]])
-    # check = master[master.Property == "pmelt"].head(10)
-    # print(check[["T", "p_exp", "y_model", "dp_to_curve"]])
+
 if __name__ == "__main__":
     main()
