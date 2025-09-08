@@ -1,6 +1,7 @@
 # pip install seaborn pandas matplotlib
 
 from matplotlib.lines import Line2D
+from matplotlib.gridspec import GridSpec
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -52,64 +53,39 @@ df["ST_norm"] = df.groupby("Property")["ST"].transform(
     lambda x: x / (x.max() if x.max() > 0 else 1.0)
 )
 
-# Order columns: by group (Elastic → Vibrational → Anharmonic), then mean ST_norm desc within group
+# Order columns by groups
+param_order = [p for p in (elastic + vibrational +
+                           anharmonic) if p in df["Parameter"].unique()]
+prop_order = list(ST.keys())
 
-
-def order_within(names):
-    sub = df[df["Parameter"].isin(names)].groupby(
-        "Parameter")["ST_norm"].mean().sort_values(ascending=False).index.tolist()
-    # keep only those that actually appear
-    return [p for p in names if p in sub] + [p for p in sub if p not in names]
-
-
-elastic_cols = [p for p in elastic if p in df["Parameter"].unique()]
-vibrational_cols = [p for p in vibrational if p in df["Parameter"].unique()]
-anharmonic_cols = [p for p in anharmonic if p in df["Parameter"].unique()]
-
-elastic_cols = order_within(elastic_cols)
-vibrational_cols = order_within(vibrational_cols)
-anharmonic_cols = order_within(anharmonic_cols)
-
-param_order = elastic_cols + vibrational_cols + anharmonic_cols
-prop_order = list(ST.keys())  # keep user order
-
-# Palette (muted thesis-style)
-palette = {
-    "Elastic":     "#4C78A8",  # muted blue
-    "Vibrational": "#59A14F",  # muted green
-    "Anharmonic":  "#E15759",  # muted red
-    "Other":       "#B07AA1",  # muted purple (unused here)
+# LaTeX labels with subscripts
+latex_map = {
+    "v00": r"$v_{00}$", "a1": r"$a_{1}$", "a2": r"$a_{2}$", "a3": r"$a_{3}$",
+    "Th0": r"$\Theta_{0}$", "g0": r"$g_{0}$", "q0": r"$q_{0}$",
+    "aa": r"$a_{a}$", "bb": r"$b_{b}$", "cc": r"$c_{c}$",
 }
+param_labels = [latex_map.get(p, p) for p in param_order]
 
-# Figure + style
-sns.set_theme(style="whitegrid", context="talk")  # larger fonts
-fig, ax = plt.subplots(
-    figsize=(1.2 + 0.55*len(param_order), 0.8 + 0.55*len(prop_order)))
+# Palette
+palette = {"Elastic": "#4C78A8", "Vibrational": "#59A14F",
+           "Anharmonic": "#E15759", "Other": "#B07AA1"}
 
-# Subtle vertical band shading per group
-x_ticks = np.arange(len(param_order))
+# --- Figure with legend column ---
+sns.set_theme(style="whitegrid", context="talk")
+fig = plt.figure(figsize=(14, 7))
+gs = GridSpec(1, 2, width_ratios=[4, 1.1], wspace=0.05)
 
+ax = fig.add_subplot(gs[0, 0])
+ax_leg = fig.add_subplot(gs[0, 1])
+ax_leg.axis('off')  # this axis is only for legends
 
-def span_for(cols):
-    if not cols:
-        return None
-    start = param_order.index(cols[0]) - 0.5
-    end = param_order.index(cols[-1]) + 0.5
-    return start, end
-
-
-for cols, color in [(elastic_cols, "#4C78A810"), (vibrational_cols, "#59A14F10"), (anharmonic_cols, "#E1575910")]:
-    rng = span_for(cols)
-    if rng:
-        ax.axvspan(rng[0], rng[1], color=color, zorder=0)
-
-# Scatter (circles, black edges)
+# Scatter on main axis
 sns.scatterplot(
     data=df,
     x=pd.Categorical(df["Parameter"], categories=param_order, ordered=True),
     y=pd.Categorical(df["Property"], categories=prop_order, ordered=True),
     hue="Group",
-    size="ST_norm", sizes=(80, 1400),
+    size="ST_norm", sizes=(70, 1100),
     palette=palette,
     marker="o",
     edgecolor="black", linewidth=0.5,
@@ -117,70 +93,47 @@ sns.scatterplot(
     ax=ax
 )
 
-# Axes cleanup
 ax.set_xlabel("Equation of State Parameters", labelpad=10)
 ax.set_ylabel("Thermodynamic Properties", labelpad=10)
-ax.set_title(
-    "Global Sensitivity (Sobol ST) — row-normalised per property", pad=14)
-ax.set_xticklabels(param_order, rotation=45, ha="right")
-# Keep horizontal grid, lighten it; remove vertical grid lines
-ax.grid(axis="y", linestyle=":", alpha=0.4)
-ax.grid(axis="x", visible=False)
-
-# Limits & ticks
-ax.set_xlim(-0.5, len(param_order)-0.5)
-ax.set_ylim(-0.5, len(prop_order)-0.5)
 ax.set_xticks(range(len(param_order)))
+ax.set_xticklabels(param_labels, rotation=45, ha="right")
 ax.set_yticks(range(len(prop_order)))
 ax.set_yticklabels(prop_order)
+ax.grid(axis="y", linestyle=":", alpha=0.35)
+ax.grid(axis="x", visible=False)
 
-# Annotate top bubble per row with raw ST value
-for i, prop in enumerate(prop_order):
-    sub = df[df["Property"] == prop]
-    if sub.empty:
-        continue
-    # get param with max ST (raw, not normalized)
-    idx = sub["ST"].idxmax()
-    if pd.isna(idx):
-        continue
-    row = sub.loc[idx]
-    x = param_order.index(row["Parameter"])
-    y = i
-    # format raw ST: 3 sig figs or scientific for big numbers
-    val = row["ST"]
-    if val >= 1e4:
-        label = f"{val:.2e}"
-    else:
-        label = f"{val:.3g}"
-    ax.text(x, y, label, ha="center", va="center",
-            fontsize=10, color="white", weight="bold")
-
-# Legends: size + group
-# Remove seaborn's auto legend and rebuild cleaner ones
+# Remove auto legend from main axis
 if ax.legend_:
     ax.legend_.remove()
 
-# Size legend (relative sensitivity)
+# --- Build legends in the right panel with the same width ---
+# 1) Size legend (horizontal row)
 size_vals = [0.3, 0.6, 1.0]
-size_handles = [plt.scatter([], [], s=80 + (1400-80)*v, edgecolor="black",
-                            linewidth=0.5, facecolor="#777777", alpha=0.8) for v in size_vals]
+size_handles = [ax.scatter([], [], s=70+(1100-70)*v,
+                           facecolor="#888888", edgecolor="black", linewidth=0.5)
+                for v in size_vals]
 size_labels = [f"{v:.1f}" for v in size_vals]
-leg1 = ax.legend(size_handles, size_labels,
-                 title="Relative sensitivity\n(ST, row-normalised)", loc="upper left", frameon=True)
-ax.add_artist(leg1)
+leg_size = ax_leg.legend(size_handles, size_labels, title="Relative Sensitivity",
+                         loc="upper left", bbox_to_anchor=(0.0, 1.0),
+                         frameon=True, ncol=3, columnspacing=1.2, handlelength=1.5, handletextpad=0.6)
 
-# Group legend
-group_handles = [Line2D([0], [0], marker='o', color='none', label=lab,
-                        markerfacecolor=palette[lab], markeredgecolor="black",
-                        markersize=10) for lab in ["Elastic", "Vibrational", "Anharmonic"] if lab in df["Group"].unique()]
-leg2 = ax.legend(handles=group_handles, title="Parameter group",
-                 loc="lower right", frameon=True)
+# 2) Group legend below
+group_handles = [Line2D([0], [0], marker='o', color='none',
+                        markerfacecolor=palette[g], markeredgecolor="black",
+                        markersize=10, label=g)
+                 for g in ["Elastic", "Vibrational", "Anharmonic"] if g in df["Group"].unique()]
+leg_group = ax_leg.legend(handles=group_handles, title="Parameter Group",
+                          loc="upper left", bbox_to_anchor=(0.0, 0.70),
+                          frameon=True, handletextpad=0.6)
+
+# Keep both legends
+ax_leg.add_artist(leg_size)
+ax_leg.add_artist(leg_group)
 
 plt.tight_layout()
 
-# Save figure
-#out_path = Path("C:\Users\iashb\OneDrive - The University of Western Australia\UWA\05. Year 5\Semester 1\GENG5511 MPE Engineering Research Project\Project\Research_Project\GENG5511_Thesis\img\outputsensitivity_bubble_matrix_thesis.png")
-#plt.savefig(out_path, dpi=300, bbox_inches="tight")
+# out_path = Path("/mnt/data/sensitivity_bubble_matrix_thesis_legends_panel.png")
+# plt.savefig(out_path, dpi=300, bbox_inches="tight")
 plt.show()
 
 #
