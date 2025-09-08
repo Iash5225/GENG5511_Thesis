@@ -6,7 +6,7 @@ from pathlib import Path
 from read import load_all_gas_data
 from constants import *
 from thermopropsv2 import compute_thermo_props
-from fitting_helper import _safe_props_vector, rms_percent, rms, extract_datasets, safe_psub
+from fitting_helper import _safe_props_vector, rms_percent, rms, extract_datasets, safe_psub, extract_datasets_with_meta, psub_curve, pmelt_curve, build_master_pointwise_df, _relative_errors, summarise_by_author
 from plot_eos import plot_all_overlays_grid
 from thermal_script import melting_pressure_equation, sublimation_pressure_equation
 import traceback
@@ -35,18 +35,6 @@ NAME_TO_METRIC = {
     "H_solid_melt": Metric.H_SOLID_MELT,
     "Gamma_T":      Metric.GAMMA_T,
 }
-
-
-def psub_curve(T): return sublimation_pressure_equation(
-    np.asarray(
-        T, float), KRYPTON_E_1_SUB,  KRYPTON_E_2_SUB,  KRYPTON_E_3_SUB,  KRYPTON_T_t, KRYPTON_P_t
-)
-
-
-def pmelt_curve(T): return melting_pressure_equation(
-    np.asarray(
-        T, float), KRYPTON_E_4, KRYPTON_E_5, KRYPTON_E_6, KRYPTON_E_7, KRYPTON_T_t, KRYPTON_P_t
-)
 
 def _cost_only(params, *datasets):
     try:
@@ -235,6 +223,7 @@ def combined_cost_function(params, *datasets):
     }
     return total_deviation, deviations
 
+
 def main():
     # === 4. Package for scipy.optimize.minimize ===
     bounds = [(lo, hi) for lo, hi in zip(LOWER_BOUND, UPPER_BOUND)]
@@ -259,5 +248,15 @@ def main():
                            St_REFPROP=St_REFPROP, Ht_REFPROP=Ht_REFPROP, psub_curve=psub_curve, pmelt_curve=pmelt_curve)
     GLOBAL_RECORDER.plot_history(ncols=5)
     plt.show()
+    # gas= 'krypton'
+    # datasets, meta = extract_datasets_with_meta(krypton_data)
+    # master = build_master_pointwise_df(datasets, meta, params_fit)
+    # summary = summarise_by_author(master, rel_epsilon=0.0, float_fmt="{:.2f}")
+    # summary.to_csv(f"{gas}_author_deviation_summary.csv", index=False)
+    # print(summary)
+    # check = master[master.Property == "psub"].head(10)
+    # print(check[["T", "p_exp", "y_model", "dp_to_curve"]])
+    # check = master[master.Property == "pmelt"].head(10)
+    # print(check[["T", "p_exp", "y_model", "dp_to_curve"]])
 if __name__ == "__main__":
     main()

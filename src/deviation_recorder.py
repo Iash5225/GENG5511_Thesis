@@ -56,17 +56,6 @@ class DeviationRecorder:
             [] for _ in range(len(Metric))
         ]
 
-    # def plot_history(self):
-    #     plt.figure(figsize=(12, 8))
-    #     for i, metric in enumerate(Metric):
-    #         plt.subplot(4, 4, i + 1)
-    #         plt.plot(self.history[metric], marker='o', linestyle='-')
-    #         plt.title(_METRIC_LABELS[metric])
-    #         plt.xlabel('Iteration')
-    #         plt.ylabel('Deviation')
-    #         plt.grid(True)
-    #     plt.tight_layout()
-    #     plt.show()
     def plot_history(self, ncols: int = 8, col_w: float = 3.2, row_h: float = 2.6):
         """
         Make a horizontally wide subplot grid for deviation histories.
@@ -114,3 +103,9 @@ class DeviationRecorder:
 
         fig.tight_layout()
         return fig, axes
+    
+    def _ensure_store(self):
+        if not hasattr(self, "_pointwise_rows"):
+            self._pointwise_rows = []  # list of dict rows
+
+    
