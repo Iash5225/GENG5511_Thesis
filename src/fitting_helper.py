@@ -6,10 +6,11 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from read import load_all_gas_data
 from thermal_script import *
-from computethermoprops import *
+from thermopropsv2 import compute_thermo_props
 from constants import *
 from scipy.interpolate import UnivariateSpline
-
+import os
+IDX = dict(Vm=0, KappaT=1, KappaS=2, Alpha=3, cp=4, H=10, G=11)
 # solid_EOS_fitting.py
 BIG = 1e4
 Vm_anchor = 0.8
@@ -28,6 +29,195 @@ def pmelt_curve(T): return melting_pressure_equation(
     np.asarray(
         T, float), KRYPTON_E_4, KRYPTON_E_5, KRYPTON_E_6, KRYPTON_E_7, KRYPTON_T_t, KRYPTON_P_t
 )
+
+
+def plot_variable_deviation(
+    data,
+    gas_name: str,
+    x_col: str,
+    y_exp_col: str,
+    y_model_col: str,
+    y_label: str,
+    title: str,
+    filename: str = None,
+    xlim=None,
+    ylim=None,
+    markersize=50,
+    custom_markers=None,
+    custom_colors=None,
+    legend_outside=True,
+    fontsize=14,
+    output_folder=None,
+):
+    """
+    Plot percent deviation between experimental and model values for any variable.
+
+    Args:
+        data (pd.DataFrame): DataFrame with columns including x_col, y_exp_col, y_model_col, 'Year', 'Author'
+        gas_name (str): Gas name for title and filename
+        x_col (str): Column name for x-axis (e.g., 'Temperature')
+        y_exp_col (str): Experimental value column (e.g., 'y_exp')
+        y_model_col (str): Model value column (e.g., 'y_model')
+        y_label (str): Y-axis label (LaTeX string)
+        title (str): Plot title
+        filename (str): Output filename (optional, .png will be appended if missing)
+        xlim, ylim: Axis limits (optional)
+        markersize (int): Marker size
+        custom_markers (list): List of marker styles
+        custom_colors (list): List of colors
+        legend_outside (bool): Place legend outside plot
+        fontsize (int): Font size for labels
+        output_folder (str): If given, save plot in this folder
+    """
+    data = data.copy()
+    data['Deviation_percent'] = 100 * \
+        (data[y_exp_col] - data[y_model_col]) / data[y_exp_col]
+    grouped = data.groupby(['Year', 'Author'])
+    if custom_markers is None:
+        custom_markers = ['o', 's', '^', 'v', 'D', 'x', '*', 'P', 'h', 'X']
+    if custom_colors is None:
+        custom_colors = plt.cm.tab10.colors
+
+    # Compute percent deviation
+
+
+    plt.figure(figsize=(10, 6))
+    plt.tick_params(direction='in', top=True, right=True)
+    for i, ((year, author), group) in enumerate(grouped):
+        plt.scatter(
+            group[x_col], group['Deviation_percent'],
+            label=f"{year}, {author}",
+            s=markersize,
+            edgecolor=custom_colors[i % len(custom_colors)],
+            marker=custom_markers[i % len(custom_markers)],
+            facecolors='none',
+        )
+    plt.axhline(0, color='black', linewidth=1)
+    plt.xlabel(r'$\mathit{T}$ / K', fontsize=fontsize)
+    plt.ylabel(y_label, fontsize=fontsize)
+    plt.title(title, fontsize=fontsize)
+    if xlim:
+        plt.xlim(*xlim)
+    if ylim:
+        plt.ylim(*ylim)
+    if legend_outside:
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8)
+        plt.tight_layout(rect=[0, 0, 0.85, 1])
+    else:
+        plt.legend(fontsize=8)
+        plt.tight_layout()
+
+    # Save if requested
+    if filename:
+        if not filename.lower().endswith('.png'):
+            filename += '.png'
+        if output_folder:
+            os.makedirs(output_folder, exist_ok=True)
+            filename = os.path.join(output_folder, filename)
+        plt.savefig(filename, dpi=300, bbox_inches='tight')
+    plt.show()
+
+
+def plot_thermo_variable(
+    data,
+    gas_name: str,
+    x_col: str,
+    y_col: str,
+    y_label: str,
+    title: str,
+    model_x=None,
+    model_y=None,
+    logy=False,
+    xlim=None,
+    ylim=None,
+    filename=None,
+    output_folder=None,  # <-- add this line
+    legend_outside=True,
+    markersize=50,
+    linewidth=2,
+    fontsize=14,
+    custom_markers=None,
+    custom_colors=None,
+):
+    """
+    General-purpose plot for thermodynamic variables (e.g., enthalpy, heat capacity, etc.)
+    grouped by author/year, with optional model curve.
+
+    Args:
+        data (pd.DataFrame): DataFrame with columns including x_col, y_col, 'Year', 'Author'
+        gas_name (str): Gas name for title and filename
+        x_col (str): Column name for x-axis (e.g., 'Temperature')
+        y_col (str): Column name for y-axis (e.g., 'Change in Enthalpy')
+        y_label (str): Y-axis label (LaTeX string)
+        title (str): Plot title
+        model_x (array-like): X values for model curve (optional)
+        model_y (array-like): Y values for model curve (optional)
+        logy (bool): Use log scale for y-axis
+        xlim, ylim: Axis limits (optional)
+        filename (str): If given, save plot to this file
+        legend_outside (bool): Place legend outside plot
+        markersize (int): Marker size
+        linewidth (int): Model curve line width
+        fontsize (int): Font size for labels
+        custom_markers (list): List of marker styles
+        custom_colors (list): List of colors
+    """
+    grouped = data.groupby(['Year', 'Author'])
+    if custom_markers is None:
+        custom_markers = ['o', 's', '^', 'v', 'D', 'x', '*', 'P', 'h', 'X']
+    if custom_colors is None:
+        custom_colors = plt.cm.tab10.colors
+
+    plt.figure(figsize=(10, 6))
+    for i, ((year, author), group) in enumerate(grouped):
+        plt.scatter(
+            group[x_col], group[y_col],
+            s=markersize,
+            label=f"{year}, {author}",
+            edgecolors=custom_colors[i % len(custom_colors)],
+            facecolors='none',
+            linewidths=1.5,
+            marker=custom_markers[i % len(custom_markers)],
+        )
+
+    # Plot model curve if provided
+    if model_x is not None and model_y is not None:
+        order = np.argsort(model_x)
+        plt.plot(
+            np.array(model_x)[order], np.array(model_y)[order],
+            color='black', linewidth=linewidth, label='Model'
+        )
+
+    plt.xlabel(r'$\mathit{T}$ / K', fontsize=fontsize)
+    plt.ylabel(y_label, fontsize=fontsize)
+    plt.title(title, fontsize=fontsize)
+    if logy:
+        plt.yscale('log')
+    if xlim:
+        plt.xlim(*xlim)
+    if ylim:
+        plt.ylim(*ylim)
+
+    if legend_outside:
+        plt.legend(
+            loc='upper left',
+            bbox_to_anchor=(1.05, 1),
+            fontsize=8,
+            ncol=1
+        )
+        plt.tight_layout(rect=[0, 0, 0.85, 1])
+    else:
+        plt.legend(fontsize=8)
+        plt.tight_layout()
+
+    if filename:
+        if not filename.lower().endswith('.png'):
+            filename += '.png'
+        if output_folder:
+            os.makedirs(output_folder, exist_ok=True)
+            filename = os.path.join(output_folder, filename)
+        plt.savefig(filename, dpi=300, bbox_inches='tight')
+    plt.show()
 
 def safe_psub(T):
     """

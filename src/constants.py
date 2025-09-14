@@ -38,7 +38,7 @@ MAX_LIMIT = np.log(np.sqrt(np.finfo(float).max)) - 1  # Limit for large X
 
 # REFPROP NIST Constants
 KRYPTON_REFERENCE_ENTROPY = 11.933 # kJ/kgK
-KRYPTON_REFERENCE_ENTHALPY = 1193.3  #kJ/kg
+KRYPTON_REFERENCE_ENTHALPY = 1193.3  #J/kg
 NEON_REFERENCE_ENTROPY = 49.555 # kJ/kgK
 NEON_REFERENCE_ENTHALPY = 4955.5  # J/kg
 XENON_REFERENCE_ENTROPY = 7.6163 # kJ/kgK
@@ -90,7 +90,7 @@ gas_params = {
     'xenon': (XENON_T_t, XENON_P_t),
     'neon': (NEON_T_t, NEON_P_t)
 }
-
+IMG_OUTPUT_FOLDER = r"C:\Users\iashb\OneDrive - The University of Western Australia\UWA\05. Year 5\Semester 1\GENG5511 MPE Engineering Research Project\Project\Research_Project\GENG5511_Thesis\img\output\v3"
 #FILEPATH = r"C:\Users\iashb\OneDrive - The University of Western Australia\UWA\05. Year 5\Semester 1\GENG5511 MPE Engineering Research Project\Project\Research_Project\GENG5511_Thesis\data\literature_data.xlsx"
 OUTPUT_FILEPATH = r"C:\Users\iashb\OneDrive - The University of Western Australia\UWA\05. Year 5\Semester 1\GENG5511 MPE Engineering Research Project\Project\Research_Project\GENG5511_Thesis\img\output\v2"
 XE_DATA_FILEPATH = r"C:\Users\iashb\OneDrive - The University of Western Australia\UWA\05. Year 5\Semester 1\GENG5511 MPE Engineering Research Project\Project\Research_Project\GENG5511_Thesis\data\MASTER Xenon Literature Review.xlsx"
@@ -158,18 +158,18 @@ AXIS_FONT_SIZE=14
 
 
 PARAMS_INIT = np.array([
-    27.21, 2739.48, 7328.48, 122.62,
+    27.04, 2739.48, 7328.48, 122.62,
     0, 0, 0, 0, 0,
-    88.97, 0, 0, 0, 0, 0,
-    4.05, 0, 0, 0, 0, 0,
-    -3.02, 0, 0, 0, 0, 0,
+    88.94, 0, 0, 0, 0, 0,
+   3.21, 0, 0, 0, 0, 0,
+    -3.17, 0, 0, 0, 0, 0,
     0.0, 1.92, 7.94,
     119.23  # S* (entropy reference)
 ])
 
 # Lower bounds
 LOWER_BOUND = np.array([
-    25, 0, 0, 0, 0, 0, 0, 0, 0,
+    20, 0, 0, 0, 0, 0, 0, 0, 0,
     20, 0, 0, 0, 0, 0,
     -5, 0, 0, 0, 0, 0,
     -10, 0, 0, 0, 0, 0,
@@ -212,8 +212,8 @@ W_VM_SUB = 1
 W_VM_MELT = 1
 W_VM_HIGHP = 1
 W_CP_SUB = 1
-W_ALPHA_SUB = 3
-W_BETAT_SUB = 3
+W_ALPHA_SUB = 1
+W_BETAT_SUB = 1
 W_BETAS_SUB = 1
 W_H_SOLID_SUB = 1
 W_H_SOLID_MELT = 1

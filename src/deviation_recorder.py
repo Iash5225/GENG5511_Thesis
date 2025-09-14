@@ -102,6 +102,7 @@ class DeviationRecorder:
             axes[r, c].axis("off")
 
         fig.tight_layout()
+        plt.show()
         return fig, axes
     
     def _ensure_store(self):

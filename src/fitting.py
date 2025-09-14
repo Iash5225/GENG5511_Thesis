@@ -2,16 +2,15 @@ from scipy.optimize import minimize
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from pathlib import Path
 from read import load_all_gas_data
 from constants import *
 from thermopropsv2 import compute_thermo_props
-from fitting_helper import _safe_props_vector, rms_percent, rms, extract_datasets, safe_psub, extract_datasets_with_meta, psub_curve, pmelt_curve, build_master_pointwise_df, _relative_errors, summarise_by_author
+from fitting_helper import _safe_props_vector, rms_percent, rms, extract_datasets, safe_psub, extract_datasets_with_meta, psub_curve, pmelt_curve, build_master_pointwise_df, _relative_errors, summarise_by_author,plot_thermo_variable,plot_variable_deviation
 from plot_eos import plot_all_overlays_grid
-from thermal_script import melting_pressure_equation, sublimation_pressure_equation
 import traceback
 from deviation_recorder import DeviationRecorder, Metric
 import math
+import os
 # Constants
 BIG = 1e4
 St_REFPROP = KRYPTON_REFERENCE_ENTROPY  # Reference Entropy
@@ -73,6 +72,7 @@ def combined_cost_function(params, *datasets):
         deltaS_triple = params[30] - St_REFPROP
         Ht_fitted = triple_props[11] + Tt * params[30]
         deltaH_triple = Ht_fitted - Ht_REFPROP
+        deltaH_triple_kJ = deltaH_triple / 1000        # kJ/mol
 
     # ====== BLOCKS ======
     Vm_sub_dev = BIG
@@ -152,7 +152,7 @@ def combined_cost_function(params, *datasets):
     if np.any(m):
         H_solid_sub = H_fluid_sub[m] - delta_H_sub[m] * 1.0  # both kJ/mol
         modelH = _safe_props_vector(
-            T_H_sub[m], p_H_sub[m], params, idx=10) - deltaH_triple
+            T_H_sub[m], p_H_sub[m], params, idx=10) / 1000 - deltaH_triple_kJ
         H_solid_sub_dev = rms_percent(H_solid_sub, modelH)
     # Enthalpy of melting: kJ/mol
     m = (np.isfinite(T_H_melt) & np.isfinite(p_H_melt) &
@@ -161,7 +161,7 @@ def combined_cost_function(params, *datasets):
     if np.any(m):
         H_solid_melt = H_fluid_melt[m] - delta_H_melt[m] * 1.0
         modelH = _safe_props_vector(
-            T_H_melt[m], p_H_melt[m], params, idx=10) - deltaH_triple
+            T_H_melt[m], p_H_melt[m], params, idx=10)/1000 - deltaH_triple_kJ
         H_solid_melt_dev = rms_percent(H_solid_melt, modelH)
     # Gamma-T smoothness penalty along a subl. grid (T<=Tt)
     T6 = np.array([0.0001] + list(range(2, math.ceil(Tt), 2)) + [Tt])
@@ -244,6 +244,50 @@ def main():
     plot_all_overlays_grid(params_fit, datasets, Tt=Tt, pt=pt, compute_thermo_props=compute_thermo_props,
                            St_REFPROP=St_REFPROP, Ht_REFPROP=Ht_REFPROP, psub_curve=psub_curve, pmelt_curve=pmelt_curve)
     GLOBAL_RECORDER.plot_history(ncols=5)
+    
+def plot_deviation():
+    krypton_data = load_all_gas_data('krypton', read_from_excel=False)
+    datasets, meta = extract_datasets_with_meta(krypton_data)
+    params_fit = PARAMS_INIT
+    master_df = build_master_pointwise_df(datasets, meta, params_fit)
+
+    # 2. Filter for the property you want to plot
+    df_fusion = master_df[master_df["Property"] == "H_solid_melt"]
+    df_cell_volume_melt = master_df[master_df["Property"] == "Vm_melt"]
+    df_cell_volume_sub = master_df[master_df["Property"] == "Vm_sub"]
+
+    # # 3. Plot the variable
+    plot_thermo_variable(
+        data=df_cell_volume_melt,
+        gas_name='krypton',
+        x_col='T',
+        y_col='y_exp',
+        y_label=r'Cell Volume (cm$^3$/mol)',
+        title='Cell Volume Melting for Krypton',
+        model_x=df_cell_volume_melt['T'],
+        model_y=df_cell_volume_melt['y_model'],
+        logy=False,
+        filename='krypton_cell_volume_melt.png',
+        output_folder=IMG_OUTPUT_FOLDER,
+        custom_colors=CUSTOMCOLORS,
+        custom_markers=CUSTOMMARKERS
+    )
+    # plot_variable_deviation(
+    #     data=df_cell_volume_melt,
+    #     gas_name='krypton',
+    #     x_col='T',
+    #     y_exp_col='y_exp',
+    #     y_model_col='y_model',
+    #     y_label=r'$100 \cdot (V_\mathrm{exp} - V_\mathrm{model}) / V_\mathrm{exp}$ [%]',
+    #     title='Cell Volume Deviation for Krypton',
+    #     filename='krypton_cell_volume_melt_deviation',
+    #     # xlim=(0, 120),
+    #     ylim=(-10, 10),
+    #     output_folder=IMG_OUTPUT_FOLDER,
+    #     custom_colors=CUSTOMCOLORS,
+    #     custom_markers=CUSTOMMARKERS
+    # )
 
 if __name__ == "__main__":
-    main()
+    plot_deviation()
+    # main()
