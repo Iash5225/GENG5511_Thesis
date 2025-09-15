@@ -15,19 +15,19 @@ IDX = dict(Vm=0, KappaT=1, KappaS=2, Alpha=3, cp=4, H=10, G=11)
 BIG = 1e4
 Vm_anchor = 0.8
 T_MARGIN = 2.0  # K, stay below Tt by this margin
-St_REFPROP = KRYPTON_REFERENCE_ENTROPY  # Reference Entropy
-Ht_REFPROP = KRYPTON_REFERENCE_ENTHALPY
-Tt = KRYPTON_T_t
-pt = KRYPTON_P_t
+St_REFPROP = XENON_REFERENCE_ENTROPY  # Reference Entropy
+Ht_REFPROP = XENON_REFERENCE_ENTHALPY
+Tt = XENON_T_t
+pt = XENON_P_t
 
 def psub_curve(T): return sublimation_pressure_equation(
     np.asarray(
-        T, float), KRYPTON_E_1_SUB,  KRYPTON_E_2_SUB,  KRYPTON_E_3_SUB,  KRYPTON_T_t, KRYPTON_P_t
+        T, float), XENON_E_1_SUB,  XENON_E_2_SUB,  XENON_E_3_SUB,  XENON_T_t, XENON_P_t
 )
 
 def pmelt_curve(T): return melting_pressure_equation(
     np.asarray(
-        T, float), KRYPTON_E_4, KRYPTON_E_5, KRYPTON_E_6, KRYPTON_E_7, KRYPTON_T_t, KRYPTON_P_t
+        T, float), XENON_E_4, XENON_E_5, XENON_E_6, XENON_E_7, XENON_T_t, XENON_P_t
 )
 
 

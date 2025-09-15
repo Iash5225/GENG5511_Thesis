@@ -50,7 +50,6 @@ Year	Author	Temperature	Thermal Expansion Coefficient
 1963.0	Packard	100.0	0.0007
 1963.0	Packard	125.0	0.00084
 1963.0	Packard	150.0	0.00103
-1963.0	Packard	0.0	0.0
 1963.0	Packard	20.0	0.000282
 1963.0	Packard	50.0	0.000627
 1963.0	Packard	75.0	0.00077

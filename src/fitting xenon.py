@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from read import load_all_gas_data
 from constants import *
 from thermopropsv2 import compute_thermo_props
-from fitting_helper import _safe_props_vector, rms_percent, rms, extract_datasets, safe_psub, extract_datasets_with_meta, psub_curve, pmelt_curve, build_master_pointwise_df, _relative_errors, summarise_by_author,plot_thermo_variable,plot_variable_deviation
+from fitting_helper_xenon import _safe_props_vector, rms_percent, rms, extract_datasets, safe_psub, extract_datasets_with_meta, psub_curve, pmelt_curve, build_master_pointwise_df, _relative_errors, summarise_by_author,plot_thermo_variable,plot_variable_deviation
 from plot_eos import plot_all_overlays_grid
 import traceback
 from deviation_recorder import DeviationRecorder, Metric
@@ -13,10 +13,10 @@ import math
 import os
 # Constants
 BIG = 1e4
-St_REFPROP = KRYPTON_REFERENCE_ENTROPY  # Reference Entropy
-Ht_REFPROP = KRYPTON_REFERENCE_ENTHALPY
-Tt = KRYPTON_T_t
-pt = KRYPTON_P_t
+St_REFPROP = XENON_REFERENCE_ENTROPY  # Reference Entropy
+Ht_REFPROP = XENON_REFERENCE_ENTHALPY
+Tt = XENON_T_t
+pt = XENON_P_t
 IDX = dict(Vm=0, KappaT=1, KappaS=2, Alpha=3, cp=4, H=10, G=11)
 GLOBAL_RECORDER = DeviationRecorder()
 
@@ -88,15 +88,20 @@ def combined_cost_function(params, *datasets):
 
     m = (np.isfinite(T_Vm_sub) & np.isfinite(p_Vm_sub)
          & np.isfinite(Vm_sub) & (T_Vm_sub <= Tt))
+    
     if np.any(m):
         model = _safe_props_vector(T_Vm_sub[m], p_Vm_sub[m], params, idx=0)
         Vm_sub_dev = rms_percent(Vm_sub[m], model)   # cm^3/mol
+    else:
+        print("No valid Vm_sub data points found.")
     # Vm (melting): T >= Tt
     m = (np.isfinite(T_Vm_melt) & np.isfinite(p_Vm_melt)
          & np.isfinite(Vm_melt) & (T_Vm_melt >= Tt))
     if np.any(m):
         model = _safe_props_vector(T_Vm_melt[m], p_Vm_melt[m], params, idx=0)
         Vm_melt_dev = rms_percent(Vm_melt[m], model)  # cm^3/mol
+    else:
+        print("No valid Vm_melt data points found.")
     # Vm (high-p): no phase constraint (already experimental p)
     m = (np.isfinite(T_Vm_highp) & np.isfinite(
         p_Vm_highp) & np.isfinite(Vm_highp))
@@ -120,6 +125,8 @@ def combined_cost_function(params, *datasets):
         weights = np.where(Tm < CP_TEMP_THRESHOLD_K,
                            CP_WEIGHT_BELOW, CP_WEIGHT_ABOVE)
         cp_sub_dev = float(np.sqrt(np.mean((weights * dev) ** 2)))
+    else:
+        print("No valid cp_sub data points found.")
 
     # alpha (sublimation)
     m = (np.isfinite(T_alpha_sub) & np.isfinite(p_alpha_sub)
@@ -129,6 +136,8 @@ def combined_cost_function(params, *datasets):
         model = _safe_props_vector(
             T_alpha_sub[m], p_alpha_sub[m], params, idx=3)
         alpha_sub_dev = rms_percent(alpha_sub[m], model)
+    else:
+        print("No valid alpha_sub data points found.")
     # BetaT (sublimation)
     m = (np.isfinite(T_BetaT_sub) & np.isfinite(p_BetaT_sub)
          & np.isfinite(BetaT_sub) & (T_BetaT_sub <= Tt))
@@ -137,6 +146,8 @@ def combined_cost_function(params, *datasets):
         model = _safe_props_vector(
             T_BetaT_sub[m], p_BetaT_sub[m], params, idx=1)
         BetaT_sub_dev = rms_percent(BetaT_sub[m], model)
+    else:
+        print("No valid BetaT_sub data points found.")
     # BetaS (sublimation)
     m = (np.isfinite(T_BetaS_sub) & np.isfinite(p_BetaS_sub)
          & np.isfinite(BetaS_sub) & (T_BetaS_sub <= Tt))
@@ -145,6 +156,8 @@ def combined_cost_function(params, *datasets):
         model = _safe_props_vector(
             T_BetaS_sub[m], p_BetaS_sub[m], params, idx=2)
         BetaS_sub_dev = rms_percent(BetaS_sub[m], model)
+    else:
+        print("No valid BetaS_sub data points found.")
     # Enthalpy of sublimation: kJ/mol (no unit juggling)
     m = (np.isfinite(T_H_sub) & np.isfinite(p_H_sub) &
          np.isfinite(delta_H_sub) & np.isfinite(H_fluid_sub) & (T_H_sub <= Tt))
@@ -154,6 +167,8 @@ def combined_cost_function(params, *datasets):
         modelH = _safe_props_vector(
             T_H_sub[m], p_H_sub[m], params, idx=10) / 1000 - deltaH_triple_kJ
         H_solid_sub_dev = rms_percent(H_solid_sub, modelH)
+    else:
+        print("No valid H_solid_sub data points found.")
     # Enthalpy of melting: kJ/mol
     m = (np.isfinite(T_H_melt) & np.isfinite(p_H_melt) &
          np.isfinite(delta_H_melt) & np.isfinite(H_fluid_melt) & (T_H_melt >= Tt))
@@ -163,6 +178,8 @@ def combined_cost_function(params, *datasets):
         modelH = _safe_props_vector(
             T_H_melt[m], p_H_melt[m], params, idx=10)/1000 - deltaH_triple_kJ
         H_solid_melt_dev = rms_percent(H_solid_melt, modelH)
+    else:
+        print("No valid H_solid_melt data points found.")
     # Gamma-T smoothness penalty along a subl. grid (T<=Tt)
     T6 = np.array([0.0001] + list(range(2, math.ceil(Tt), 2)) + [Tt])
     T6 = T6[T6 <= Tt]
@@ -223,12 +240,12 @@ def combined_cost_function(params, *datasets):
 
 def main():
     # === 4. Package for scipy.optimize.minimize ===
-    bounds = [(lo, hi) for lo, hi in zip(LOWER_BOUND, UPPER_BOUND)]
-    krypton_data = load_all_gas_data('krypton', read_from_excel=False)
-    datasets = extract_datasets(krypton_data)
+    bounds = [(lo, hi) for lo, hi in zip(LOWER_BOUND_XENON, UPPER_BOUND_XENON)]
+    xenon_data = load_all_gas_data('xenon', read_from_excel=False)
+    datasets = extract_datasets(xenon_data)
     res = minimize(
         fun=lambda x, *a: _cost_only(x, *a),   
-        x0=PARAMS_INIT,
+        x0=PARAMS_INIT_XENON,
         args=datasets,                         
         method="L-BFGS-B",
         bounds=bounds,
@@ -297,5 +314,5 @@ def plot_deviation():
     # )
 
 if __name__ == "__main__":
-    plot_deviation()
-    # main()
+    # plot_deviation()
+    main()

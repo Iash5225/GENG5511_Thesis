@@ -1,5 +1,4 @@
 Year	Author	Temperature	Heat Capacity
-1967.0	Manzhelli	0.0	0.0
 1967.0	Manzhelli	11.0	9.288480000000002
 1967.0	Manzhelli	15.0	14.0164
 1967.0	Manzhelli	21.5	18.576960000000003

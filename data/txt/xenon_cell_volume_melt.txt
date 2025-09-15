@@ -49,6 +49,3 @@ Year	Author	Temperature	Cell Volume
 1965.0	Gavrilko	120.0	37.09
 1965.0	Gavrilko	140.0	37.73
 1965.0	Gavrilko	159.0	38.5
-			
-			
-			
