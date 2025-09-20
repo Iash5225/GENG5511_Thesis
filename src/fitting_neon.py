@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from read import load_all_gas_data
 from constants import *
 from thermopropsv2 import compute_thermo_props
-from fitting_helper_xenon import _safe_props_vector, rms_percent, rms, extract_datasets, safe_psub, extract_datasets_with_meta, psub_curve, pmelt_curve, build_master_pointwise_df, _relative_errors, summarise_by_author,plot_thermo_variable,plot_variable_deviation
+from fitting_helper_neon import _safe_props_vector, rms_percent, rms, extract_datasets, safe_psub, extract_datasets_with_meta, psub_curve, pmelt_curve, build_master_pointwise_df, _relative_errors, summarise_by_author,plot_thermo_variable,plot_variable_deviation
 from plot_eos import plot_all_overlays_grid
 import traceback
 from deviation_recorder import DeviationRecorder, Metric
@@ -13,10 +13,10 @@ import math
 import os
 # Constants
 BIG = 1e4
-St_REFPROP = XENON_REFERENCE_ENTROPY  # Reference Entropy
-Ht_REFPROP = XENON_REFERENCE_ENTHALPY
-Tt = XENON_T_t
-pt = XENON_P_t
+St_REFPROP = NEON_REFERENCE_ENTROPY  # Reference Entropy
+Ht_REFPROP = NEON_REFERENCE_ENTHALPY
+Tt = NEON_T_t
+pt = NEON_P_t
 IDX = dict(Vm=0, KappaT=1, KappaS=2, Alpha=3, cp=4, H=10, G=11)
 GLOBAL_RECORDER = DeviationRecorder()
 
@@ -45,6 +45,7 @@ def _cost_only(params, *datasets):
         print("Error in cost function evaluation.", repr(e), flush=True)
         traceback.print_exc()
         return BIG
+
 
 def combined_cost_function(params, *datasets):
     (T_Vm_sub, p_Vm_sub, Vm_sub,
@@ -88,7 +89,6 @@ def combined_cost_function(params, *datasets):
 
     m = (np.isfinite(T_Vm_sub) & np.isfinite(p_Vm_sub)
          & np.isfinite(Vm_sub) & (T_Vm_sub <= Tt))
-    
     if np.any(m):
         model = _safe_props_vector(T_Vm_sub[m], p_Vm_sub[m], params, idx=0)
         Vm_sub_dev = rms_percent(Vm_sub[m], model)   # cm^3/mol
@@ -158,10 +158,11 @@ def combined_cost_function(params, *datasets):
         BetaS_sub_dev = rms_percent(BetaS_sub[m], model)
     else:
         print("No valid BetaS_sub data points found.", flush=True)
+
+
     # Enthalpy of sublimation: kJ/mol (no unit juggling)
     m = (np.isfinite(T_H_sub) & np.isfinite(p_H_sub) &
          np.isfinite(delta_H_sub) & np.isfinite(H_fluid_sub) & (T_H_sub <= Tt))
-
     if np.any(m):
         H_solid_sub = H_fluid_sub[m] - delta_H_sub[m] * 1.0  # both kJ/mol
         modelH = _safe_props_vector(
@@ -169,6 +170,8 @@ def combined_cost_function(params, *datasets):
         H_solid_sub_dev = rms_percent(H_solid_sub, modelH)
     else:
         print("No valid H_solid_sub data points found.", flush=True)
+
+
     # Enthalpy of melting: kJ/mol
     m = (np.isfinite(T_H_melt) & np.isfinite(p_H_melt) &
          np.isfinite(delta_H_melt) & np.isfinite(H_fluid_melt) & (T_H_melt >= Tt))
@@ -179,7 +182,14 @@ def combined_cost_function(params, *datasets):
             T_H_melt[m], p_H_melt[m], params, idx=10)/1000 - deltaH_triple_kJ
         H_solid_melt_dev = rms_percent(H_solid_melt, modelH)
     else:
-        print("No valid H_solid_melt data points found.", flush=True)
+        if not (np.any(np.isfinite(T_H_sub))):
+            print("Temperatures have  errors:", T_H_sub, flush=True)
+        if not (np.any(np.isfinite(p_H_sub))):
+            print("Pressures have  errors:", p_H_sub, flush=True)
+        if not (np.any(np.isfinite(delta_H_sub))):
+            print("Delta H have  errors:", delta_H_sub, flush=True)
+        if not (np.any(np.isfinite(H_fluid_sub))):
+            print("H_fluid have  errors:", H_fluid_sub, flush=True)
     # Gamma-T smoothness penalty along a subl. grid (T<=Tt)
     T6 = np.array([0.0001] + list(range(2, math.ceil(Tt), 2)) + [Tt])
     T6 = T6[T6 <= Tt]
@@ -240,29 +250,42 @@ def combined_cost_function(params, *datasets):
 
 def main():
     # === 4. Package for scipy.optimize.minimize ===
-    bounds = [(lo, hi) for lo, hi in zip(LOWER_BOUND_XENON, UPPER_BOUND_XENON)]
-    xenon_data = load_all_gas_data('xenon', read_from_excel=False)
-    datasets = extract_datasets(xenon_data)
-    # res = minimize(
-    #     fun=lambda x, *a: _cost_only(x, *a),   
-    #     x0=PARAMS_INIT_XENON,
-    #     args=datasets,                         
-    #     method="L-BFGS-B",
-    #     bounds=bounds,
-    #     options=dict(disp=True, maxiter=MAX_ITERATIONS,
-    #                  ftol=FUNCTION_TOL, gtol=GRADIENT_TOL, eps=EPS, maxls=MAXLS)
-    # )
-    # print("\n Fitting status:", res.message)
-    # params_fit = res.x
-    params_fit = PARAMS_INIT_XENON
+    bounds = [(lo, hi) for lo, hi in zip(LOWER_BOUND_NEON, UPPER_BOUND_NEON)]
+    neon_data = load_all_gas_data('neon', read_from_excel=False)
+    datasets = extract_datasets(neon_data)
+   
+    res = minimize(
+        fun=lambda x, *a: _cost_only(x, *a),   
+        x0=PARAMS_INIT_NEON,
+        args=datasets,                         
+        method="L-BFGS-B",
+        bounds=bounds,
+        options=dict(disp=True, maxiter=MAX_ITERATIONS,
+                     ftol=FUNCTION_TOL, gtol=GRADIENT_TOL, eps=EPS, maxls=MAXLS)
+    )
+    print("\n Fitting status:", res.message)
+    params_fit = res.x
+    # params_fit = PARAMS_INIT_NEON
     # --- pretty print parameters ---
     formatted = ", ".join(f"{p:.2f}" for p in params_fit)
     print("Fitted parameters:")
     print(formatted)
+    # Print parameters with labels (for the first N labels)
+    print("Fitted parameters with labels:")
+    for (label, unit), value in zip(PARAM_LABELS, params_fit):
+        print(f"{label}: {value:.4f} {unit}")
     plot_all_overlays_grid(params_fit, datasets, Tt=Tt, pt=pt, compute_thermo_props=compute_thermo_props,
                            St_REFPROP=St_REFPROP, Ht_REFPROP=Ht_REFPROP, psub_curve=psub_curve, pmelt_curve=pmelt_curve)
     GLOBAL_RECORDER.plot_history(ncols=5)
-    
+
+def plot_init():
+    neon_data = load_all_gas_data('neon', read_from_excel=False)
+    datasets = extract_datasets(neon_data)  
+    params_init = PARAMS_INIT_NEON
+    # master_df = build_master_pointwise_df(datasets, meta, params_init)
+    # summarise_by_author(master_df).to_csv(os.path.join(IMG_OUTPUT_FOLDER, 'krypton_summary_by_author_init.csv'), index=False)
+    plot_all_overlays_grid(params_init, datasets, Tt=Tt, pt=pt, compute_thermo_props=compute_thermo_props,
+                           St_REFPROP=St_REFPROP, Ht_REFPROP=Ht_REFPROP, psub_curve=psub_curve, pmelt_curve=pmelt_curve)
 def plot_deviation():
     krypton_data = load_all_gas_data('krypton', read_from_excel=False)
     datasets, meta = extract_datasets_with_meta(krypton_data)
@@ -316,4 +339,6 @@ def plot_deviation():
 
 if __name__ == "__main__":
     # plot_deviation()
-    main()
+    #main()
+    plot_init()
+

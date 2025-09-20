@@ -193,10 +193,10 @@ def plot_all_overlays_grid(params, datasets, Tt, pt,
         np.isfinite(G_fluid_sub) & np.isfinite(V_fluid_sub) & (np.asarray(T_sub) <= Tt))
     if np.any(m):
         T_pts = np.asarray(T_sub)[m]
-        p_pts = np.asarray(p_sub)[m]
+        p_pts = np.asarray(p_sub)[m] / 1e6
         # dense curve from min(T_pts) up to Tt
         T_curve = np.linspace(np.nanmin(T_pts), Tt, 300)
-        p_curve = np.asarray(psub_curve(T_curve), float)*1e6 #convert bar to MPA 
+        p_curve = np.asarray(psub_curve(T_curve), float)#convert bar to MPA 
         # guard: log axis needs positive pressures
         ok = np.isfinite(p_curve) & (p_curve > 0)
         T_curve, p_curve = T_curve[ok], p_curve[ok]
@@ -214,7 +214,7 @@ def plot_all_overlays_grid(params, datasets, Tt, pt,
         np.isfinite(G_fluid_melt) & np.isfinite(V_fluid_melt) & (np.asarray(T_melt) >= Tt))
     if np.any(m):
         T_pts = np.asarray(T_melt)[m]
-        p_pts = np.asarray(p_melt)[m]
+        p_pts = np.asarray(p_melt)[m] /1e6  # convert Pa to MPa
         # dense curve from max(Tt, min exp T) to max exp T
         t_lo = max(Tt, float(np.nanmin(T_pts)))
         t_hi = float(np.nanmax(T_pts))

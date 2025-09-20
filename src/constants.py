@@ -14,6 +14,27 @@ EIGHT = 8.0
 TWENTY = 20.0
 PT375 = 0.375
 
+W_VM_SUB = 1
+W_VM_MELT = 1
+W_VM_HIGHP = 0
+W_CP_SUB = 0
+W_ALPHA_SUB = 0
+W_BETAT_SUB = 0
+W_BETAS_SUB = 0
+W_H_SOLID_SUB = 0
+W_H_SOLID_MELT = 0
+W_P_SUB = 0.0
+W_P_MELT = 0.0
+W_GAMMA_T = 0.0
+
+
+FUNCTION_TOL = 1e-15
+GRADIENT_TOL = 1e-12
+MAX_ITERATIONS = 1000
+EPS = 1e-6
+MAXLS = 100
+N_OUTER = 1
+
 READ_FROM_EXCEL = False  # Flag to read data from Excel files
 # READ_FROM_TXT = True  # Flag to read data from text files
 DISPLAY_PLOTS = True  # Flag to display plots
@@ -37,12 +58,14 @@ SMALLEST_SPACING = 1.11E-16  # Smallest relative spacing
 MAX_LIMIT = np.log(np.sqrt(np.finfo(float).max)) - 1  # Limit for large X
 
 # REFPROP NIST Constants
-KRYPTON_REFERENCE_ENTROPY = 11.933 # kJ/kgK
-KRYPTON_REFERENCE_ENTHALPY = 1193.3  #J/kg
-NEON_REFERENCE_ENTROPY = 49.555 # kJ/kgK
-NEON_REFERENCE_ENTHALPY = 4955.5  # J/kg
-XENON_REFERENCE_ENTROPY = 7.6163 # kJ/kgK
-XENON_REFERENCE_ENTHALPY = 761.63  # J/kg
+KRYPTON_REFERENCE_ENTROPY = 76.99 # kJ/kgK
+KRYPTON_REFERENCE_ENTHALPY = 8911  #J/kg
+
+NEON_REFERENCE_ENTROPY = 69.25 # kJ/kgK
+NEON_REFERENCE_ENTHALPY = 1695/1000  # J/kg
+
+XENON_REFERENCE_ENTROPY = 77.43 # kJ/kgK
+XENON_REFERENCE_ENTHALPY = 12494.09/1000  # J/kg
 
 
 # Constants for melting pressure equation
@@ -156,36 +179,155 @@ MELTING_XENON_Y_MAX = 10**3
 MARKERSIZE=50
 AXIS_FONT_SIZE=14
 
+# Neon
+# PARAMS_INIT_NEON = np.array([
+#     27.04, 2739.48, 7328.48, 122.62,
+#     0, 0, 0, 0, 0,
+#     88.94, 0, 0, 0, 0, 0,
+#     3.21, 0, 0, 0, 0, 0,
+#     -3.17, 0, 0, 0, 0, 0,
+#     0.0, 1.92, 7.94,
+#     NEON_REFERENCE_ENTROPY  # S* (entropy reference)
+# ])
 
+# # Lower bounds
+# LOWER_BOUND_NEON = np.array([
+#     5, 1, 1, 1,0, 0, 0, 0, 0,
+#     10, 0, 0, 0, 0, 0,
+#     -15, 0, 0, 0, 0, 0,
+#     -10, 0, 0, 0, 0, 0,
+#     0, 0, 1, NEON_REFERENCE_ENTROPY
+# ])
+
+
+# # Upper bounds
+# UPPER_BOUND_NEON = np.array([
+#     20, 10000, 10000, 200, 0, 0, 0, 0, 0,
+#     90, 0, 0, 0, 0, 0,
+#     15, 0, 0, 0, 0, 0,
+#     10, 0, 0, 0, 0, 0,
+#     10, 10, 10, NEON_REFERENCE_ENTROPY
+# ])
+
+# PARAMS_INIT_NEON = np.array([
+#     13.2, 2739.48, 7328.48, 122.62,
+#     0, 0, 0, 0, 0,
+#     70, 0, 0, 0, 0, 0,
+#     2, 0, 0, 0, 0, 0,
+#     1, 0, 0, 0, 0, 0,
+#     0.0, 1.92, 7.94,
+#     NEON_REFERENCE_ENTROPY  # S* (entropy reference)
+# ])
+
+# PARAMS_INIT_NEON = np.array([
+#     13.4,    # 0: v00  (cm^3/mol) ~ low‑T Vm
+#     2739.48,  # 1: c1   (MPa)
+#     7328.48,  # 2: c2   (MPa)
+#     70.0,    # 3: Theta_D,0 (K)
+#     2.68,     # 4: gamma_D,0 (–)
+#     0.0024,     # 5: q_D  (–)
+#     0.0, 0.0, 0.0,            # 6–8: b1, b2, b3 (keep 0 for Vm-only fit)
+#     88.93, 0.0, 0.0, 0.0, 0.0, 0.0,    # 9–14
+#     -2.40, 0.0, 0.0, 0.0, 0.0, 0.0,    # 15–20
+#     -6.03, 0.0, 0.0, 0.0, 0.0, 0.0,    # 21–26
+#     0.0, 1.92, 7.95,                   # 27–29
+#     NEON_REFERENCE_ENTROPY             # 30: S* at triple
+# ])
+
+# PARAMS_INIT_NEON = np.array([
+#     13.5,     # 0: v00 (cm^3/mol) ~ low‑T Vm
+#     1500.0,   # 1: a1 (MPa)  cold-curve
+#     200.0,    # 2: a2 (MPa)
+#     0.0,      # 3: a3 (MPa)
+#     0, 0, 0, 0, 0,          # 4–8 unused
+#     80.0, 0, 0, 0, 0, 0,    # 9–14: Th[0]=80 K
+#     # 15–20: g[0]=0.5 (small -> weaker thermal pressure)
+#     0.5,  0, 0, 0, 0, 0,
+#     1.0,  0, 0, 0, 0, 0,    # 21–26: q[0]=1.0
+#     0.0, 0.0, 0.0,          # 27–29: aa=bb=cc=0 for now
+#     NEON_REFERENCE_ENTROPY  # 30: s
+# ])
+
+PARAMS_INIT_NEON = np.array([
+    13.45,   # 0: v00
+    800.0,   # 1: a1
+    80.0,    # 2: a2
+    0.0,     # 3: a3
+    0, 0, 0, 0, 0,           # 4–8 unused
+    60.0, 0, 0, 0, 0, 0,     # 9–14: Theta_D,0 (smaller -> more T effect)
+    2.2,  0, 0, 0, 0, 0,     # 15–20: gamma_D,0 (bigger -> more α)
+    0.8,  0, 0, 0, 0, 0,     # 21–26: q_D (moderate)
+    0.0, 0.0, 0.0,           # 27–29: aa, bb, cc (keep 0 for Vm-only)
+    NEON_REFERENCE_ENTROPY
+])
+
+# Bounds (widened only for Vm-relevant entries)
+LOWER_BOUND_NEON = np.array([
+    11.5,    # v00
+    -5000,   # c1
+    -5000,   # c2
+    20.0,    # Theta_D,0
+    0.5,     # gamma_D,0
+    -1.0,    # q_D
+    0, 0, 0,               # b1..b3 fixed
+    10, 0, 0, 0, 0, 0,
+    -15, 0, 0, 0, 0, 0,
+    -10, 0, 0, 0, 0, 0,
+    0, 0, 1, NEON_REFERENCE_ENTROPY
+])
+
+UPPER_BOUND_NEON = np.array([
+    15.0,    # v00
+    20000,   # c1
+    20000,   # c2
+    200.0,   # Theta_D,0
+    4.0,     # gamma_D,0
+    2.0,     # q_D
+    0, 0, 0,               # b1..b3 fixed
+    90, 0, 0, 0, 0, 0,
+    15, 0, 0, 0, 0, 0,
+    10, 0, 0, 0, 0, 0,
+    10, 10, 10, NEON_REFERENCE_ENTROPY
+])
+# Xenon
 PARAMS_INIT_XENON = np.array([
+    34.85, 2739.48, 7328.48, 122.62,
+    0, 0, 0, 0, 0,
+    79.69, 0, 0, 0, 0, 0,
+    2.62, 0, 0, 0, 0, 0,
+    -1.54, 0, 0, 0, 0, 0,
+    0.0, 5.89, 6.16,
+    XENON_REFERENCE_ENTROPY  # S* (entropy reference)
+])
+
+# Lower bounds
+LOWER_BOUND_XENON = np.array([
+    30, 0, 0, 0, 0, 0, 0, 0, 0,
+    20, 0, 0, 0, 0, 0,
+    -15, 0, 0, 0, 0, 0,
+    -10, 0, 0, 0, 0, 0,
+    0, 0, 5, 5
+])
+
+# Upper bounds
+UPPER_BOUND_XENON = np.array([
+    40, 10000, 10000, 200, 0, 0, 0, 0, 0,
+    90, 0, 0, 0, 0, 0,
+    15, 0, 0, 0, 0, 0,
+    10, 0, 0, 0, 0, 0,
+    2, 6,7, 200
+])
+
+# Upper bounds
+PARAMS_INIT = np.array([
     27.04, 2739.48, 7328.48, 122.62,
     0, 0, 0, 0, 0,
     88.94, 0, 0, 0, 0, 0,
     3.21, 0, 0, 0, 0, 0,
     -3.17, 0, 0, 0, 0, 0,
     0.0, 1.92, 7.94,
-    130.0  # S* (entropy reference)
+    KRYPTON_REFERENCE_ENTROPY  # S* (entropy reference)
 ])
-
-# Lower bounds
-LOWER_BOUND_XENON = np.array([
-    20, 0, 0, 0, 0, 0, 0, 0, 0,
-    20, 0, 0, 0, 0, 0,
-    -5, 0, 0, 0, 0, 0,
-    -10, 0, 0, 0, 0, 0,
-    0, 0, 0, 0
-])
-
-# Upper bounds
-UPPER_BOUND_XENON = np.array([
-    40, 10000, 10000, 10000, 0, 0, 0, 0, 0,
-    300, 0, 0, 0, 0, 0,
-    5, 0, 0, 0, 0, 0,
-    10, 0, 0, 0, 0, 0,
-    100, 100, 100, 1000
-])
-
-# Upper bounds
 UPPER_BOUND = np.array([
     40, 10000, 10000, 10000, 0, 0, 0, 0, 0,
     300, 0, 0, 0, 0, 0,
@@ -194,15 +336,6 @@ UPPER_BOUND = np.array([
     100, 100, 100, 1000
 ])
 
-PARAMS_INIT = np.array([
-    27.04, 2739.48, 7328.48, 122.62,
-    0, 0, 0, 0, 0,
-    88.94, 0, 0, 0, 0, 0,
-   3.21, 0, 0, 0, 0, 0,
-    -3.17, 0, 0, 0, 0, 0,
-    0.0, 1.92, 7.94,
-    119.23  # S* (entropy reference)
-])
 
 # Lower bounds
 LOWER_BOUND = np.array([
@@ -230,12 +363,7 @@ GAMMA_NEG_SLOPE_MULT = 50.0
 PERCENT_SCALE = 100.0
 
 PERCENT_SCALE = 100.0
-FUNCTION_TOL = 5e-15
-GRADIENT_TOL = 5e-9
-MAX_ITERATIONS = 10
-EPS=1e-6
-MAXLS = 100
-N_OUTER=1
+
 
 # --- Weights for each deviation term ---
 PMELT_EXTRA_WEIGHT_T_K = 500.0
@@ -245,18 +373,7 @@ CP_WEIGHT_BELOW = 1
 CP_WEIGHT_ABOVE = 1
 
 
-W_VM_SUB = 1
-W_VM_MELT = 1
-W_VM_HIGHP = 1
-W_CP_SUB = 1
-W_ALPHA_SUB = 1
-W_BETAT_SUB = 1
-W_BETAS_SUB = 1
-W_H_SOLID_SUB = 1
-W_H_SOLID_MELT = 1
-W_P_SUB = 0.0
-W_P_MELT = 0.0
-W_GAMMA_T = 1.0
+
 
 history = {
     "total": [],

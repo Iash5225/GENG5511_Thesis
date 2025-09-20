@@ -226,24 +226,25 @@ def main():
     bounds = [(lo, hi) for lo, hi in zip(LOWER_BOUND, UPPER_BOUND)]
     krypton_data = load_all_gas_data('krypton', read_from_excel=False)
     datasets = extract_datasets(krypton_data)
-    res = minimize(
-        fun=lambda x, *a: _cost_only(x, *a),   
-        x0=PARAMS_INIT,
-        args=datasets,                         
-        method="L-BFGS-B",
-        bounds=bounds,
-        options=dict(disp=True, maxiter=MAX_ITERATIONS,
-                     ftol=FUNCTION_TOL, gtol=GRADIENT_TOL, eps=EPS, maxls=MAXLS)
-    )
-    print("\n Fitting status:", res.message)
-    params_fit = res.x
+    # res = minimize(
+    #     fun=lambda x, *a: _cost_only(x, *a),   
+    #     x0=PARAMS_INIT,
+    #     args=datasets,                         
+    #     method="L-BFGS-B",
+    #     bounds=bounds,
+    #     options=dict(disp=True, maxiter=MAX_ITERATIONS,
+    #                  ftol=FUNCTION_TOL, gtol=GRADIENT_TOL, eps=EPS, maxls=MAXLS)
+    # )
+    # print("\n Fitting status:", res.message)
+    # params_fit = res.x
+    params_fit = PARAMS_INIT
     # --- pretty print parameters ---
     formatted = ", ".join(f"{p:.2f}" for p in params_fit)
     print("Fitted parameters:")
     print(formatted)
     plot_all_overlays_grid(params_fit, datasets, Tt=Tt, pt=pt, compute_thermo_props=compute_thermo_props,
                            St_REFPROP=St_REFPROP, Ht_REFPROP=Ht_REFPROP, psub_curve=psub_curve, pmelt_curve=pmelt_curve)
-    GLOBAL_RECORDER.plot_history(ncols=5)
+    # GLOBAL_RECORDER.plot_history(ncols=5)
     
 def plot_deviation():
     krypton_data = load_all_gas_data('krypton', read_from_excel=False)
@@ -297,5 +298,5 @@ def plot_deviation():
     # )
 
 if __name__ == "__main__":
-    plot_deviation()
-    # main()
+    # plot_deviation()
+    main()
