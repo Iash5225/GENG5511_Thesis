@@ -243,18 +243,18 @@ def main():
     bounds = [(lo, hi) for lo, hi in zip(LOWER_BOUND_XENON, UPPER_BOUND_XENON)]
     xenon_data = load_all_gas_data('xenon', read_from_excel=False)
     datasets = extract_datasets(xenon_data)
-    # res = minimize(
-    #     fun=lambda x, *a: _cost_only(x, *a),   
-    #     x0=PARAMS_INIT_XENON,
-    #     args=datasets,                         
-    #     method="L-BFGS-B",
-    #     bounds=bounds,
-    #     options=dict(disp=True, maxiter=MAX_ITERATIONS,
-    #                  ftol=FUNCTION_TOL, gtol=GRADIENT_TOL, eps=EPS, maxls=MAXLS)
-    # )
-    # print("\n Fitting status:", res.message)
-    # params_fit = res.x
-    params_fit = PARAMS_INIT_XENON
+    res = minimize(
+        fun=lambda x, *a: _cost_only(x, *a),   
+        x0=PARAMS_INIT_XENON,
+        args=datasets,                         
+        method="L-BFGS-B",
+        bounds=bounds,
+        options=dict(disp=True, maxiter=MAX_ITERATIONS,
+                     ftol=FUNCTION_TOL, gtol=GRADIENT_TOL, eps=EPS, maxls=MAXLS)
+    )
+    print("\n Fitting status:", res.message)
+    params_fit = res.x
+    # params_fit = PARAMS_INIT_XENON
     # --- pretty print parameters ---
     formatted = ", ".join(f"{p:.2f}" for p in params_fit)
     print("Fitted parameters:")
@@ -262,7 +262,16 @@ def main():
     plot_all_overlays_grid(params_fit, datasets, Tt=Tt, pt=pt, compute_thermo_props=compute_thermo_props,
                            St_REFPROP=St_REFPROP, Ht_REFPROP=Ht_REFPROP, psub_curve=psub_curve, pmelt_curve=pmelt_curve)
     GLOBAL_RECORDER.plot_history(ncols=5)
-    
+
+
+def plot_init():
+    xenon_data = load_all_gas_data('xenon', read_from_excel=False)
+    datasets = extract_datasets(xenon_data)
+    params_init = PARAMS_INIT_XENON
+    # master_df = build_master_pointwise_df(datasets, meta, params_init)
+    # summarise_by_author(master_df).to_csv(os.path.join(IMG_OUTPUT_FOLDER, 'krypton_summary_by_author_init.csv'), index=False)
+    plot_all_overlays_grid(params_init, datasets, Tt=Tt, pt=pt, compute_thermo_props=compute_thermo_props,
+                           St_REFPROP=St_REFPROP, Ht_REFPROP=Ht_REFPROP, psub_curve=psub_curve, pmelt_curve=pmelt_curve)
 def plot_deviation():
     krypton_data = load_all_gas_data('krypton', read_from_excel=False)
     datasets, meta = extract_datasets_with_meta(krypton_data)
@@ -317,3 +326,4 @@ def plot_deviation():
 if __name__ == "__main__":
     # plot_deviation()
     main()
+    # plot_init()

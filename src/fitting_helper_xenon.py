@@ -410,6 +410,7 @@ def extract_datasets_with_meta(data):
 
     return datasets, meta
 
+
 def extract_datasets(data):
     """
     Extracts thermodynamic property datasets from the given data dictionary.
@@ -443,14 +444,16 @@ def extract_datasets(data):
         print(bad_T.to_string(index=True))
     # Cell Volume Sublimation
     T_Vm_sub = data["cell_volume_sub"]['Temperature']
-    p_Vm_sub = np.array([sublimation_pressure_equation(
-        T, KRYPTON_E_1_SUB,  KRYPTON_E_2_SUB, KRYPTON_E_3_SUB, KRYPTON_T_t, KRYPTON_P_t) for T in T_Vm_sub])
+    p_Vm_sub = safe_psub(T_Vm_sub)
+    # p_Vm_sub = np.array([sublimation_pressure_equation(
+    #     T, KRYPTON_E_1_SUB,  KRYPTON_E_2_SUB, KRYPTON_E_3_SUB, KRYPTON_T_t, KRYPTON_P_t) for T in T_Vm_sub])
     Vm_sub = data['cell_volume_sub']['Cell Volume']
 
     # Cell Volume Melting
     T_Vm_melt = data['cell_volume_melt']['Temperature']
-    p_Vm_melt = np.array([melting_pressure_equation(
-        T, KRYPTON_E_4, KRYPTON_E_5, KRYPTON_E_6, KRYPTON_E_7, KRYPTON_T_t, KRYPTON_P_t) for T in T_Vm_melt])
+    p_Vm_melt = pmelt_curve(T_Vm_melt)
+    # p_Vm_melt = np.array([melting_pressure_equation(
+    #     T, KRYPTON_E_4, KRYPTON_E_5, KRYPTON_E_6, KRYPTON_E_7, KRYPTON_T_t, KRYPTON_P_t) for T in T_Vm_melt])
     Vm_melt = data['cell_volume_melt']['Cell Volume']
 
     # High Pressure Cell Volume (safe defaults if missing)
@@ -465,14 +468,16 @@ def extract_datasets(data):
 
     # Heat Capacity Sublimation
     T_cp_sub = data['heat_capacity']['Temperature']
-    p_cp_sub = np.array([sublimation_pressure_equation(
-        T, KRYPTON_E_1_SUB,  KRYPTON_E_2_SUB, KRYPTON_E_3_SUB, KRYPTON_T_t, KRYPTON_P_t) for T in T_cp_sub])
+    p_cp_sub = safe_psub(T_cp_sub)
+    # p_cp_sub = np.array([sublimation_pressure_equation(
+    #     T, KRYPTON_E_1_SUB,  KRYPTON_E_2_SUB, KRYPTON_E_3_SUB, KRYPTON_T_t, KRYPTON_P_t) for T in T_cp_sub])
     cp_sub = data['heat_capacity']['Heat Capacity']
 
     # Thermal Expansion Sublimation
     T_alpha_sub = data['thermal_coeff']['Temperature']
-    p_alpha_sub = np.array([sublimation_pressure_equation(
-        T, KRYPTON_E_1_SUB,  KRYPTON_E_2_SUB, KRYPTON_E_3_SUB, KRYPTON_T_t, KRYPTON_P_t) for T in T_alpha_sub])
+    p_alpha_sub = safe_psub(T_alpha_sub)
+    # p_alpha_sub = np.array([sublimation_pressure_equation(
+    #     T, KRYPTON_E_1_SUB,  KRYPTON_E_2_SUB, KRYPTON_E_3_SUB, KRYPTON_T_t, KRYPTON_P_t) for T in T_alpha_sub])
     alpha_sub = data['thermal_coeff']['Thermal Expansion Coefficient']
 
     # Bulk Modulus (S)
@@ -486,6 +491,9 @@ def extract_datasets(data):
     T_BetaT_sub = data['bulk_t']['Temperature']
     p_BetaT_sub = safe_psub(T_BetaT_sub)
     BetaT_sub = data['bulk_t']['Beta T']
+    # print("T_BetaT_sub:", T_BetaT_sub)
+    # print("p_BetaT_sub:", p_BetaT_sub)
+    # print("BetaT_sub:", BetaT_sub)
 
     # Melting
     T_melt = data['melting']['Temperature']

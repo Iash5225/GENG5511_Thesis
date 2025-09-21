@@ -7,7 +7,6 @@ Year	Author	Temperature	Beta T
 1967	Batchelder	14	0.001
 1967	Batchelder	16	0.00107
 1967	Batchelder	18	0.00124
-1967	Batchelder	20	0.00162
 1970	Schoknecht	2	0.000885
 1970	Schoknecht	3	0.000886
 1970	Schoknecht	4	0.000888
@@ -33,7 +32,4 @@ Year	Author	Temperature	Beta T
 1970	Schoknecht	24	0.00171
 1972	Anderson	4.2	0.000911
 1972	Anderson	13.5	0.000974
-1972	Anderson	19.9	0.00121
-1990	Schlosser	19.9	0.00123
-1990	Schlosser	24.55	0.00131
 1969	Leake	4.7	0.00089
