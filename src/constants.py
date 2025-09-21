@@ -14,13 +14,13 @@ EIGHT = 8.0
 TWENTY = 20.0
 PT375 = 0.375
 
-W_VM_SUB = 1
-W_VM_MELT = 1
+W_VM_SUB = 0.4
+W_VM_MELT = 0.3
 W_VM_HIGHP = 0
-W_CP_SUB = 0
-W_ALPHA_SUB = 0
-W_BETAT_SUB = 0
-W_BETAS_SUB = 0
+W_CP_SUB = 0.5
+W_ALPHA_SUB = 0.5
+W_BETAT_SUB = 4.0
+W_BETAS_SUB = 6.0
 W_H_SOLID_SUB = 0
 W_H_SOLID_MELT = 0
 W_P_SUB = 0.0
@@ -180,41 +180,53 @@ MARKERSIZE=50
 AXIS_FONT_SIZE=14
 
 
+# PARAMS_INIT_NEON = np.array([
+#     13.38,   # 0: v00
+#     997.79,   # 1: a1
+#     469.13,    # 2: a2
+#     114.76,     # 3: a3
+#     0, 0, 0, 0, 0,           # 4–8 unused
+#     61.27, 0, 0, 0, 0, 0,     # 9–14: Theta_D,0 (smaller -> more T effect)
+#     2.52,  0, 0, 0, 0, 0,     # 15–20: gamma_D,0 (bigger -> more α)
+#     0.31,  0, 0, 0, 0, 0,     # 21–26: q_D (moderate)
+#     0.0, 0.0, 0.0,           # 27–29: aa, bb, cc (keep 0 for Vm-only)
+#     NEON_REFERENCE_ENTROPY
+# ])
 PARAMS_INIT_NEON = np.array([
-    13.37,   # 0: v00
-    997.94,   # 1: a1
-    200.0,    # 2: a2
-    100.0,     # 3: a3
+    13.38,   # 0: v00
+    997.79,   # 1: a1
+    469.13,    # 2: a2
+    114.76,     # 3: a3
     0, 0, 0, 0, 0,           # 4–8 unused
-    56.64, 0, 0, 0, 0, 0,     # 9–14: Theta_D,0 (smaller -> more T effect)
-    2.4,  0, 0, 0, 0, 0,     # 15–20: gamma_D,0 (bigger -> more α)
-    0.4,  0, 0, 0, 0, 0,     # 21–26: q_D (moderate)
+    61.27, 0, 0, 0, 0, 0,     # 9–14: Theta_D,0 (smaller -> more T effect)
+    2.52,  0, 0, 0, 0, 0,     # 15–20: gamma_D,0 (bigger -> more α)
+    0.31,  0, 0, 0, 0, 0,     # 21–26: q_D (moderate)
     0.0, 0.0, 0.0,           # 27–29: aa, bb, cc (keep 0 for Vm-only)
     NEON_REFERENCE_ENTROPY
 ])
 
 LOWER_BOUND_NEON = np.array([
-    13.20,  # v00  (tight around your good start)
-    0.0,    # a1   (keep positive stiffness)
-    -200.0,  # a2
-    -100.0,  # a3
+    13.20,      # v00
+    200.0,      # a1  (down -> larger κT)
+    -200.0,     # a2  (allow strong curvature)
+    -100.0,     # a3
     0, 0, 0, 0, 0,
-    45.0, 0, 0, 0, 0, 0,   # Theta_D,0
-    1.5,  0, 0, 0, 0, 0,   # gamma_D,0
-    0.4,  0, 0, 0, 0, 0,   # q_D
-    0.0, 0.0, 0.0,         # keep aa,bb,cc fixed
+    50.0, 0, 0, 0, 0, 0,    # ΘD0
+    2.30, 0, 0, 0, 0, 0,    # γ0  keep from collapsing
+    0.50, 0, 0, 0, 0, 0,    # q0  moderate
+    0.0, 0.0, 0.0,
     NEON_REFERENCE_ENTROPY
 ])
 
 UPPER_BOUND_NEON = np.array([
-    13.70,  # v00
-    5000,  # a1
-    5000.0,  # a2
-    200.0,  # a3
+    13.80,      # v00
+    4000.0,     # a1  (up -> smaller κT)
+    2000.0,     # a2
+    300.0,      # a3
     0, 0, 0, 0, 0,
-    85.0, 0, 0, 0, 0, 0,   # Theta_D,0
-    3.2,  0, 0, 0, 0, 0,   # gamma_D,0
-    1.5,  0, 0, 0, 0, 0,   # q_D
+    85.0, 0, 0, 0, 0, 0,    # ΘD0
+    3.60, 0, 0, 0, 0, 0,    # γ0
+    1.60, 0, 0, 0, 0, 0,    # q0
     0.0, 0.0, 0.0,
     NEON_REFERENCE_ENTROPY
 ])
