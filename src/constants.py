@@ -22,7 +22,7 @@ W_ALPHA_SUB =1
 W_BETAT_SUB = 1.0
 W_BETAS_SUB = 1.0
 W_H_SOLID_SUB = 0
-W_H_SOLID_MELT = 1.0
+W_H_SOLID_MELT = 0.0
 W_P_SUB = 0.0
 W_P_MELT = 0.0
 W_GAMMA_T = 1.0
@@ -59,7 +59,7 @@ MAX_LIMIT = np.log(np.sqrt(np.finfo(float).max)) - 1  # Limit for large X
 
 # REFPROP NIST Constants
 KRYPTON_REFERENCE_ENTROPY = 76.99 # kJ/kgK
-KRYPTON_REFERENCE_ENTHALPY = 8911  #J/kg
+KRYPTON_REFERENCE_ENTHALPY = 8911/1000  #J/kg
 
 NEON_REFERENCE_ENTROPY = 69.25 # kJ/kgK
 NEON_REFERENCE_ENTHALPY = 1695/1000  # J/kg
@@ -273,12 +273,12 @@ UPPER_BOUND_XENON = np.array([
 
 # Upper bounds
 PARAMS_INIT = np.array([
-    27.04, 2739.48, 7328.48, 122.62,
+    27.13, 3087.52, 7316.55, 123.12,
     0, 0, 0, 0, 0,
-    88.94, 0, 0, 0, 0, 0,
-    3.21, 0, 0, 0, 0, 0,
-    -3.17, 0, 0, 0, 0, 0,
-    0.0, 1.92, 7.94,
+    67.74, 0, 0, 0, 0, 0,
+    2.64, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0,
+    0.0, 1.93, 7.93,
     KRYPTON_REFERENCE_ENTROPY  # S* (entropy reference)
 ])
 UPPER_BOUND = np.array([

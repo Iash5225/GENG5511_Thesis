@@ -226,18 +226,18 @@ def main():
     bounds = [(lo, hi) for lo, hi in zip(LOWER_BOUND, UPPER_BOUND)]
     krypton_data = load_all_gas_data('krypton', read_from_excel=False)
     datasets = extract_datasets(krypton_data)
-    # res = minimize(
-    #     fun=lambda x, *a: _cost_only(x, *a),   
-    #     x0=PARAMS_INIT,
-    #     args=datasets,                         
-    #     method="L-BFGS-B",
-    #     bounds=bounds,
-    #     options=dict(disp=True, maxiter=MAX_ITERATIONS,
-    #                  ftol=FUNCTION_TOL, gtol=GRADIENT_TOL, eps=EPS, maxls=MAXLS)
-    # )
-    # print("\n Fitting status:", res.message)
-    # params_fit = res.x
-    params_fit = PARAMS_INIT
+    res = minimize(
+        fun=lambda x, *a: _cost_only(x, *a),   
+        x0=PARAMS_INIT,
+        args=datasets,                         
+        method="L-BFGS-B",
+        bounds=bounds,
+        options=dict(disp=True, maxiter=MAX_ITERATIONS,
+                     ftol=FUNCTION_TOL, gtol=GRADIENT_TOL, eps=EPS, maxls=MAXLS)
+    )
+    print("\n Fitting status:", res.message)
+    params_fit = res.x
+    # params_fit = PARAMS_INIT
     # --- pretty print parameters ---
     formatted = ", ".join(f"{p:.2f}" for p in params_fit)
     print("Fitted parameters:")
