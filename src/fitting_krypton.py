@@ -259,7 +259,11 @@ def plot_deviation():
     df_cp_sub = master_df[master_df["Property"] == "cp_sub"]
     df_alpha_sub = master_df[master_df["Property"] == "alpha_sub"]
     df_BetaT_sub = master_df[master_df["Property"] == "BetaT_sub"]
+    df_BETA_T_sub = df_BetaT_sub.copy()
+    df_BETA_T_sub['y_exp'] = 1 / df_BETA_T_sub['y_exp']  # Now in MPa
     df_BetaS_sub = master_df[master_df["Property"] == "BetaS_sub"]
+    df_BETA_S_sub = df_BetaS_sub.copy()
+    df_BETA_S_sub['y_exp'] = 1 / df_BETA_S_sub['y_exp']  # Now in MPa
     df_enthalpy_solid_melt = master_df[master_df["Property"] == "H_solid_melt"]
     df_enthalpy_solid_sub = master_df[master_df["Property"] == "H_solid_sub"]
     # df_BetaT_sub['KappaT_exp'] = 1 / df_BetaT_sub['BetaT_exp']  # Now in MPa
@@ -267,29 +271,29 @@ def plot_deviation():
 
     # # 3. Plot the variable
     plot_thermo_variable(
-        data=df_enthalpy_solid_sub,
+        data=df_BETA_S_sub,
         gas_name='krypton',
         x_col='T',
         y_col='y_exp',
-        y_label=r'$H$ (kJ/kg)',
-        title='Solid Enthalpy Sublimation for Krypton',
-        model_x=df_enthalpy_solid_sub['T'],
-        model_y=df_enthalpy_solid_sub['y_model'],
+        y_label=r'$K_{S}$ (MPa)',
+        title='Isentropic Bulk Modulus for Krypton',
+        model_x=df_BETA_S_sub['T'],
+        model_y=1/df_BETA_S_sub['y_model'],
         logy=False,
-        filename='krypton_solid_enthalpy_sublimation.png',
+        filename='krypton_beta_S_test.png',
         output_folder=IMG_OUTPUT_FOLDER,
         custom_colors=CUSTOMCOLORS,
         custom_markers=CUSTOMMARKERS
     )
     # plot_variable_deviation(
-    #     data=df_BetaS_sub,
+    #     data=df_BetaT_sub,
     #     gas_name='krypton',
     #     x_col='T',
     #     y_exp_col='y_exp',
     #     y_model_col='y_model',
-    #     y_label=r'$100 \cdot (\beta _{\mathrm{exp}} - \beta _{\mathrm{model}}) / \beta _{\mathrm{exp}}$ [%]',
-    #     title='Isentropic Compressibility for Krypton',
-    #     filename='krypton_isentropic_compressibility_sub_deviation',
+    #     y_label=r'$100 \cdot (\alpha _{\mathrm{exp}} - \alpha _{\mathrm{model}}) / \alpha _{\mathrm{exp}}$ [%]',
+    #     title='Thermal Expansivity Deviation for Krypton',
+    #     filename='krypton_thermal_expansivity_deviation.png',
     #     # xlim=(0, 120),
     #     # ylim=(-10, 25),
     #     output_folder=IMG_OUTPUT_FOLDER,
@@ -298,5 +302,5 @@ def plot_deviation():
     # )
 
 if __name__ == "__main__":
-    # plot_deviation()
-    main()
+    plot_deviation()
+    # main()

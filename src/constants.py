@@ -19,8 +19,8 @@ W_VM_MELT = 1
 W_VM_HIGHP = 0
 W_CP_SUB = 1
 W_ALPHA_SUB =1
-W_BETAT_SUB = 1.0
-W_BETAS_SUB = 1.0
+W_BETAT_SUB = 0.0
+W_BETAS_SUB = 0.0
 W_H_SOLID_SUB = 0
 W_H_SOLID_MELT = 0.0
 W_P_SUB = 0.0
@@ -186,10 +186,10 @@ PARAMS_INIT_NEON = np.array([
     469.13,    # 2: a2
     114.76,     # 3: a3
     0, 0, 0, 0, 0,           # 4–8 unused
-    57, 0, 0, 0, 0, 0,     # 9–14: Theta_D,0 (smaller -> more T effect)
-    3.2,  0, 0, 0, 0, 0,     # 15–20: gamma_D,0 (bigger -> more α)
+    61.27, 0, 0, 0, 0, 0,     # 9–14: Theta_D,0 (smaller -> more T effect)
+    2.69,  0, 0, 0, 0, 0,     # 15–20: gamma_D,0 (bigger -> more α)
     0.2,  0, 0, 0, 0, 0,     # 21–26: q_D (moderate)
-    0.0128, 0.388, 7.85,           # 27–29: aa, bb, cc (keep 0 for Vm-only)
+    0, 0, 0,           # 27–29: aa, bb, cc (keep 0 for Vm-only)
     NEON_REFERENCE_ENTROPY
 ])
 # PARAMS_INIT_NEON = np.array([
@@ -209,26 +209,26 @@ PARAMS_INIT_NEON = np.array([
 LOWER_BOUND_NEON = np.array([
     13.00,     # v00
     50.0,      # a1
-    -300.0,    # a2
-    -150.0,    # a3
-    0, 0, 0, 0, 0,
+    1,    # a2
+    1,    # a3
+    0.0, 0, 0, 0, 0,
     40.0, 0, 0, 0, 0, 0,   # ΘD0
-    2.6,  0, 0, 0, 0, 0,   # γ0 floor (prevents κS flattening)
-    0.6,  0, 0, 0, 0, 0,   # q0
-    0.0, 0.0, 0.0,
+    0.1,  0, 0, 0, 0, 0,   # γ0 floor (prevents κS flattening)
+    -5,  0, 0, 0, 0, 0,   # q0
+    -10, -10, -10,
     NEON_REFERENCE_ENTROPY
 ])
 
 UPPER_BOUND_NEON = np.array([
-    13.90,     # v00
-    6000.0,    # a1
-    3000.0,    # a2
-    600.0,     # a3
+    15,     # v00
+    10000.0,    # a1
+    10000.0,    # a2
+    10000.0,     # a3
     0, 0, 0, 0, 0,
     80.0, 0, 0, 0, 0, 0,   # ΘD0
-    5,  0, 0, 0, 0, 0,   # γ0
-    1.8,  0, 0, 0, 0, 0,   # q0
-    0.0, 0.0, 0.0,
+    20,  0, 0, 0, 0, 0,   # γ0
+    5,  0, 0, 0, 0, 0,   # q0
+    100, 100, 100,
     NEON_REFERENCE_ENTROPY
 ])
 # ...existing code...

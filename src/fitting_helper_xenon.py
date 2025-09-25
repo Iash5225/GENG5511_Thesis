@@ -291,126 +291,155 @@ def rms(x):
     n = x.size
     return 0.0 if n == 0 else np.sqrt(np.sum(x*x) / n)
 
+# def extract_datasets_with_meta(data):
+#     """
+#     Build both numeric arrays (like extract_datasets) AND metadata (Author, Year).
+#     Returns:
+#         datasets : tuple (length 38, same order as extract_datasets)
+#         meta : dict mapping each property to its Author/Year arrays
+#     """
+#     # --- reuse most of the original code ---
+#     T_Vm_sub = data["cell_volume_sub"]["Temperature"].to_numpy()
+#     p_Vm_sub = np.array([sublimation_pressure_equation(
+#         T, KRYPTON_E_1_SUB, KRYPTON_E_2_SUB, KRYPTON_E_3_SUB, KRYPTON_T_t, KRYPTON_P_t
+#     ) for T in T_Vm_sub], dtype=float)
+#     Vm_sub = data["cell_volume_sub"]["Cell Volume"].to_numpy()
+
+#     T_Vm_melt = data["cell_volume_melt"]["Temperature"].to_numpy()
+#     p_Vm_melt = np.array([melting_pressure_equation(
+#         T, KRYPTON_E_4, KRYPTON_E_5, KRYPTON_E_6, KRYPTON_E_7, KRYPTON_T_t, KRYPTON_P_t
+#     ) for T in T_Vm_melt], dtype=float)
+#     Vm_melt = data["cell_volume_melt"]["Cell Volume"].to_numpy()
+
+#     if "cell_volume_highp" in data:
+#         T_Vm_highp = data["cell_volume_highp"]["Temperature"].to_numpy()
+#         p_Vm_highp = data["cell_volume_highp"]["Pressure"].to_numpy()
+#         Vm_highp = data["cell_volume_highp"]["Cell Volume"].to_numpy()
+#     else:
+#         T_Vm_highp = p_Vm_highp = Vm_highp = np.array([])
+
+#     T_cp_sub = data["heat_capacity"]["Temperature"].to_numpy()
+#     p_cp_sub = np.array([sublimation_pressure_equation(
+#         T, KRYPTON_E_1_SUB, KRYPTON_E_2_SUB, KRYPTON_E_3_SUB, KRYPTON_T_t, KRYPTON_P_t
+#     ) for T in T_cp_sub], dtype=float)
+#     cp_sub = data["heat_capacity"]["Heat Capacity"].to_numpy()
+
+#     T_alpha_sub = data["thermal_coeff"]["Temperature"].to_numpy()
+#     p_alpha_sub = np.array([sublimation_pressure_equation(
+#         T, KRYPTON_E_1_SUB, KRYPTON_E_2_SUB, KRYPTON_E_3_SUB, KRYPTON_T_t, KRYPTON_P_t
+#     ) for T in T_alpha_sub], dtype=float)
+#     alpha_sub = data["thermal_coeff"]["Thermal Expansion Coefficient"].to_numpy()
+
+#     T_BetaS_sub = data["bulk_s"]["Temperature"].to_numpy()
+#     p_BetaS_sub = safe_psub(T_BetaS_sub)
+#     BetaS_sub = data["bulk_s"]["Beta S"].to_numpy()
+
+#     T_BetaT_sub = data["bulk_t"]["Temperature"].to_numpy()
+#     p_BetaT_sub = safe_psub(T_BetaT_sub)
+#     BetaT_sub = data["bulk_t"]["Beta T"].to_numpy()
+
+#     T_melt = data["melting"]["Temperature"].to_numpy()
+#     p_melt = data["melting"]["Pressure"].to_numpy()
+#     G_fluid_melt = data["melting"]["Gibbs Energy"].to_numpy()
+#     V_fluid_melt = data["melting"]["Volume"].to_numpy()
+
+#     T_sub = data["sublimation"]["Temperature"].to_numpy()
+#     p_sub = data["sublimation"]["Pressure"].to_numpy()
+#     G_fluid_sub = data["sublimation"]["Gibbs Energy"].to_numpy()
+#     V_fluid_sub = data["sublimation"]["Volume"].to_numpy()
+#     Year_sub = data["sublimation"]["Year"].to_numpy(
+#     ) if "Year" in data["sublimation"].columns else np.array([])
+
+#     T_H_sub = data["heatsub"]["Temperature"].to_numpy()
+#     p_H_sub = data["heatsub"]["Pressure"].to_numpy()
+#     delta_H_sub = pd.to_numeric(data["heatsub"]["Change in Enthalpy"],
+#                       errors="coerce").to_numpy()
+#     H_fluid_sub = pd.to_numeric(data["heatsub"]["Enthalpy"], errors="coerce").to_numpy()
+
+#     T_H_melt = data["fusion"]["Temperature"].to_numpy()
+#     p_H_melt = data["fusion"]["Pressure"].to_numpy()
+#     delta_H_melt = pd.to_numeric(data["fusion"]["Change in Enthalpy"],
+#                       errors="coerce").to_numpy()
+#     H_fluid_melt = pd.to_numeric(data["fusion"]["Enthalpy"], errors="coerce").to_numpy()
+
+#     # --- original tuple (38) ---
+#     datasets = (
+#         T_Vm_sub, p_Vm_sub, Vm_sub,
+#         T_Vm_melt, p_Vm_melt, Vm_melt,
+#         T_Vm_highp, p_Vm_highp, Vm_highp,
+#         T_cp_sub, p_cp_sub, cp_sub,
+#         T_alpha_sub, p_alpha_sub, alpha_sub,
+#         T_BetaT_sub, p_BetaT_sub, BetaT_sub,
+#         T_BetaS_sub, p_BetaS_sub, BetaS_sub,
+#         T_sub, p_sub, Year_sub, G_fluid_sub, V_fluid_sub,
+#         T_melt, p_melt, G_fluid_melt, V_fluid_melt,
+#         T_H_sub, p_H_sub, delta_H_sub, H_fluid_sub,
+#         T_H_melt, p_H_melt, delta_H_melt, H_fluid_melt
+#     )
+
+#     # --- metadata dict ---
+#     meta = {
+#         "Vm_sub":   {"Author": data["cell_volume_sub"].get("Author", pd.Series(["Unknown"]*len(T_Vm_sub))).to_numpy(),
+#                      "Year":   data["cell_volume_sub"].get("Year", pd.Series([0]*len(T_Vm_sub))).to_numpy()},
+#         "Vm_melt":  {"Author": data["cell_volume_melt"].get("Author", pd.Series(["Unknown"]*len(T_Vm_melt))).to_numpy(),
+#                      "Year":   data["cell_volume_melt"].get("Year", pd.Series([0]*len(T_Vm_melt))).to_numpy()},
+#         "Vm_highp": None if "cell_volume_highp" not in data else {
+#             "Author": data["cell_volume_highp"].get("Author", pd.Series(["Unknown"]*len(T_Vm_highp))).to_numpy(),
+#             "Year":   data["cell_volume_highp"].get("Year", pd.Series([0]*len(T_Vm_highp))).to_numpy()},
+#         "cp_sub":   {"Author": data["heat_capacity"].get("Author", pd.Series(["Unknown"]*len(T_cp_sub))).to_numpy(),
+#                      "Year":   data["heat_capacity"].get("Year", pd.Series([0]*len(T_cp_sub))).to_numpy()},
+#         "alpha_sub": {"Author": data["thermal_coeff"].get("Author", pd.Series(["Unknown"]*len(T_alpha_sub))).to_numpy(),
+#                       "Year":   data["thermal_coeff"].get("Year", pd.Series([0]*len(T_alpha_sub))).to_numpy()},
+#         "BetaT_sub": {"Author": data["bulk_t"].get("Author", pd.Series(["Unknown"]*len(T_BetaT_sub))).to_numpy(),
+#                       "Year":   data["bulk_t"].get("Year", pd.Series([0]*len(T_BetaT_sub))).to_numpy()},
+#         "BetaS_sub": {"Author": data["bulk_s"].get("Author", pd.Series(["Unknown"]*len(T_BetaS_sub))).to_numpy(),
+#                       "Year":   data["bulk_s"].get("Year", pd.Series([0]*len(T_BetaS_sub))).to_numpy()},
+#         "H_solid_sub": {"Author": data["heatsub"].get("Author", pd.Series(["Unknown"]*len(T_H_sub))).to_numpy(),
+#                         "Year":   data["heatsub"].get("Year", pd.Series([0]*len(T_H_sub))).to_numpy()},
+#         "H_solid_melt": {"Author": data["fusion"].get("Author", pd.Series(["Unknown"]*len(T_H_melt))).to_numpy(),
+#                          "Year":   data["fusion"].get("Year", pd.Series([0]*len(T_H_melt))).to_numpy()},
+#         "sublimation": {
+#             "Author": data["sublimation"].get("Author", pd.Series(["Unknown"]*len(T_sub))).to_numpy(),
+#             "Year":   data["sublimation"].get("Year",   pd.Series([0]*len(T_sub))).to_numpy(),
+#         },
+#         "melting": {
+#             "Author": data["melting"].get("Author", pd.Series(["Unknown"]*len(T_melt))).to_numpy(),
+#             "Year":   data["melting"].get("Year",   pd.Series([0]*len(T_melt))).to_numpy(),
+#         },
+#     }
+
+#     return datasets, meta
+
+
 def extract_datasets_with_meta(data):
     """
-    Build both numeric arrays (like extract_datasets) AND metadata (Author, Year).
-    Returns:
-        datasets : tuple (length 38, same order as extract_datasets)
-        meta : dict mapping each property to its Author/Year arrays
+    Reuses extract_datasets() for numeric arrays, then builds meta dict
+    (Author, Year) per property key. No duplication of numeric work.
     """
-    # --- reuse most of the original code ---
-    T_Vm_sub = data["cell_volume_sub"]["Temperature"].to_numpy()
-    p_Vm_sub = np.array([sublimation_pressure_equation(
-        T, KRYPTON_E_1_SUB, KRYPTON_E_2_SUB, KRYPTON_E_3_SUB, KRYPTON_T_t, KRYPTON_P_t
-    ) for T in T_Vm_sub], dtype=float)
-    Vm_sub = data["cell_volume_sub"]["Cell Volume"].to_numpy()
+    datasets = extract_datasets(data)
 
-    T_Vm_melt = data["cell_volume_melt"]["Temperature"].to_numpy()
-    p_Vm_melt = np.array([melting_pressure_equation(
-        T, KRYPTON_E_4, KRYPTON_E_5, KRYPTON_E_6, KRYPTON_E_7, KRYPTON_T_t, KRYPTON_P_t
-    ) for T in T_Vm_melt], dtype=float)
-    Vm_melt = data["cell_volume_melt"]["Cell Volume"].to_numpy()
+    def meta_block(df, n):
+        if df is None:
+            return None
+        return {
+            "Author": df.get("Author", pd.Series(["Unknown"]*n)).to_numpy(),
+            "Year":   df.get("Year",   pd.Series([0]*n)).to_numpy()
+        }
 
-    if "cell_volume_highp" in data:
-        T_Vm_highp = data["cell_volume_highp"]["Temperature"].to_numpy()
-        p_Vm_highp = data["cell_volume_highp"]["Pressure"].to_numpy()
-        Vm_highp = data["cell_volume_highp"]["Cell Volume"].to_numpy()
-    else:
-        T_Vm_highp = p_Vm_highp = Vm_highp = np.array([])
-
-    T_cp_sub = data["heat_capacity"]["Temperature"].to_numpy()
-    p_cp_sub = np.array([sublimation_pressure_equation(
-        T, KRYPTON_E_1_SUB, KRYPTON_E_2_SUB, KRYPTON_E_3_SUB, KRYPTON_T_t, KRYPTON_P_t
-    ) for T in T_cp_sub], dtype=float)
-    cp_sub = data["heat_capacity"]["Heat Capacity"].to_numpy()
-
-    T_alpha_sub = data["thermal_coeff"]["Temperature"].to_numpy()
-    p_alpha_sub = np.array([sublimation_pressure_equation(
-        T, KRYPTON_E_1_SUB, KRYPTON_E_2_SUB, KRYPTON_E_3_SUB, KRYPTON_T_t, KRYPTON_P_t
-    ) for T in T_alpha_sub], dtype=float)
-    alpha_sub = data["thermal_coeff"]["Thermal Expansion Coefficient"].to_numpy()
-
-    T_BetaS_sub = data["bulk_s"]["Temperature"].to_numpy()
-    p_BetaS_sub = safe_psub(T_BetaS_sub)
-    BetaS_sub = data["bulk_s"]["Beta S"].to_numpy()
-
-    T_BetaT_sub = data["bulk_t"]["Temperature"].to_numpy()
-    p_BetaT_sub = safe_psub(T_BetaT_sub)
-    BetaT_sub = data["bulk_t"]["Beta T"].to_numpy()
-
-    T_melt = data["melting"]["Temperature"].to_numpy()
-    p_melt = data["melting"]["Pressure"].to_numpy()
-    G_fluid_melt = data["melting"]["Gibbs Energy"].to_numpy()
-    V_fluid_melt = data["melting"]["Volume"].to_numpy()
-
-    T_sub = data["sublimation"]["Temperature"].to_numpy()
-    p_sub = data["sublimation"]["Pressure"].to_numpy()
-    G_fluid_sub = data["sublimation"]["Gibbs Energy"].to_numpy()
-    V_fluid_sub = data["sublimation"]["Volume"].to_numpy()
-    Year_sub = data["sublimation"]["Year"].to_numpy(
-    ) if "Year" in data["sublimation"].columns else np.array([])
-
-    T_H_sub = data["heatsub"]["Temperature"].to_numpy()
-    p_H_sub = data["heatsub"]["Pressure"].to_numpy()
-    delta_H_sub = pd.to_numeric(data["heatsub"]["Change in Enthalpy"],
-                      errors="coerce").to_numpy()
-    H_fluid_sub = pd.to_numeric(data["heatsub"]["Enthalpy"], errors="coerce").to_numpy()
-
-    T_H_melt = data["fusion"]["Temperature"].to_numpy()
-    p_H_melt = data["fusion"]["Pressure"].to_numpy()
-    delta_H_melt = pd.to_numeric(data["fusion"]["Change in Enthalpy"],
-                      errors="coerce").to_numpy()
-    H_fluid_melt = pd.to_numeric(data["fusion"]["Enthalpy"], errors="coerce").to_numpy()
-
-    # --- original tuple (38) ---
-    datasets = (
-        T_Vm_sub, p_Vm_sub, Vm_sub,
-        T_Vm_melt, p_Vm_melt, Vm_melt,
-        T_Vm_highp, p_Vm_highp, Vm_highp,
-        T_cp_sub, p_cp_sub, cp_sub,
-        T_alpha_sub, p_alpha_sub, alpha_sub,
-        T_BetaT_sub, p_BetaT_sub, BetaT_sub,
-        T_BetaS_sub, p_BetaS_sub, BetaS_sub,
-        T_sub, p_sub, Year_sub, G_fluid_sub, V_fluid_sub,
-        T_melt, p_melt, G_fluid_melt, V_fluid_melt,
-        T_H_sub, p_H_sub, delta_H_sub, H_fluid_sub,
-        T_H_melt, p_H_melt, delta_H_melt, H_fluid_melt
-    )
-
-    # --- metadata dict ---
     meta = {
-        "Vm_sub":   {"Author": data["cell_volume_sub"].get("Author", pd.Series(["Unknown"]*len(T_Vm_sub))).to_numpy(),
-                     "Year":   data["cell_volume_sub"].get("Year", pd.Series([0]*len(T_Vm_sub))).to_numpy()},
-        "Vm_melt":  {"Author": data["cell_volume_melt"].get("Author", pd.Series(["Unknown"]*len(T_Vm_melt))).to_numpy(),
-                     "Year":   data["cell_volume_melt"].get("Year", pd.Series([0]*len(T_Vm_melt))).to_numpy()},
-        "Vm_highp": None if "cell_volume_highp" not in data else {
-            "Author": data["cell_volume_highp"].get("Author", pd.Series(["Unknown"]*len(T_Vm_highp))).to_numpy(),
-            "Year":   data["cell_volume_highp"].get("Year", pd.Series([0]*len(T_Vm_highp))).to_numpy()},
-        "cp_sub":   {"Author": data["heat_capacity"].get("Author", pd.Series(["Unknown"]*len(T_cp_sub))).to_numpy(),
-                     "Year":   data["heat_capacity"].get("Year", pd.Series([0]*len(T_cp_sub))).to_numpy()},
-        "alpha_sub": {"Author": data["thermal_coeff"].get("Author", pd.Series(["Unknown"]*len(T_alpha_sub))).to_numpy(),
-                      "Year":   data["thermal_coeff"].get("Year", pd.Series([0]*len(T_alpha_sub))).to_numpy()},
-        "BetaT_sub": {"Author": data["bulk_t"].get("Author", pd.Series(["Unknown"]*len(T_BetaT_sub))).to_numpy(),
-                      "Year":   data["bulk_t"].get("Year", pd.Series([0]*len(T_BetaT_sub))).to_numpy()},
-        "BetaS_sub": {"Author": data["bulk_s"].get("Author", pd.Series(["Unknown"]*len(T_BetaS_sub))).to_numpy(),
-                      "Year":   data["bulk_s"].get("Year", pd.Series([0]*len(T_BetaS_sub))).to_numpy()},
-        "H_solid_sub": {"Author": data["heatsub"].get("Author", pd.Series(["Unknown"]*len(T_H_sub))).to_numpy(),
-                        "Year":   data["heatsub"].get("Year", pd.Series([0]*len(T_H_sub))).to_numpy()},
-        "H_solid_melt": {"Author": data["fusion"].get("Author", pd.Series(["Unknown"]*len(T_H_melt))).to_numpy(),
-                         "Year":   data["fusion"].get("Year", pd.Series([0]*len(T_H_melt))).to_numpy()},
-        "sublimation": {
-            "Author": data["sublimation"].get("Author", pd.Series(["Unknown"]*len(T_sub))).to_numpy(),
-            "Year":   data["sublimation"].get("Year",   pd.Series([0]*len(T_sub))).to_numpy(),
-        },
-        "melting": {
-            "Author": data["melting"].get("Author", pd.Series(["Unknown"]*len(T_melt))).to_numpy(),
-            "Year":   data["melting"].get("Year",   pd.Series([0]*len(T_melt))).to_numpy(),
-        },
+        "Vm_sub":       meta_block(data.get("cell_volume_sub"),   len(datasets[0])),
+        "Vm_melt":      meta_block(data.get("cell_volume_melt"),  len(datasets[3])),
+        "Vm_highp":     meta_block(data.get("cell_volume_highp"), len(datasets[6])) if len(datasets[6]) else None,
+        "cp_sub":       meta_block(data.get("heat_capacity"),     len(datasets[9])),
+        "alpha_sub":    meta_block(data.get("thermal_coeff"),     len(datasets[12])),
+        "BetaT_sub":    meta_block(data.get("bulk_t"),            len(datasets[15])),
+        "BetaS_sub":    meta_block(data.get("bulk_s"),            len(datasets[18])),
+        "sublimation":  meta_block(data.get("sublimation"),       len(datasets[21])),
+        "melting":      meta_block(data.get("melting"),           len(datasets[26])),
+        "H_solid_sub":  meta_block(data.get("heatsub"),           len(datasets[31])),
+        "H_solid_melt": meta_block(data.get("fusion"),            len(datasets[34])),
     }
-
     return datasets, meta
-
-
 def extract_datasets(data):
     """
     Extracts thermodynamic property datasets from the given data dictionary.

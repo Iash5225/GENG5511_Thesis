@@ -273,10 +273,10 @@ def plot_init():
     plot_all_overlays_grid(params_init, datasets, Tt=Tt, pt=pt, compute_thermo_props=compute_thermo_props,
                            St_REFPROP=St_REFPROP, Ht_REFPROP=Ht_REFPROP, psub_curve=psub_curve, pmelt_curve=pmelt_curve)
 def plot_deviation():
-    krypton_data = load_all_gas_data('krypton', read_from_excel=False)
-    datasets, meta = extract_datasets_with_meta(krypton_data)
-    params_fit = PARAMS_INIT
-    master_df = build_master_pointwise_df(datasets, meta, params_fit)
+    xenon_data = load_all_gas_data('xenon', read_from_excel=False)
+    datasets, meta = extract_datasets_with_meta(xenon_data)
+    params_init = PARAMS_INIT_XENON
+    master_df = build_master_pointwise_df(datasets, meta, params_init)
 
     # 2. Filter for the property you want to plot
     
@@ -285,45 +285,51 @@ def plot_deviation():
     df_cp_sub = master_df[master_df["Property"] == "cp_sub"]
     df_alpha_sub = master_df[master_df["Property"] == "alpha_sub"]
     df_BetaT_sub = master_df[master_df["Property"] == "BetaT_sub"]
+    df_BETA_T_sub = df_BetaT_sub.copy()
+    df_BETA_T_sub['y_exp'] = 1 / df_BETA_T_sub['y_exp']  # Now in MPa
+    df_BETA_T_sub['y_model'] = 1 / df_BETA_T_sub['y_model']  # Now in MPa
     df_BetaS_sub = master_df[master_df["Property"] == "BetaS_sub"]
+    df_BETA_S_sub = df_BetaS_sub.copy()
+    df_BETA_S_sub['y_exp'] = 1 / df_BETA_S_sub['y_exp']  # Now in MPa
+    df_BETA_S_sub['y_model'] = 1 / df_BETA_S_sub['y_model']  # Now in MPa
     df_enthalpy_solid_melt = master_df[master_df["Property"] == "H_solid_melt"]
     df_enthalpy_solid_sub = master_df[master_df["Property"] == "H_solid_sub"]
     # df_BetaT_sub['KappaT_exp'] = 1 / df_BetaT_sub['BetaT_exp']  # Now in MPa
 
 
     # # 3. Plot the variable
-    plot_thermo_variable(
-        data=df_enthalpy_solid_sub,
-        gas_name='krypton',
-        x_col='T',
-        y_col='y_exp',
-        y_label=r'$H$ (kJ/kg)',
-        title='Solid Enthalpy Sublimation for Krypton',
-        model_x=df_enthalpy_solid_sub['T'],
-        model_y=df_enthalpy_solid_sub['y_model'],
-        logy=False,
-        filename='krypton_solid_enthalpy_sublimation.png',
-        output_folder=IMG_OUTPUT_FOLDER,
-        custom_colors=CUSTOMCOLORS,
-        custom_markers=CUSTOMMARKERS
-    )
-    # plot_variable_deviation(
-    #     data=df_BetaS_sub,
-    #     gas_name='krypton',
+    # plot_thermo_variable(
+    #     data=df_BETA_S_sub,
+    #     gas_name='xenon',
     #     x_col='T',
-    #     y_exp_col='y_exp',
-    #     y_model_col='y_model',
-    #     y_label=r'$100 \cdot (\beta _{\mathrm{exp}} - \beta _{\mathrm{model}}) / \beta _{\mathrm{exp}}$ [%]',
-    #     title='Isentropic Compressibility for Krypton',
-    #     filename='krypton_isentropic_compressibility_sub_deviation',
-    #     # xlim=(0, 120),
-    #     # ylim=(-10, 25),
+    #     y_col='y_exp',
+    #     y_label=r'$K_S$ ($MPa$)',
+    #     title='Isentropic Bulk Modulus for Xenon',
+    #     model_x=df_BETA_S_sub['T'],
+    #     model_y=df_BETA_S_sub['y_model'],
+    #     logy=False,
+    #     filename='xenon_isentropic_bulk_modulus.png',
     #     output_folder=IMG_OUTPUT_FOLDER,
     #     custom_colors=CUSTOMCOLORS,
     #     custom_markers=CUSTOMMARKERS
     # )
+    plot_variable_deviation(
+        data=df_BETA_T_sub,
+        gas_name='xenon',
+        x_col='T',
+        y_exp_col='y_exp',
+        y_model_col='y_model',
+        y_label=r'$100 K ( K_{exp} - K_{model}) / K_{exp}$ [%]',
+        title='Isothermal Deviation for Xenon',
+        filename='xenon_isothermal_deviation',
+        # xlim=(0, 120),
+        # ylim=(-10, 25),
+        output_folder=IMG_OUTPUT_FOLDER,
+        custom_colors=CUSTOMCOLORS,
+        custom_markers=CUSTOMMARKERS
+    )
 
 if __name__ == "__main__":
-    # plot_deviation()
-    main()
+    plot_deviation()
+    # main()
     # plot_init()
