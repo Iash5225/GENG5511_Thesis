@@ -487,15 +487,17 @@ def extract_datasets(data):
     V_fluid_sub = data['sublimation']['Volume']
     # Enthalpy Sublimation
     T_H_sub = data['heatsub']['Temperature']
-    p_H_sub = data['heatsub']['Pressure']
+    p_H_sub = safe_psub(T_H_sub)
+    #p_H_sub = data['heatsub']['Pressure']
     delta_H_sub = 1000.0 * data['heatsub']['Change in Enthalpy']  # kJ → J
-    H_fluid_sub = 1000.0 * data['heatsub']['Enthalpy']
+    H_fluid_sub = data['heatsub']['Enthalpy']
 
     # Enthalpy Melting
     T_H_melt = data['fusion']['Temperature']
-    p_H_melt = data['fusion']['Pressure']
+    p_H_melt = pmelt_curve(T_H_melt)
+    # p_H_melt = data['fusion']['Pressure']
     delta_H_melt = 1000.0 * data['fusion']['Change in Enthalpy']
-    H_fluid_melt = 1000.0 * data['fusion']['Enthalpy']
+    H_fluid_melt = data['fusion']['Enthalpy']
 
     Year_sub = np.array([])   # <-- add this
 

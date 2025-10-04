@@ -85,6 +85,7 @@ def plot_all_overlays_grid(params, datasets, Tt, pt,
 
     dHtr, dStr = _calc_deltaH_S_at_triple(params, Tt, pt, compute_thermo_props,
                                           St_REFPROP, Ht_REFPROP)
+    print(f"At triple point: ΔH_triple = {dHtr:.3f} kJ/mol, ΔS_triple = {dStr:.3f} J/(mol·K)")
 
     panels = []
 

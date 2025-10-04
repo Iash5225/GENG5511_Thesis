@@ -330,6 +330,6 @@ def plot_deviation():
     )
 
 if __name__ == "__main__":
-    plot_deviation()
+    # plot_deviation()
     # main()
-    # plot_init()
+    plot_init()

@@ -14,24 +14,24 @@ EIGHT = 8.0
 TWENTY = 20.0
 PT375 = 0.375
 
-W_VM_SUB = 1
-W_VM_MELT = 1
+W_VM_SUB = 0
+W_VM_MELT = 0
 W_VM_HIGHP = 0
-W_CP_SUB = 1
-W_ALPHA_SUB =1
+W_CP_SUB = 0
+W_ALPHA_SUB =0
 W_BETAT_SUB = 0.0
 W_BETAS_SUB = 0.0
-W_H_SOLID_SUB = 0
-W_H_SOLID_MELT = 0.0
+W_H_SOLID_SUB = 1.0
+W_H_SOLID_MELT = 1.0
 W_P_SUB = 0.0
 W_P_MELT = 0.0
-W_GAMMA_T = 1.0
+W_GAMMA_T = 0.0
 
 
 FUNCTION_TOL = 1e-15
 GRADIENT_TOL = 1e-12
 MAX_ITERATIONS = 1000
-EPS = 1e-6
+EPS = 1e-9
 MAXLS = 100
 N_OUTER = 1
 
@@ -81,8 +81,6 @@ KRYPTON_E_4 = 1487.56
 KRYPTON_E_5 = 1.819
 KRYPTON_E_6 = 5158.09
 KRYPTON_E_7 = 0.98822
-
-
 
 XENON_E_4 = 4136.681829018883
 XENON_E_5 = 1.280037747122412
@@ -186,48 +184,36 @@ PARAMS_INIT_NEON = np.array([
     469.13,    # 2: a2
     114.76,     # 3: a3
     0, 0, 0, 0, 0,           # 4–8 unused
-    61.27, 0, 0, 0, 0, 0,     # 9–14: Theta_D,0 (smaller -> more T effect)
+    65, 0, 0, 0, 0, 0,     # 9–14: Theta_D,0 (smaller -> more T effect)
     2.69,  0, 0, 0, 0, 0,     # 15–20: gamma_D,0 (bigger -> more α)
     0.2,  0, 0, 0, 0, 0,     # 21–26: q_D (moderate)
     0, 0, 0,           # 27–29: aa, bb, cc (keep 0 for Vm-only)
     NEON_REFERENCE_ENTROPY
 ])
-# PARAMS_INIT_NEON = np.array([
-#     13.38,   # 0: v00
-#     997.79,   # 1: a1
-#     469.13,    # 2: a2
-#     114.76,     # 3: a3
-#     0, 0, 0, 0, 0,           # 4–8 unused
-#     61.27, 0, 0, 0, 0, 0,     # 9–14: Theta_D,0 (smaller -> more T effect)
-#     2.69,  0, 0, 0, 0, 0,     # 15–20: gamma_D,0 (bigger -> more α)
-#     0.2,  0, 0, 0, 0, 0,     # 21–26: q_D (moderate)
-#     0.0128, 0.388, 7.85,           # 27–29: aa, bb, cc (keep 0 for Vm-only)
-#     NEON_REFERENCE_ENTROPY
-# ])
 
 
 LOWER_BOUND_NEON = np.array([
-    13.00,     # v00
-    50.0,      # a1
-    1,    # a2
-    1,    # a3
-    0.0, 0, 0, 0, 0,
-    40.0, 0, 0, 0, 0, 0,   # ΘD0
-    0.1,  0, 0, 0, 0, 0,   # γ0 floor (prevents κS flattening)
-    -5,  0, 0, 0, 0, 0,   # q0
-    -10, -10, -10,
+    13.00,   # 0: v00
+    997.00,   # 1: a1
+    469.00,    # 2: a2
+    114.00,     # 3: a3
+    0, 0, 0, 0, 0,           # 4–8 unused
+    64, 0, 0, 0, 0, 0,     # 9–14: Theta_D,0 (smaller -> more T effect)
+    2.65,  0, 0, 0, 0, 0,     # 15–20: gamma_D,0 (bigger -> more α)
+    0.1,  0, 0, 0, 0, 0,     # 21–26: q_D (moderate)
+    -1, -1,-1,           # 27–29: aa, bb, cc (keep 0 for Vm-only)
     NEON_REFERENCE_ENTROPY
 ])
 
 UPPER_BOUND_NEON = np.array([
     15,     # v00
-    10000.0,    # a1
-    10000.0,    # a2
-    10000.0,     # a3
+    1100,    # a1
+    600,    # a2
+    300,     # a3
     0, 0, 0, 0, 0,
-    80.0, 0, 0, 0, 0, 0,   # ΘD0
-    20,  0, 0, 0, 0, 0,   # γ0
-    5,  0, 0, 0, 0, 0,   # q0
+    75, 0, 0, 0, 0, 0,   # ΘD0
+    3,  0, 0, 0, 0, 0,   # γ0
+    2,  0, 0, 0, 0, 0,   # q0
     100, 100, 100,
     NEON_REFERENCE_ENTROPY
 ])
@@ -273,41 +259,51 @@ UPPER_BOUND_XENON = np.array([
 
 # Upper bounds
 PARAMS_INIT = np.array([
-    27.13, 3087.52, 7316.55, 123.12,
+    27.13, 3087.52, 7316.55, 123.13,
     0, 0, 0, 0, 0,
     67.74, 0, 0, 0, 0, 0,
     2.64, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0,
     0.0, 1.93, 7.93,
-    KRYPTON_REFERENCE_ENTROPY  # S* (entropy reference)
+    69.13165833  # S* (entropy reference)
 ])
-UPPER_BOUND = np.array([
-    40, 10000, 10000, 10000, 0, 0, 0, 0, 0,
-    300, 0, 0, 0, 0, 0,
-    5, 0, 0, 0, 0, 0,
-    10, 0, 0, 0, 0, 0,
-    100, 100, 100, 1000
-])
+# UPPER_BOUND = np.array([
+#     40, 10000, 10000, 10000, 0, 0, 0, 0, 0,
+#     300, 0, 0, 0, 0, 0,
+#     5, 0, 0, 0, 0, 0,
+#     10, 0, 0, 0, 0, 0,
+#     100, 100, 100, 200
+# ])
+
+# # Lower bounds
+# LOWER_BOUND = np.array([
+#     20, 0, 0, 0, 0, 0, 0, 0, 0,
+#     20, 0, 0, 0, 0, 0,
+#     -5, 0, 0, 0, 0, 0,
+#     -10, 0, 0, 0, 0, 0,
+#     0, 0, 0, 60
+# ])
 
 
 # Lower bounds
 LOWER_BOUND = np.array([
-    20, 0, 0, 0, 0, 0, 0, 0, 0,
-    20, 0, 0, 0, 0, 0,
-    -5, 0, 0, 0, 0, 0,
-    -10, 0, 0, 0, 0, 0,
-    0, 0, 0, 0
+    27.13, 3087.52, 7316.55, 123.13,
+    0, 0, 0, 0, 0,
+    67.74, 0, 0, 0, 0, 0,
+    2.64, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0,
+    0.0, 1.93, 7.93,
+    69  # S* (entropy reference)
 ])
-
-# Upper bounds
 UPPER_BOUND = np.array([
-    40, 10000, 10000, 10000, 0, 0, 0, 0, 0,
-    300, 0, 0, 0, 0, 0,
-    5, 0, 0, 0, 0, 0,
-    10, 0, 0, 0, 0, 0,
-    100, 100, 100, 1000
+    27.13, 3087.52, 7316.55, 123.13,
+    0, 0, 0, 0, 0,
+    67.74, 0, 0, 0, 0, 0,
+    2.64, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0,
+    0.0, 1.93, 7.93,
+    75  # S* (entropy reference)
 ])
-
 
 GAMMA_POS_SLOPE_OFFSET = 45.0
 GAMMA_POS_SLOPE_MULT =200.0

@@ -1,0 +1,5 @@
+Year	Author	Temperature	Enthalpy	Change in Enthalpy
+1962	Lahr	116.1	-135.48	1.904
+1962	Lahr	209	12463	2.326
+2008	Ferreira	116	-147.45	2.19
+1977	Pollack	115.763	8911.5	1.64

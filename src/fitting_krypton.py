@@ -46,6 +46,26 @@ def _cost_only(params, *datasets):
         traceback.print_exc()
         return BIG
 
+
+def _triple_offsets(params, Tt, pt, compute_thermo_props, St_REFPROP, Ht_REFPROP):
+    """
+    Minimal helper: returns (dH_triple_kJ_per_mol, dS_triple) using the same
+    convention as plotting. This is the only place S* (params[30]) enters.
+    """
+    tp = compute_thermo_props(float(Tt), float(pt), params)
+    if isinstance(tp, tuple) and len(tp) == 2 and isinstance(tp[1], dict):
+        # if your compute_thermo_props ever returns meta
+        meta = tp[1]
+        dH = float(meta.get("deltaH_triple"))
+        dS = float(meta.get("deltaS_triple"))
+    else:
+        props = np.asarray(tp, float)
+        Sstar = float(params[30])
+        dS = Sstar - float(St_REFPROP)
+        # match plot_eos: use G (index 11), not H
+        Ht_fitted = float(props[11]) + float(Tt) * Sstar   # G + T*S*
+        dH = Ht_fitted - float(Ht_REFPROP)                 # J/mol
+    return dH/1000.0, dS  # kJ/mol, dimensionless
 def combined_cost_function(params, *datasets):
     (T_Vm_sub, p_Vm_sub, Vm_sub,
      T_Vm_melt, p_Vm_melt, Vm_melt,
@@ -85,6 +105,9 @@ def combined_cost_function(params, *datasets):
     H_solid_sub_dev = BIG
     H_solid_melt_dev = BIG
     Gamma_T6_dev = BIG
+
+    dHtr_kJ, dStr = _triple_offsets(
+        params, Tt, pt, compute_thermo_props, St_REFPROP, Ht_REFPROP)
 
     m = (np.isfinite(T_Vm_sub) & np.isfinite(p_Vm_sub)
          & np.isfinite(Vm_sub) & (T_Vm_sub <= Tt))
@@ -145,25 +168,44 @@ def combined_cost_function(params, *datasets):
         model = _safe_props_vector(
             T_BetaS_sub[m], p_BetaS_sub[m], params, idx=2)
         BetaS_sub_dev = rms_percent(BetaS_sub[m], model)
-    # Enthalpy of sublimation: kJ/mol (no unit juggling)
+
+
+    # # Enthalpy of sublimation: kJ/mol (no unit juggling)
+    # m = (np.isfinite(T_H_sub) & np.isfinite(p_H_sub) &
+    #      np.isfinite(delta_H_sub) & np.isfinite(H_fluid_sub) & (T_H_sub <= Tt))
+
+    # if np.any(m):
+    #     H_solid_sub = H_fluid_sub[m] - delta_H_sub[m] * 1.0  # both kJ/mol
+    #     modelH = _safe_props_vector(
+    #         T_H_sub[m], p_H_sub[m], params, idx=10) / 1000 - deltaH_triple_kJ
+    #     H_solid_sub_dev = rms_percent(H_solid_sub, modelH)
+    # # Enthalpy of melting: kJ/mol
+    # m = (np.isfinite(T_H_melt) & np.isfinite(p_H_melt) &
+    #      np.isfinite(delta_H_melt) & np.isfinite(H_fluid_melt) & (T_H_melt >= Tt))
+
+    # if np.any(m):
+    #     H_solid_melt = H_fluid_melt[m] - delta_H_melt[m] * 1.0
+    #     modelH = _safe_props_vector(
+    #         T_H_melt[m], p_H_melt[m], params, idx=10)/1000 - deltaH_triple_kJ
+    #     H_solid_melt_dev = rms_percent(H_solid_melt, modelH)
+    # Gamma-T smoothness penalty along a subl. grid (T<=Tt)
+        # Enthalpy of sublimation: compare H_solid,exp vs (H_model - dHtr)
     m = (np.isfinite(T_H_sub) & np.isfinite(p_H_sub) &
          np.isfinite(delta_H_sub) & np.isfinite(H_fluid_sub) & (T_H_sub <= Tt))
-
     if np.any(m):
-        H_solid_sub = H_fluid_sub[m] - delta_H_sub[m] * 1.0  # both kJ/mol
+        H_solid_sub = H_fluid_sub[m] - delta_H_sub[m] * 1.0          # kJ/mol
         modelH = _safe_props_vector(
-            T_H_sub[m], p_H_sub[m], params, idx=10) / 1000 - deltaH_triple_kJ
+            T_H_sub[m], p_H_sub[m], params, idx=10)/1000.0 - dHtr_kJ
         H_solid_sub_dev = rms_percent(H_solid_sub, modelH)
-    # Enthalpy of melting: kJ/mol
+
+    # Enthalpy of melting
     m = (np.isfinite(T_H_melt) & np.isfinite(p_H_melt) &
          np.isfinite(delta_H_melt) & np.isfinite(H_fluid_melt) & (T_H_melt >= Tt))
-
     if np.any(m):
-        H_solid_melt = H_fluid_melt[m] - delta_H_melt[m] * 1.0
+        H_solid_melt = H_fluid_melt[m] - delta_H_melt[m] * 1.0       # kJ/mol
         modelH = _safe_props_vector(
-            T_H_melt[m], p_H_melt[m], params, idx=10)/1000 - deltaH_triple_kJ
+            T_H_melt[m], p_H_melt[m], params, idx=10)/1000.0 - dHtr_kJ
         H_solid_melt_dev = rms_percent(H_solid_melt, modelH)
-    # Gamma-T smoothness penalty along a subl. grid (T<=Tt)
     T6 = np.array([0.0001] + list(range(2, math.ceil(Tt), 2)) + [Tt])
     T6 = T6[T6 <= Tt]
     p6 = np.full_like(T6, np.nan, dtype=float)
@@ -193,6 +235,14 @@ def combined_cost_function(params, *datasets):
             else:
                 terms.append(GAMMA_NEG_SLOPE_MULT * (Gm[i] - mu) / mu)
         Gamma_T6_dev = rms(np.array(terms))
+    
+    # --- light triple-point anchor so S* is identifiable even with sparse H data ---
+        # --- use the helper so S* affects the cost ---
+    dHtr_kJ, dStr = _triple_offsets(
+        params, Tt, pt, compute_thermo_props, St_REFPROP, Ht_REFPROP)
+    s_ref = max(1.0, abs(St_REFPROP))
+    h_ref_kJ = max(1.0, abs(Ht_REFPROP)/1000.0)
+    triple_pen = 0.05 * (dStr / s_ref)**2 + 0.05 * (dHtr_kJ / h_ref_kJ)**2
     # ====== TOTAL COST ======    
     total_deviation = (
         Vm_sub_dev * W_VM_SUB +
@@ -204,7 +254,8 @@ def combined_cost_function(params, *datasets):
         BetaS_sub_dev * W_BETAS_SUB +
         H_solid_sub_dev * W_H_SOLID_SUB +
         H_solid_melt_dev * W_H_SOLID_MELT +
-        Gamma_T6_dev * W_GAMMA_T
+        Gamma_T6_dev * W_GAMMA_T + 
+        triple_pen
     )
 
     deviations = {
@@ -218,6 +269,8 @@ def combined_cost_function(params, *datasets):
         "H_solid_sub": H_solid_sub_dev,
         "H_solid_melt": H_solid_melt_dev,
         "Gamma_T": Gamma_T6_dev,
+        "dHtr_kJ": dHtr_kJ,
+        "dStr": dStr,
     }
     return total_deviation, deviations
 
@@ -239,12 +292,12 @@ def main():
     params_fit = res.x
     # params_fit = PARAMS_INIT
     # --- pretty print parameters ---
-    formatted = ", ".join(f"{p:.2f}" for p in params_fit)
+    formatted = ", ".join(f"{p:.5f}" for p in params_fit)
     print("Fitted parameters:")
     print(formatted)
     plot_all_overlays_grid(params_fit, datasets, Tt=Tt, pt=pt, compute_thermo_props=compute_thermo_props,
                            St_REFPROP=St_REFPROP, Ht_REFPROP=Ht_REFPROP, psub_curve=psub_curve, pmelt_curve=pmelt_curve)
-    # GLOBAL_RECORDER.plot_history(ncols=5)
+    GLOBAL_RECORDER.plot_history(ncols=5)
     
 def plot_deviation():
     krypton_data = load_all_gas_data('krypton', read_from_excel=False)
@@ -301,6 +354,14 @@ def plot_deviation():
     #     custom_markers=CUSTOMMARKERS
     # )
 
+
+def plot_init():
+    krypton_data = load_all_gas_data('krypton', read_from_excel=False)
+    datasets = extract_datasets(krypton_data)
+    params_init = PARAMS_INIT
+    plot_all_overlays_grid(params_init, datasets, Tt=Tt, pt=pt, compute_thermo_props=compute_thermo_props,
+                           St_REFPROP=St_REFPROP, Ht_REFPROP=Ht_REFPROP, psub_curve=psub_curve, pmelt_curve=pmelt_curve)
 if __name__ == "__main__":
-    plot_deviation()
+    # plot_deviation()
     # main()
+    plot_init()
