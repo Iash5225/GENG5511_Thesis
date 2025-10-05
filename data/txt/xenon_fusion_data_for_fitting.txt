@@ -1,0 +1,6 @@
+Year 	Author	Temperature	Change in Enthalpy	Enthalpy
+1962	Lahr	292	2.946	17609
+1962	Lahr	322	2.782	22050
+1962	Lahr	351	2.741	26414
+1962	Lahr	379	2.77	30686
+1962	Lahr	406	2.866	34852

@@ -18,11 +18,11 @@ W_VM_SUB = 0
 W_VM_MELT = 0
 W_VM_HIGHP = 0
 W_CP_SUB = 0
-W_ALPHA_SUB =0
-W_BETAT_SUB = 0.0
-W_BETAS_SUB = 0.0
-W_H_SOLID_SUB = 1.0
-W_H_SOLID_MELT = 1.0
+W_ALPHA_SUB = 0
+W_BETAT_SUB = 0
+W_BETAS_SUB = 1.0
+W_H_SOLID_SUB = 0.0
+W_H_SOLID_MELT = 0.0
 W_P_SUB = 0.0
 W_P_MELT = 0.0
 W_GAMMA_T = 0.0
@@ -31,7 +31,7 @@ W_GAMMA_T = 0.0
 FUNCTION_TOL = 1e-15
 GRADIENT_TOL = 1e-12
 MAX_ITERATIONS = 1000
-EPS = 1e-9
+EPS = 1e-6
 MAXLS = 100
 N_OUTER = 1
 
@@ -181,41 +181,41 @@ AXIS_FONT_SIZE=14
 PARAMS_INIT_NEON = np.array([
     13.38,   # 0: v00
     997.79,   # 1: a1
-    469.13,    # 2: a2
-    114.76,     # 3: a3
+    600,    # 2: a2
+    12000,     # 3: a3
     0, 0, 0, 0, 0,           # 4–8 unused
-    65, 0, 0, 0, 0, 0,     # 9–14: Theta_D,0 (smaller -> more T effect)
-    2.69,  0, 0, 0, 0, 0,     # 15–20: gamma_D,0 (bigger -> more α)
-    0.2,  0, 0, 0, 0, 0,     # 21–26: q_D (moderate)
-    0, 0, 0,           # 27–29: aa, bb, cc (keep 0 for Vm-only)
+    61, 0, 0, 0, 0, 0,     # 9–14: Theta_D,0 (smaller -> more T effect)
+    2.65,  0, 0, 0, 0, 0,     # 15–20: gamma_D,0 (bigger -> more α)
+    1.6,  0, 0, 0, 0, 0,     # 21–26: q_D (moderate)
+    0, 2, 1,           # 27–29: aa, bb, cc (keep 0 for Vm-only)
     NEON_REFERENCE_ENTROPY
 ])
 
 
 LOWER_BOUND_NEON = np.array([
-    13.00,   # 0: v00
+    13.38,   # 0: v00
     997.00,   # 1: a1
-    469.00,    # 2: a2
-    114.00,     # 3: a3
+    599,    # 2: a2
+    11000,     # 3: a3
     0, 0, 0, 0, 0,           # 4–8 unused
-    64, 0, 0, 0, 0, 0,     # 9–14: Theta_D,0 (smaller -> more T effect)
-    2.65,  0, 0, 0, 0, 0,     # 15–20: gamma_D,0 (bigger -> more α)
-    0.1,  0, 0, 0, 0, 0,     # 21–26: q_D (moderate)
-    -1, -1,-1,           # 27–29: aa, bb, cc (keep 0 for Vm-only)
-    NEON_REFERENCE_ENTROPY
+    60, 0, 0, 0, 0, 0,     # 9–14: Theta_D,0 (smaller -> more T effect)
+    2.0,  0, 0, 0, 0, 0,     # 15–20: gamma_D,0 (bigger -> more α)
+    1,  0, 0, 0, 0, 0,     # 21–26: q_D (moderate)
+    0, 0,0,           # 27–29: aa, bb, cc (keep 0 for Vm-only)
+    60
 ])
 
 UPPER_BOUND_NEON = np.array([
-    15,     # v00
-    1100,    # a1
-    600,    # a2
-    300,     # a3
+    13.38,     # v00
+    1000,    # a1
+    601,    # a2
+    13000,     # a3
     0, 0, 0, 0, 0,
-    75, 0, 0, 0, 0, 0,   # ΘD0
-    3,  0, 0, 0, 0, 0,   # γ0
+    70, 0, 0, 0, 0, 0,   # ΘD0
+    2.7,  0, 0, 0, 0, 0,   # γ0
     2,  0, 0, 0, 0, 0,   # q0
-    100, 100, 100,
-    NEON_REFERENCE_ENTROPY
+    0, 10, 10,
+    100
 ])
 # ...existing code...
 # Xenon
@@ -236,7 +236,7 @@ PARAMS_INIT_XENON = np.array([
     2.68, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0,
     0.0, 5.89, 6.16,
-    XENON_REFERENCE_ENTROPY  # S* (entropy reference)
+    81.71942258  # S* (entropy reference)
 ])
 
 # Lower bounds

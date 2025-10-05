@@ -354,6 +354,15 @@ def plot_deviation():
     #     custom_markers=CUSTOMMARKERS
     # )
 
+def RMS_AAD():
+    krypton_data = load_all_gas_data('krypton', read_from_excel=False)
+    datasets, meta = extract_datasets_with_meta(krypton_data)
+    params_fit = PARAMS_INIT
+    master_df = build_master_pointwise_df(datasets, meta, params_fit)
+    summary = summarise_by_author(master_df)
+    # Save to CSV
+    output_path = os.path.join(IMG_OUTPUT_FOLDER, 'krypton_summary_by_author.csv')
+    summary.to_csv(output_path, index=False)
 
 def plot_init():
     krypton_data = load_all_gas_data('krypton', read_from_excel=False)
@@ -364,4 +373,5 @@ def plot_init():
 if __name__ == "__main__":
     # plot_deviation()
     # main()
-    plot_init()
+    # plot_init()
+    RMS_AAD()
