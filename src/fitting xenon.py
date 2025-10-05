@@ -294,42 +294,56 @@ def plot_deviation():
     df_BETA_S_sub['y_model'] = 1 / df_BETA_S_sub['y_model']  # Now in MPa
     df_enthalpy_solid_melt = master_df[master_df["Property"] == "H_solid_melt"]
     df_enthalpy_solid_sub = master_df[master_df["Property"] == "H_solid_sub"]
+    df_pressure_sub = master_df[master_df["Property"] == "psub"]
+    df_pressure_melt = master_df[master_df["Property"] == "pmelt"]
     # df_BetaT_sub['KappaT_exp'] = 1 / df_BetaT_sub['BetaT_exp']  # Now in MPa
 
 
     # # 3. Plot the variable
-    # plot_thermo_variable(
-    #     data=df_BETA_S_sub,
-    #     gas_name='xenon',
-    #     x_col='T',
-    #     y_col='y_exp',
-    #     y_label=r'$K_S$ ($MPa$)',
-    #     title='Isentropic Bulk Modulus for Xenon',
-    #     model_x=df_BETA_S_sub['T'],
-    #     model_y=df_BETA_S_sub['y_model'],
-    #     logy=False,
-    #     filename='xenon_isentropic_bulk_modulus.png',
-    #     output_folder=IMG_OUTPUT_FOLDER,
-    #     custom_colors=CUSTOMCOLORS,
-    #     custom_markers=CUSTOMMARKERS
-    # )
-    plot_variable_deviation(
-        data=df_BETA_T_sub,
+    plot_thermo_variable(
+        data=df_pressure_sub,
         gas_name='xenon',
         x_col='T',
-        y_exp_col='y_exp',
-        y_model_col='y_model',
-        y_label=r'$100 K ( K_{exp} - K_{model}) / K_{exp}$ [%]',
-        title='Isothermal Deviation for Xenon',
-        filename='xenon_isothermal_deviation',
-        # xlim=(0, 120),
-        # ylim=(-10, 25),
+        y_col='y_exp',
+        y_label=r'$p$ ($MPa$)',
+        title='Sublimation Pressure for Xenon',
+        model_x=df_pressure_sub['T'],
+        model_y=df_pressure_sub['y_model'],
+        logy=True,
+        filename='xenon_sublimation_pressure.png',
         output_folder=IMG_OUTPUT_FOLDER,
         custom_colors=CUSTOMCOLORS,
         custom_markers=CUSTOMMARKERS
     )
+    # plot_variable_deviation(
+    #     data=df_BETA_T_sub,
+    #     gas_name='xenon',
+    #     x_col='T',
+    #     y_exp_col='y_exp',
+    #     y_model_col='y_model',
+    #     y_label=r'$100 K ( K_{exp} - K_{model}) / K_{exp}$ [%]',
+    #     title='Isothermal Deviation for Xenon',
+    #     filename='xenon_isothermal_deviation',
+    #     # xlim=(0, 120),
+    #     # ylim=(-10, 25),
+    #     output_folder=IMG_OUTPUT_FOLDER,
+    #     custom_colors=CUSTOMCOLORS,
+    #     custom_markers=CUSTOMMARKERS
+    # )
 
+
+def RMS_AAD():
+    data = load_all_gas_data('xenon', read_from_excel=False)
+    datasets, meta = extract_datasets_with_meta(data)
+    params_fit = PARAMS_INIT_XENON
+    master_df = build_master_pointwise_df(datasets, meta, params_fit)
+    summary = summarise_by_author(master_df)
+    # Save to CSV
+    output_path = os.path.join(
+        IMG_OUTPUT_FOLDER, 'xenon_summary_by_author.csv')
+    summary.to_csv(output_path, index=False)
 if __name__ == "__main__":
-    # plot_deviation()
+    plot_deviation()
     # main()
-    plot_init()
+    # plot_init()
+    # RMS_AAD()

@@ -189,12 +189,12 @@ def plot_all_overlays_grid(params, datasets, Tt, pt,
         panels.append((r"$H_\mathrm{solid}$ — melting", "T / K",
                       r"$H$ (kJ mol$^{-1}$)", T, H_s_exp, H_model))
 
-        # --- Sublimation pressure (aux curve vs experimental, log y) ---
+    # --- Sublimation pressure (aux curve vs experimental, log y) ---
     m = (np.isfinite(T_sub) & np.isfinite(p_sub) &
         np.isfinite(G_fluid_sub) & np.isfinite(V_fluid_sub) & (np.asarray(T_sub) <= Tt))
     if np.any(m):
         T_pts = np.asarray(T_sub)[m]
-        p_pts = np.asarray(p_sub)[m] / 1e6
+        p_pts = np.asarray(p_sub)[m]
         # dense curve from min(T_pts) up to Tt
         T_curve = np.linspace(np.nanmin(T_pts), Tt, 300)
         p_curve = np.asarray(psub_curve(T_curve), float)#convert bar to MPA 

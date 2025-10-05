@@ -25,7 +25,7 @@ W_H_SOLID_SUB = 0.0
 W_H_SOLID_MELT = 0.0
 W_P_SUB = 0.0
 W_P_MELT = 0.0
-W_GAMMA_T = 0.0
+W_GAMMA_T =0.0
 
 
 FUNCTION_TOL = 1e-15
@@ -179,15 +179,15 @@ AXIS_FONT_SIZE=14
 
 
 PARAMS_INIT_NEON = np.array([
-    13.38,   # 0: v00
-    997.79,   # 1: a1
-    600,    # 2: a2
-    12000,     # 3: a3
+    13.391,   # 0: v00
+    997.00,   # 1: a1
+    700,    # 2: a2
+    11000,     # 3: a3
     0, 0, 0, 0, 0,           # 4–8 unused
-    61, 0, 0, 0, 0, 0,     # 9–14: Theta_D,0 (smaller -> more T effect)
-    2.65,  0, 0, 0, 0, 0,     # 15–20: gamma_D,0 (bigger -> more α)
+    65, 0, 0, 0, 0, 0,     # 9–14: Theta_D,0 (smaller -> more T effect)
+    2.61,  0, 0, 0, 0, 0,     # 15–20: gamma_D,0 (bigger -> more α)
     1.6,  0, 0, 0, 0, 0,     # 21–26: q_D (moderate)
-    0, 2, 1,           # 27–29: aa, bb, cc (keep 0 for Vm-only)
+    0.08, 1.2, 1,           # 27–29: aa, bb, cc (keep 0 for Vm-only)
     NEON_REFERENCE_ENTROPY
 ])
 
@@ -195,11 +195,11 @@ PARAMS_INIT_NEON = np.array([
 LOWER_BOUND_NEON = np.array([
     13.38,   # 0: v00
     997.00,   # 1: a1
-    599,    # 2: a2
-    11000,     # 3: a3
+    500,    # 2: a2
+    10000,     # 3: a3
     0, 0, 0, 0, 0,           # 4–8 unused
     60, 0, 0, 0, 0, 0,     # 9–14: Theta_D,0 (smaller -> more T effect)
-    2.0,  0, 0, 0, 0, 0,     # 15–20: gamma_D,0 (bigger -> more α)
+    2.5,  0, 0, 0, 0, 0,     # 15–20: gamma_D,0 (bigger -> more α)
     1,  0, 0, 0, 0, 0,     # 21–26: q_D (moderate)
     0, 0,0,           # 27–29: aa, bb, cc (keep 0 for Vm-only)
     60
@@ -208,26 +208,16 @@ LOWER_BOUND_NEON = np.array([
 UPPER_BOUND_NEON = np.array([
     13.38,     # v00
     1000,    # a1
-    601,    # a2
-    13000,     # a3
+    700,    # a2
+    12000,     # a3
     0, 0, 0, 0, 0,
-    70, 0, 0, 0, 0, 0,   # ΘD0
-    2.7,  0, 0, 0, 0, 0,   # γ0
+    75, 0, 0, 0, 0, 0,   # ΘD0
+    3,  0, 0, 0, 0, 0,   # γ0
     2,  0, 0, 0, 0, 0,   # q0
-    0, 10, 10,
+    1, 100, 100,
     100
 ])
-# ...existing code...
-# Xenon
-# PARAMS_INIT_XENON = np.array([
-#     34.85, 2739.48, 7328.48, 122.62,
-#     0, 0, 0, 0, 0,
-#     79.69, 0, 0, 0, 0, 0,
-#     2.62, 0, 0, 0, 0, 0,
-#     -1.54, 0, 0, 0, 0, 0,
-#     0.0, 5.89, 6.16,
-#     XENON_REFERENCE_ENTROPY  # S* (entropy reference)
-# ])
+
 
 PARAMS_INIT_XENON = np.array([
     34.53, 3386.08, 7310.03, 123.09,
@@ -267,24 +257,6 @@ PARAMS_INIT = np.array([
     0.0, 1.93, 7.93,
     69.13165833  # S* (entropy reference)
 ])
-# UPPER_BOUND = np.array([
-#     40, 10000, 10000, 10000, 0, 0, 0, 0, 0,
-#     300, 0, 0, 0, 0, 0,
-#     5, 0, 0, 0, 0, 0,
-#     10, 0, 0, 0, 0, 0,
-#     100, 100, 100, 200
-# ])
-
-# # Lower bounds
-# LOWER_BOUND = np.array([
-#     20, 0, 0, 0, 0, 0, 0, 0, 0,
-#     20, 0, 0, 0, 0, 0,
-#     -5, 0, 0, 0, 0, 0,
-#     -10, 0, 0, 0, 0, 0,
-#     0, 0, 0, 60
-# ])
-
-
 # Lower bounds
 LOWER_BOUND = np.array([
     27.13, 3087.52, 7316.55, 123.13,
