@@ -1036,6 +1036,40 @@ def plot_deviation(variable='Vm_melt'):
             custom_colors=CUSTOMCOLORS,
             custom_markers=CUSTOMMARKERS
         )
+    elif variable == 'BetaS_sub':
+        # # 3. Plot the variable
+        plot_thermo_variable(
+            data=df_BETA_S_sub,  # convert to KappaS in MPa
+            gas_name='krypton',
+            x_col='T',
+            y_col='y_exp',
+            y_label=r'$K_S\,/\,\mathrm{MPa}$',
+            title=None,
+            xlim=(0, 120),
+            ylim=(1500, 4000),
+            model_x=df_BETA_S_sub['T'],
+            model_y=df_BETA_S_sub['y_model'],  # convert to KappaS in MPa
+            logy=False,
+            filename='krypton_sub_isentropic_compressibility.png',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+        plot_variable_deviation(
+            data=df_BETA_S_sub,
+            gas_name='krypton',
+            x_col='T',
+            y_exp_col='y_exp',
+            y_model_col='y_model',
+            y_label=r'$100 \cdot (K_{S,\mathrm{exp}} - K_{S,\mathrm{calc}}) / K_{S,\mathrm{exp}}$',
+            title=None,
+            filename='krypton_sub_isentropic_compressibility_deviation',
+            xlim=(0, 120),
+            ylim=(-30, 30),
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
 
 
 def RMS_AAD():
