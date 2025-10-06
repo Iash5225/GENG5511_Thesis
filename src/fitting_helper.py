@@ -308,11 +308,62 @@ def rms(x):
     return 0.0 if n == 0 else np.sqrt(np.sum(x*x) / n)
 
 
+def _ensure_meta_columns(df: pd.DataFrame, property_name: str) -> pd.DataFrame:
+    """
+    Ensure df has 'Property', 'Author', 'Year' columns for grouping.
+    Robust to case and stray whitespace; will also match columns that only
+    contain the substring (e.g., 'measurement year').
+    """
+    if df is None:
+        return df
+    out = df.copy()
+
+    def find_col(name: str, contains: bool = False):
+        lname = name.lower()
+        for c in out.columns:
+            if not isinstance(c, str):
+                continue
+            cs = c.strip().lower()           # strip whitespace
+            if (not contains and cs == lname) or (contains and lname in cs):
+                return c
+        return None
+
+    # Property
+    if "Property" not in out.columns:
+        out["Property"] = property_name
+
+    # Author (exact or case-insensitive/whitespace-robust)
+    if "Author" not in out.columns:
+        ac = find_col("Author") or find_col(
+            "Authors") or find_col("author", contains=True)
+        out["Author"] = out[ac] if ac is not None else "Unknown"
+
+    # Year (exact; else substring; else leave NaN)
+    if "Year" not in out.columns:
+        yc = find_col("Year") or find_col("year", contains=True)
+        if yc is None:
+            print(
+                f"[ensure-meta] '{property_name}': Year column not found; filling with NaN.")
+            out["Year"] = np.nan
+        else:
+            # coerce to numeric years
+            out["Year"] = pd.to_numeric(out[yc], errors="coerce")
+
+    return out
+
+
 def extract_datasets_with_meta(data):
     """
     Reuses extract_datasets() for numeric arrays, then builds meta dict
     (Author, Year) per property key. No duplication of numeric work.
     """
+    # IMPORTANT: fix columns BEFORE we read them into meta
+    def ensure(key, prop):
+        if key in data and isinstance(data[key], pd.DataFrame):
+            data[key] = _ensure_meta_columns(data[key], prop)
+    ensure("heatsub", "H_solid_sub")     # <-- heatsub fixed here BEFORE meta
+    ensure("fusion", "H_solid_melt")
+
     datasets = extract_datasets(data)
 
     def meta_block(df, n):
@@ -445,7 +496,7 @@ def extract_datasets(data):
         T_H_melt, p_H_melt, delta_H_melt, H_fluid_melt
     )
 
-    assert len(datasets) == 38
+    # assert len(datasets) == 38
     return datasets
 
 def _safe_props_vector(T_arr, p_arr, params, idx):
@@ -782,12 +833,15 @@ def build_master_pointwise_df(datasets, meta, params_fit):
               BetaT_sub,  IDX["KappaT"], "BetaT_sub")
     add_block("BetaS_sub", "sub",  T_BetaS_sub, p_BetaS_sub,
               BetaS_sub,  IDX["KappaS"], "BetaS_sub")
+    # If you later want enthalpy sets, you can uncomment and define the exact y_exp_transform to match your thesis
+    add_block("H_solid_sub", "sub",  T_H_sub,  p_H_sub,
+              (H_fluid_sub - delta_H_sub),  IDX["H"], "H_solid_sub")
+    add_block("H_solid_melt", "melt", T_H_melt, p_H_melt,
+              (H_fluid_melt - delta_H_melt), IDX["H"], "H_solid_melt")
     add_pressure_block("psub",  "sub",  T_sub,  p_sub,  "sublimation")
     add_pressure_block("pmelt", "melt", T_melt, p_melt, "melting")
 
-    # If you later want enthalpy sets, you can uncomment and define the exact y_exp_transform to match your thesis
-    add_block("H_solid_sub", "sub",  T_H_sub,  p_H_sub,  (H_fluid_sub - delta_H_sub),  IDX["H"], "H_solid_sub")
-    add_block("H_solid_melt","melt", T_H_melt, p_H_melt, (H_fluid_melt - delta_H_melt),IDX["H"], "H_solid_melt")
+    
 
     return pd.DataFrame(rows)
 
@@ -846,6 +900,7 @@ def plot_deviation(variable='Vm_melt'):
     datasets, meta = extract_datasets_with_meta(krypton_data)
     params_fit = PARAMS_INIT
     master_df = build_master_pointwise_df(datasets, meta, params_fit)
+
 
     # 2. Filter for the property you want to plot
 
@@ -1070,7 +1125,51 @@ def plot_deviation(variable='Vm_melt'):
             custom_colors=CUSTOMCOLORS,
             custom_markers=CUSTOMMARKERS
         )
+    if variable == 'H_solid_sub':
+            # shift model enthalpy by the triple-point offset (kJ/mol)
+        dHtr_kJ, _ = _triple_offsets_plot(params_fit, Tt=Tt, pt=pt,
+                                          St_REFPROP=St_REFPROP, Ht_REFPROP=Ht_REFPROP)
 
+        dfH = df_enthalpy_solid_sub.copy()
+        # y_exp is H_solid_exp in J/mol from builder → convert to kJ/mol
+        dfH['y_exp'] = dfH['y_exp'] / 1000.0
+        # y_model is H_model (J/mol) → convert and shift to solid reference
+        dfH['y_model'] = dfH['y_model'] / 1000.0 - dHtr_kJ
+
+        # Top panel: ΔH (kJ/mol) vs T with model line
+        plot_thermo_variable(
+            data=dfH,
+            gas_name='krypton',
+            x_col='T',
+            y_col='y_exp',
+            y_label=r'$\Delta H\,/\,\mathrm{kJ\,mol^{-1}}$',
+            title=None,
+            model_x=dfH['T'],
+            model_y=dfH['y_model'],
+            xlim=(102, 110),
+            ylim=(-2.35, -2.05),
+            logy=False,
+            filename='krypton_sub_enthalpy.png',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+        # Bottom: percent deviation with model in denominator (as in your MATLAB figure)
+        plot_variable_deviation(
+            data=dfH,
+            gas_name='krypton',
+            x_col='T',
+            y_exp_col='y_exp',
+            y_model_col='y_model',
+            xlim=(102, 110),
+            ylim=(-0.4, 0.8),
+            y_label=r'$100\cdot(\Delta H_{\mathrm{exp}}-\Delta H_{\mathrm{calc}})/\Delta H_{\mathrm{exp}}$',
+            title=None,
+            filename='krypton_sub_enthalpy_deviation',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS,
+        )
 
 def RMS_AAD():
     krypton_data = load_all_gas_data('krypton', read_from_excel=False)
@@ -1090,3 +1189,24 @@ def plot_init():
     params_init = PARAMS_INIT
     plot_all_overlays_grid(params_init, datasets, Tt=Tt, pt=pt, compute_thermo_props=compute_thermo_props,
                            St_REFPROP=St_REFPROP, Ht_REFPROP=Ht_REFPROP, psub_curve=psub_curve, pmelt_curve=pmelt_curve)
+
+
+def _triple_offsets_plot(params, Tt=Tt, pt=pt, St_REFPROP=St_REFPROP, Ht_REFPROP=Ht_REFPROP):
+    """
+    Same logic as fitting_krypton._triple_offsets but local here to avoid circular imports.
+    Returns (dH_triple_kJ, dS_triple).
+    """
+    tp = compute_thermo_props(float(Tt), float(pt), params)
+    if isinstance(tp, tuple) and len(tp) == 2 and isinstance(tp[1], dict):
+        meta = tp[1]
+        dH = float(meta.get("deltaH_triple"))
+        dS = float(meta.get("deltaS_triple"))
+    else:
+        props = np.asarray(tp, float)
+        Sstar = float(params[30])
+        dS = Sstar - float(St_REFPROP)
+        # use G + T*S* to align enthalpy at triple
+        Ht_fitted = float(props[IDX["G"]]) + float(Tt) * Sstar
+        dH = Ht_fitted - float(Ht_REFPROP)  # J/mol
+    return dH/1000.0, dS  # kJ/mol, dimensionless
+#

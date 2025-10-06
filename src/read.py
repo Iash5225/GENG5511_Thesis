@@ -63,5 +63,4 @@ def load_all_gas_data(gas_name, read_from_excel=True):
             txt(gas_name, 'cell_volume_sub'), sep='\t')
         data['cell_volume_melt'] = pd.read_csv(
             txt(gas_name, 'cell_volume_melt'), sep='\t')
-
     return data

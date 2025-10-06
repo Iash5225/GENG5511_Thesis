@@ -255,7 +255,7 @@ PARAMS_INIT = np.array([
     2.64, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0,
     0.0, 1.93, 7.93,
-    69.13165833  # S* (entropy reference)
+    69.27647699  # S* (entropy reference)
 ])
 # Lower bounds
 LOWER_BOUND = np.array([
