@@ -1248,6 +1248,39 @@ def plot_deviation(variable='Vm_melt'):
             custom_colors=CUSTOMCOLORS,
             custom_markers=CUSTOMMARKERS,
         )
+    elif variable == 'pmelt':
+        plot_thermo_variable(
+            data=df_pressure_melt,
+            gas_name='krypton',
+            x_col='T',
+            y_col='y_exp',
+            y_label=r'$p,/\,\mathrm{MPa}$',
+            title=None,
+            model_x=df_pressure_melt['T'],
+            model_y=df_pressure_melt['y_model'],
+            # xlim=(60, 120),
+            # ylim=(10**1, 10**5),
+            logy=True,
+            filename='krypton_melt_pressure.png',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+        plot_variable_deviation(
+            data=df_pressure_melt,
+            gas_name='krypton',
+            x_col='T',
+            y_exp_col='y_exp',
+            y_model_col='y_model',
+            # xlim=(60, 120),
+            ylim=(-4, 10),
+            y_label=r'$100\cdot(p_{\mathrm{exp}}-p_{\mathrm{calc}})/p_{\mathrm{exp}}$',
+            title=None,
+            filename='krypton_melt_pressure_deviation',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS,
+        )
 
 
 def RMS_AAD():
