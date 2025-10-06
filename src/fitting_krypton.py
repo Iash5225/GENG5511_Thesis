@@ -301,7 +301,7 @@ def main():
     
 
 if __name__ == "__main__":
-    plot_deviation(variable="alpha_sub")
+    plot_deviation(variable="BetaT_sub")
     # main()
     # plot_init()
     # RMS_AAD()

@@ -975,10 +975,10 @@ def plot_deviation(variable='Vm_melt'):
             gas_name='krypton',
             x_col='T',
             y_col='y_exp',
-            y_label=r'$\alpha \cdot 10^{4},/\,\mathrm{K^{-1}}$',
+            y_label=r'$\alpha \cdot 10^{4}/\,\mathrm{K^{-1}}$',
             title=None,
             xlim=(0, 120),
-            # ylim=(0, 0.1),
+            ylim=(0, 18),
             model_x=df_alpha_sub['T'],
             model_y=df_alpha_sub['y_model'],  # convert to 1e-4 K^-1
             logy=False,
@@ -998,6 +998,40 @@ def plot_deviation(variable='Vm_melt'):
             filename='krypton_sub_thermal_expansion_deviation',
             xlim=(0, 120),
             ylim=(-30, 20),
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+    elif variable == 'BetaT_sub':
+        # # 3. Plot the variable
+        plot_thermo_variable(
+            data=df_BETA_T_sub,  # convert to KappaT in MPa
+            gas_name='krypton',
+            x_col='T',
+            y_col='y_exp',
+            y_label=r'$K_T\,/\,\mathrm{MPa}$',
+            title=None,
+            xlim=(0, 120),
+            ylim=(1000, 4000),
+            model_x=df_BETA_T_sub['T'],
+            model_y=df_BETA_T_sub['y_model'],  # convert to KappaT in MPa
+            logy=False,
+            filename='krypton_sub_isothermal_compressibility.png',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+        plot_variable_deviation(
+            data=df_BETA_T_sub,
+            gas_name='krypton',
+            x_col='T',
+            y_exp_col='y_exp',
+            y_model_col='y_model',
+            y_label=r'$100 \cdot (K_{T,\mathrm{exp}} - K_{T,\mathrm{calc}}) / K_{T,\mathrm{exp}}$',
+            title=None,
+            filename='krypton_sub_isothermal_compressibility_deviation',
+            xlim=(0, 120),
+            ylim=(-20, 20),
             output_folder=IMG_OUTPUT_FOLDER,
             custom_colors=CUSTOMCOLORS,
             custom_markers=CUSTOMMARKERS
