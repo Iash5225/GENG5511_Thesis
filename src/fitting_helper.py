@@ -1125,7 +1125,7 @@ def plot_deviation(variable='Vm_melt'):
             custom_colors=CUSTOMCOLORS,
             custom_markers=CUSTOMMARKERS
         )
-    if variable == 'H_solid_sub':
+    elif variable == 'H_solid_sub':
             # shift model enthalpy by the triple-point offset (kJ/mol)
         dHtr_kJ, _ = _triple_offsets_plot(params_fit, Tt=Tt, pt=pt,
                                           St_REFPROP=St_REFPROP, Ht_REFPROP=Ht_REFPROP)
@@ -1170,6 +1170,85 @@ def plot_deviation(variable='Vm_melt'):
             custom_colors=CUSTOMCOLORS,
             custom_markers=CUSTOMMARKERS,
         )
+    elif variable == 'H_solid_melt':
+        # shift model enthalpy by the triple-point offset (kJ/mol)
+        dHtr_kJ, _ = _triple_offsets_plot(params_fit, Tt=Tt, pt=pt,
+                                          St_REFPROP=St_REFPROP, Ht_REFPROP=Ht_REFPROP)
+
+        dfH = df_enthalpy_solid_melt.copy()
+        # y_exp is H_solid_exp in J/mol from builder → convert to kJ/mol
+        dfH['y_exp'] = dfH['y_exp'] / 1000.0
+        # y_model is H_model (J/mol) → convert and shift to solid reference
+        dfH['y_model'] = dfH['y_model'] / 1000.0 - dHtr_kJ
+
+        # Top panel: ΔH (kJ/mol) vs T with model line
+        plot_thermo_variable(
+            data=dfH,
+            gas_name='krypton',
+            x_col='T',
+            y_col='y_exp',
+            y_label=r'$\Delta H\,/\,\mathrm{kJ\,mol^{-1}}$',
+            title=None,
+            model_x=dfH['T'],
+            model_y=dfH['y_model'],
+            xlim=(110, 220),
+            ylim=(-5, 15),
+            logy=False,
+            filename='krypton_melt_enthalpy.png',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+        # Bottom: percent deviation with model in denominator (as in your MATLAB figure)
+        plot_variable_deviation(
+            data=dfH,
+            gas_name='krypton',
+            x_col='T',
+            y_exp_col='y_exp',
+            y_model_col='y_model',
+            xlim=(110, 220),
+            ylim=(-5, 15),
+            y_label=r'$100\cdot(\Delta H_{\mathrm{exp}}-\Delta H_{\mathrm{calc}})/\Delta H_{\mathrm{exp}}$',
+            title=None,
+            filename='krypton_melt_enthalpy_deviation',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS,
+        )
+    elif variable == 'psub':
+        plot_thermo_variable(
+            data=df_pressure_sub,
+            gas_name='krypton',
+            x_col='T',
+            y_col='y_exp',
+            y_label=r'$p,/\,\mathrm{MPa}$',
+            title=None,
+            model_x=df_pressure_sub['T'],
+            model_y=df_pressure_sub['y_model'],
+            xlim=(60, 120),
+            ylim=(10**1, 10**5),
+            logy=True,
+            filename='krypton_sub_pressure.png',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+        plot_variable_deviation(
+            data=df_pressure_sub,
+            gas_name='krypton',
+            x_col='T',
+            y_exp_col='y_exp',
+            y_model_col='y_model',
+            xlim=(60, 120),
+            ylim=(-20, 30),
+            y_label=r'$100\cdot(p_{\mathrm{exp}}-p_{\mathrm{calc}})/p_{\mathrm{exp}}$',
+            title=None,
+            filename='krypton_sub_pressure_deviation',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS,
+        )
+
 
 def RMS_AAD():
     krypton_data = load_all_gas_data('krypton', read_from_excel=False)

@@ -301,7 +301,7 @@ def main():
     
 
 if __name__ == "__main__":
-    plot_deviation(variable="H_solid_sub")
+    plot_deviation(variable="psub")
     # main()
     # plot_init()
     # RMS_AAD()
