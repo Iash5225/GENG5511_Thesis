@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from read import load_all_gas_data
 from constants import *
 from thermopropsv2 import compute_thermo_props
-from fitting_helper_xenon import _safe_props_vector, rms_percent, rms, extract_datasets, safe_psub, extract_datasets_with_meta, psub_curve, pmelt_curve, build_master_pointwise_df, _relative_errors, summarise_by_author,plot_thermo_variable,plot_variable_deviation
+from fitting_helper_xenon import _safe_props_vector, rms_percent, rms, extract_datasets, safe_psub, extract_datasets_with_meta, psub_curve, pmelt_curve, build_master_pointwise_df, summarise_by_author, plot_thermo_variable, plot_variable_deviation, RMS_AAD
 from plot_eos import plot_all_overlays_grid
 import traceback
 from deviation_recorder import DeviationRecorder, Metric
@@ -33,6 +33,7 @@ NAME_TO_METRIC = {
     "Gamma_T":      Metric.GAMMA_T,
 }
 
+
 def _cost_only(params, *datasets):
     try:
         total, devs = combined_cost_function(params, *datasets)
@@ -45,6 +46,7 @@ def _cost_only(params, *datasets):
         print("Error in cost function evaluation.", repr(e), flush=True)
         traceback.print_exc()
         return BIG
+
 
 def combined_cost_function(params, *datasets):
     (T_Vm_sub, p_Vm_sub, Vm_sub,
@@ -63,7 +65,7 @@ def combined_cost_function(params, *datasets):
     if isinstance(tp, tuple) and len(tp) == 2 and isinstance(tp[1], dict):
         triple_props, triple_meta = tp
         # pulled directly from compute_thermo_props
-        #deltaH_triple = float(triple_meta.get("deltaH_triple"))
+        # deltaH_triple = float(triple_meta.get("deltaH_triple"))
         deltaS_triple = float(triple_meta.get("deltaS_triple"))
     else:
         # backward compatibility (old API returned only the 12-length props array)
@@ -88,12 +90,12 @@ def combined_cost_function(params, *datasets):
 
     m = (np.isfinite(T_Vm_sub) & np.isfinite(p_Vm_sub)
          & np.isfinite(Vm_sub) & (T_Vm_sub <= Tt))
-    
+
     if np.any(m):
         model = _safe_props_vector(T_Vm_sub[m], p_Vm_sub[m], params, idx=0)
         Vm_sub_dev = rms_percent(Vm_sub[m], model)   # cm^3/mol
     else:
-        print("No valid Vm_sub data points found.",flush=True)
+        print("No valid Vm_sub data points found.", flush=True)
     # Vm (melting): T >= Tt
     m = (np.isfinite(T_Vm_melt) & np.isfinite(p_Vm_melt)
          & np.isfinite(Vm_melt) & (T_Vm_melt >= Tt))
@@ -210,7 +212,7 @@ def combined_cost_function(params, *datasets):
             else:
                 terms.append(GAMMA_NEG_SLOPE_MULT * (Gm[i] - mu) / mu)
         Gamma_T6_dev = rms(np.array(terms))
-    # ====== TOTAL COST ======    
+    # ====== TOTAL COST ======
     total_deviation = (
         Vm_sub_dev * W_VM_SUB +
         Vm_melt_dev * W_VM_MELT +
@@ -238,15 +240,16 @@ def combined_cost_function(params, *datasets):
     }
     return total_deviation, deviations
 
+
 def main():
     # === 4. Package for scipy.optimize.minimize ===
     bounds = [(lo, hi) for lo, hi in zip(LOWER_BOUND_XENON, UPPER_BOUND_XENON)]
     xenon_data = load_all_gas_data('xenon', read_from_excel=False)
     datasets = extract_datasets(xenon_data)
     res = minimize(
-        fun=lambda x, *a: _cost_only(x, *a),   
+        fun=lambda x, *a: _cost_only(x, *a),
         x0=PARAMS_INIT_XENON,
-        args=datasets,                         
+        args=datasets,
         method="L-BFGS-B",
         bounds=bounds,
         options=dict(disp=True, maxiter=MAX_ITERATIONS,
@@ -272,6 +275,8 @@ def plot_init():
     # summarise_by_author(master_df).to_csv(os.path.join(IMG_OUTPUT_FOLDER, 'krypton_summary_by_author_init.csv'), index=False)
     plot_all_overlays_grid(params_init, datasets, Tt=Tt, pt=pt, compute_thermo_props=compute_thermo_props,
                            St_REFPROP=St_REFPROP, Ht_REFPROP=Ht_REFPROP, psub_curve=psub_curve, pmelt_curve=pmelt_curve)
+
+
 def plot_deviation():
     xenon_data = load_all_gas_data('xenon', read_from_excel=False)
     datasets, meta = extract_datasets_with_meta(xenon_data)
@@ -279,7 +284,7 @@ def plot_deviation():
     master_df = build_master_pointwise_df(datasets, meta, params_init)
 
     # 2. Filter for the property you want to plot
-    
+
     df_cell_volume_melt = master_df[master_df["Property"] == "Vm_melt"]
     df_cell_volume_sub = master_df[master_df["Property"] == "Vm_sub"]
     df_cp_sub = master_df[master_df["Property"] == "cp_sub"]
@@ -298,38 +303,37 @@ def plot_deviation():
     df_pressure_melt = master_df[master_df["Property"] == "pmelt"]
     # df_BetaT_sub['KappaT_exp'] = 1 / df_BetaT_sub['BetaT_exp']  # Now in MPa
 
-
     # # 3. Plot the variable
     plot_thermo_variable(
-        data=df_pressure_sub,
+        data=df_cell_volume_melt,
         gas_name='xenon',
         x_col='T',
         y_col='y_exp',
-        y_label=r'$p$ ($MPa$)',
-        title='Sublimation Pressure for Xenon',
-        model_x=df_pressure_sub['T'],
-        model_y=df_pressure_sub['y_model'],
-        logy=True,
-        filename='xenon_sublimation_pressure.png',
+        y_label=r'$V_{\mathrm{m}}\,/\,\mathrm{cm^3mol^{-1}}$',
+        title=None,
+        model_x=df_cell_volume_melt['T'],
+        model_y=df_cell_volume_melt['y_model'],
+        logy=False,
+        filename='xenon_melt_cellvolume.png',
         output_folder=IMG_OUTPUT_FOLDER,
         custom_colors=CUSTOMCOLORS,
         custom_markers=CUSTOMMARKERS
     )
-    # plot_variable_deviation(
-    #     data=df_BETA_T_sub,
-    #     gas_name='xenon',
-    #     x_col='T',
-    #     y_exp_col='y_exp',
-    #     y_model_col='y_model',
-    #     y_label=r'$100 K ( K_{exp} - K_{model}) / K_{exp}$ [%]',
-    #     title='Isothermal Deviation for Xenon',
-    #     filename='xenon_isothermal_deviation',
-    #     # xlim=(0, 120),
-    #     # ylim=(-10, 25),
-    #     output_folder=IMG_OUTPUT_FOLDER,
-    #     custom_colors=CUSTOMCOLORS,
-    #     custom_markers=CUSTOMMARKERS
-    # )
+    plot_variable_deviation(
+        data=df_cell_volume_melt,
+        gas_name='xenon',
+        x_col='T',
+        y_exp_col='y_exp',
+        y_model_col='y_model',
+        y_label=r'$100 \cdot (V_{\mathrm{m,exp}} - V_{\mathrm{m,calc}}) / V_{\mathrm{m,exp}}$',
+        title=None,
+        filename='xenon_melt_cellvolume_deviation',
+        # xlim=(0, 120),
+        # ylim=(-10, 25),
+        output_folder=IMG_OUTPUT_FOLDER,
+        custom_colors=CUSTOMCOLORS,
+        custom_markers=CUSTOMMARKERS
+    )
 
 
 def RMS_AAD():
@@ -342,6 +346,8 @@ def RMS_AAD():
     output_path = os.path.join(
         IMG_OUTPUT_FOLDER, 'xenon_summary_by_author.csv')
     summary.to_csv(output_path, index=False)
+
+
 if __name__ == "__main__":
     plot_deviation()
     # main()

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from read import load_all_gas_data
 from constants import *
 from thermopropsv2 import compute_thermo_props
-from fitting_helper import _safe_props_vector, rms_percent, rms, extract_datasets, safe_psub, extract_datasets_with_meta, psub_curve, pmelt_curve, build_master_pointwise_df, _relative_errors, summarise_by_author,plot_thermo_variable,plot_variable_deviation
+from fitting_helper import _safe_props_vector, rms_percent, rms, extract_datasets, safe_psub, psub_curve, pmelt_curve, plot_deviation, plot_init
 from plot_eos import plot_all_overlays_grid
 import traceback
 from deviation_recorder import DeviationRecorder, Metric
@@ -299,79 +299,9 @@ def main():
                            St_REFPROP=St_REFPROP, Ht_REFPROP=Ht_REFPROP, psub_curve=psub_curve, pmelt_curve=pmelt_curve)
     GLOBAL_RECORDER.plot_history(ncols=5)
     
-def plot_deviation():
-    krypton_data = load_all_gas_data('krypton', read_from_excel=False)
-    datasets, meta = extract_datasets_with_meta(krypton_data)
-    params_fit = PARAMS_INIT
-    master_df = build_master_pointwise_df(datasets, meta, params_fit)
 
-    # 2. Filter for the property you want to plot
-    
-    df_cell_volume_melt = master_df[master_df["Property"] == "Vm_melt"]
-    df_cell_volume_sub = master_df[master_df["Property"] == "Vm_sub"]
-    df_cp_sub = master_df[master_df["Property"] == "cp_sub"]
-    df_alpha_sub = master_df[master_df["Property"] == "alpha_sub"]
-    df_BetaT_sub = master_df[master_df["Property"] == "BetaT_sub"]
-    df_BETA_T_sub = df_BetaT_sub.copy()
-    df_BETA_T_sub['y_exp'] = 1 / df_BETA_T_sub['y_exp']  # Now in MPa
-    df_BetaS_sub = master_df[master_df["Property"] == "BetaS_sub"]
-    df_BETA_S_sub = df_BetaS_sub.copy()
-    df_BETA_S_sub['y_exp'] = 1 / df_BETA_S_sub['y_exp']  # Now in MPa
-    df_enthalpy_solid_melt = master_df[master_df["Property"] == "H_solid_melt"]
-    df_enthalpy_solid_sub = master_df[master_df["Property"] == "H_solid_sub"]
-    # df_BetaT_sub['KappaT_exp'] = 1 / df_BetaT_sub['BetaT_exp']  # Now in MPa
-
-
-    # # 3. Plot the variable
-    plot_thermo_variable(
-        data=df_BETA_S_sub,
-        gas_name='krypton',
-        x_col='T',
-        y_col='y_exp',
-        y_label=r'$K_{S}$ (MPa)',
-        title='Isentropic Bulk Modulus for Krypton',
-        model_x=df_BETA_S_sub['T'],
-        model_y=1/df_BETA_S_sub['y_model'],
-        logy=False,
-        filename='krypton_beta_S_test.png',
-        output_folder=IMG_OUTPUT_FOLDER,
-        custom_colors=CUSTOMCOLORS,
-        custom_markers=CUSTOMMARKERS
-    )
-    # plot_variable_deviation(
-    #     data=df_BetaT_sub,
-    #     gas_name='krypton',
-    #     x_col='T',
-    #     y_exp_col='y_exp',
-    #     y_model_col='y_model',
-    #     y_label=r'$100 \cdot (\alpha _{\mathrm{exp}} - \alpha _{\mathrm{model}}) / \alpha _{\mathrm{exp}}$ [%]',
-    #     title='Thermal Expansivity Deviation for Krypton',
-    #     filename='krypton_thermal_expansivity_deviation.png',
-    #     # xlim=(0, 120),
-    #     # ylim=(-10, 25),
-    #     output_folder=IMG_OUTPUT_FOLDER,
-    #     custom_colors=CUSTOMCOLORS,
-    #     custom_markers=CUSTOMMARKERS
-    # )
-
-def RMS_AAD():
-    krypton_data = load_all_gas_data('krypton', read_from_excel=False)
-    datasets, meta = extract_datasets_with_meta(krypton_data)
-    params_fit = PARAMS_INIT
-    master_df = build_master_pointwise_df(datasets, meta, params_fit)
-    summary = summarise_by_author(master_df)
-    # Save to CSV
-    output_path = os.path.join(IMG_OUTPUT_FOLDER, 'krypton_summary_by_author.csv')
-    summary.to_csv(output_path, index=False)
-
-def plot_init():
-    krypton_data = load_all_gas_data('krypton', read_from_excel=False)
-    datasets = extract_datasets(krypton_data)
-    params_init = PARAMS_INIT
-    plot_all_overlays_grid(params_init, datasets, Tt=Tt, pt=pt, compute_thermo_props=compute_thermo_props,
-                           St_REFPROP=St_REFPROP, Ht_REFPROP=Ht_REFPROP, psub_curve=psub_curve, pmelt_curve=pmelt_curve)
 if __name__ == "__main__":
-    # plot_deviation()
+    plot_deviation(variable="alpha_sub")
     # main()
     # plot_init()
-    RMS_AAD()
+    # RMS_AAD()

@@ -1,5 +1,4 @@
 Year	Author	Temperature	Cell Volume
-1962.0	Lahr	161.4	37.09
 1962.0	Lahr	224.0	37.09
 1962.0	Lahr	245.0	37.1
 1962.0	Lahr	250.0	35.9
@@ -46,6 +45,3 @@ Year	Author	Temperature	Cell Volume
 1981.0	Granfors	209.87	37.36292827395827
 1981.0	Granfors	216.01	37.21863792669197
 1981.0	Granfors	205.52	37.46468915998207
-1965.0	Gavrilko	120.0	37.09
-1965.0	Gavrilko	140.0	37.73
-1965.0	Gavrilko	159.0	38.5

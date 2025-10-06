@@ -51,63 +51,74 @@ def plot_variable_deviation(
 ):
     """
     Plot percent deviation between experimental and model values for any variable.
-
-    Args:
-        data (pd.DataFrame): DataFrame with columns including x_col, y_exp_col, y_model_col, 'Year', 'Author'
-        gas_name (str): Gas name for title and filename
-        x_col (str): Column name for x-axis (e.g., 'Temperature')
-        y_exp_col (str): Experimental value column (e.g., 'y_exp')
-        y_model_col (str): Model value column (e.g., 'y_model')
-        y_label (str): Y-axis label (LaTeX string)
-        title (str): Plot title
-        filename (str): Output filename (optional, .png will be appended if missing)
-        xlim, ylim: Axis limits (optional)
-        markersize (int): Marker size
-        custom_markers (list): List of marker styles
-        custom_colors (list): List of colors
-        legend_outside (bool): Place legend outside plot
-        fontsize (int): Font size for labels
-        output_folder (str): If given, save plot in this folder
     """
+
     data = data.copy()
     data['Deviation_percent'] = 100 * \
         (data[y_exp_col] - data[y_model_col]) / data[y_exp_col]
+
     grouped = data.groupby(['Year', 'Author'])
     if custom_markers is None:
         custom_markers = ['o', 's', '^', 'v', 'D', 'x', '*', 'P', 'h', 'X']
     if custom_colors is None:
         custom_colors = plt.cm.tab10.colors
 
-    # Compute percent deviation
+    fig, ax = plt.subplots(figsize=(10, 6))
 
+    # ✅ Thicker border (spines)
+    for spine in ax.spines.values():
+        spine.set_linewidth(1.5)
+        spine.set_color('black')
 
-    plt.figure(figsize=(10, 6))
-    plt.tick_params(direction='in', top=True, right=True)
+    # ✅ Ticks: inward, on all sides
+    ax.tick_params(
+        direction='in',
+        which='both',
+        top=True,
+        right=True,
+        length=5,
+        width=1.2
+    )
+
+    # Plot data points
     for i, ((year, author), group) in enumerate(grouped):
-        plt.scatter(
+        ax.scatter(
             group[x_col], group['Deviation_percent'],
             label=f"{year}, {author}",
             s=markersize,
             edgecolor=custom_colors[i % len(custom_colors)],
             marker=custom_markers[i % len(custom_markers)],
             facecolors='none',
+            linewidths=1.2,
         )
-    plt.axhline(0, color='black', linewidth=1)
-    plt.xlabel(r'$\mathit{T}$ / K', fontsize=fontsize)
-    plt.ylabel(y_label, fontsize=fontsize)
-    plt.title(title, fontsize=fontsize)
+
+    # Horizontal zero line
+    ax.axhline(0, color='black', linewidth=1)
+
+    # Labels and title
+    ax.set_xlabel(r'$\mathit{T}$ / K', fontsize=fontsize)
+    ax.set_ylabel(y_label, fontsize=fontsize)
+    ax.set_title(title, fontsize=fontsize)
+
+    # Axis limits
     if xlim:
-        plt.xlim(*xlim)
+        ax.set_xlim(*xlim)
     if ylim:
-        plt.ylim(*ylim)
+        ax.set_ylim(*ylim)
+
+    # Legend
     if legend_outside:
-        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8)
+        ax.legend(
+            loc='upper left',
+            bbox_to_anchor=(1.05, 1),
+            fontsize=8
+        )
         plt.tight_layout(rect=[0, 0, 0.85, 1])
     else:
-        plt.legend(fontsize=8)
+        ax.legend(fontsize=8)
         plt.tight_layout()
 
-    # Save if requested
+    # ✅ Save if requested
     if filename:
         if not filename.lower().endswith('.png'):
             filename += '.png'
@@ -115,6 +126,7 @@ def plot_variable_deviation(
             os.makedirs(output_folder, exist_ok=True)
             filename = os.path.join(output_folder, filename)
         plt.savefig(filename, dpi=300, bbox_inches='tight')
+
     plt.show()
 
 
@@ -131,7 +143,7 @@ def plot_thermo_variable(
     xlim=None,
     ylim=None,
     filename=None,
-    output_folder=None,  # <-- add this line
+    output_folder=None,
     legend_outside=True,
     markersize=50,
     linewidth=2,
@@ -142,26 +154,8 @@ def plot_thermo_variable(
     """
     General-purpose plot for thermodynamic variables (e.g., enthalpy, heat capacity, etc.)
     grouped by author/year, with optional model curve.
-
-    Args:
-        data (pd.DataFrame): DataFrame with columns including x_col, y_col, 'Year', 'Author'
-        gas_name (str): Gas name for title and filename
-        x_col (str): Column name for x-axis (e.g., 'Temperature')
-        y_col (str): Column name for y-axis (e.g., 'Change in Enthalpy')
-        y_label (str): Y-axis label (LaTeX string)
-        title (str): Plot title
-        model_x (array-like): X values for model curve (optional)
-        model_y (array-like): Y values for model curve (optional)
-        logy (bool): Use log scale for y-axis
-        xlim, ylim: Axis limits (optional)
-        filename (str): If given, save plot to this file
-        legend_outside (bool): Place legend outside plot
-        markersize (int): Marker size
-        linewidth (int): Model curve line width
-        fontsize (int): Font size for labels
-        custom_markers (list): List of marker styles
-        custom_colors (list): List of colors
     """
+
     grouped = data.groupby(['Year', 'Author'])
     if custom_markers is None:
         custom_markers = ['o', 's', '^', 'v', 'D', 'x', '*', 'P', 'h', 'X']
@@ -169,8 +163,10 @@ def plot_thermo_variable(
         custom_colors = plt.cm.tab10.colors
 
     plt.figure(figsize=(10, 6))
+    ax = plt.gca()  # get current axis
+
     for i, ((year, author), group) in enumerate(grouped):
-        plt.scatter(
+        ax.scatter(
             group[x_col], group[y_col],
             s=markersize,
             label=f"{year}, {author}",
@@ -183,23 +179,41 @@ def plot_thermo_variable(
     # Plot model curve if provided
     if model_x is not None and model_y is not None:
         order = np.argsort(model_x)
-        plt.plot(
+        ax.plot(
             np.array(model_x)[order], np.array(model_y)[order],
-            color='black', linewidth=linewidth, label='Model'
+            color='black', linewidth=linewidth, label='EOS prediction'
         )
 
-    plt.xlabel(r'$\mathit{T}$ / K', fontsize=fontsize)
-    plt.ylabel(y_label, fontsize=fontsize)
-    plt.title(title, fontsize=fontsize)
-    if logy:
-        plt.yscale('log')
-    if xlim:
-        plt.xlim(*xlim)
-    if ylim:
-        plt.ylim(*ylim)
+    ax.set_xlabel(r'$\mathit{T}$ / K', fontsize=fontsize)
+    ax.set_ylabel(y_label, fontsize=fontsize)
+    ax.set_title(title, fontsize=fontsize)
 
+    # Axis limits
+    if logy:
+        ax.set_yscale('log')
+    if xlim:
+        ax.set_xlim(*xlim)
+    if ylim:
+        ax.set_ylim(*ylim)
+
+    # ✅ Ticks: inward, on all sides
+    ax.tick_params(
+        direction='in',
+        which='both',   # both major and minor ticks
+        top=True,
+        right=True,
+        length=5,
+        width=1.2
+    )
+
+    # ✅ Thicker black border
+    for spine in ax.spines.values():
+        spine.set_linewidth(1.5)
+        spine.set_color('black')
+
+    # Legend
     if legend_outside:
-        plt.legend(
+        ax.legend(
             loc='upper left',
             bbox_to_anchor=(1.05, 1),
             fontsize=8,
@@ -207,9 +221,10 @@ def plot_thermo_variable(
         )
         plt.tight_layout(rect=[0, 0, 0.85, 1])
     else:
-        plt.legend(fontsize=8)
+        ax.legend(fontsize=8)
         plt.tight_layout()
 
+    # ✅ Save figure if filename is given
     if filename:
         if not filename.lower().endswith('.png'):
             filename += '.png'
@@ -217,6 +232,7 @@ def plot_thermo_variable(
             os.makedirs(output_folder, exist_ok=True)
             filename = os.path.join(output_folder, filename)
         plt.savefig(filename, dpi=300, bbox_inches='tight')
+
     plt.show()
 
 def safe_psub(T):
@@ -421,10 +437,12 @@ def extract_datasets_with_meta(data):
     def meta_block(df, n):
         if df is None:
             return None
-        return {
-            "Author": df.get("Author", pd.Series(["Unknown"]*n)).to_numpy(),
-            "Year":   df.get("Year",   pd.Series([0]*n)).to_numpy()
-        }
+        authors = df.get("Author", pd.Series(["Unknown"] * n)).to_numpy()
+        years = df.get("Year", pd.Series([0] * n))
+        # Ensure year is integer (handle non-numeric gracefully)
+        years = pd.to_numeric(years, errors="coerce").fillna(
+            0).astype(int).to_numpy()
+        return {"Author": authors, "Year": years}
 
     meta = {
         "Vm_sub":       meta_block(data.get("cell_volume_sub"),   len(datasets[0])),
@@ -440,6 +458,7 @@ def extract_datasets_with_meta(data):
         "H_solid_melt": meta_block(data.get("fusion"),            len(datasets[34])),
     }
     return datasets, meta
+
 
 
 def extract_datasets(data):
@@ -508,14 +527,18 @@ def extract_datasets(data):
     # Melting
     T_melt = data['melting']['Temperature']
     p_melt = data['melting']['Pressure']
-    G_fluid_melt = data['melting']['Gibbs Energy']
-    V_fluid_melt = data['melting']['Volume']
+    # G_fluid_melt = data['melting']['Gibbs Energy']
+    # V_fluid_melt = data['melting']['Volume']
+    G_fluid_melt = None
+    V_fluid_melt = None
 
     # Sublimation
     T_sub = data['sublimation']['Temperature']
     p_sub = data['sublimation']['Pressure']
-    G_fluid_sub = data['sublimation']['Gibbs Energy']
-    V_fluid_sub = data['sublimation']['Volume']
+    # G_fluid_sub = data['sublimation']['Gibbs Energy']
+    # V_fluid_sub = data['sublimation']['Volume']
+    G_fluid_sub = None
+    V_fluid_sub = None
     # Enthalpy Sublimation
     T_H_sub = data['heatsub']['Temperature']
     p_H_sub = safe_psub(T_H_sub)

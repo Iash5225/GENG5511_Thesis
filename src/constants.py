@@ -14,18 +14,18 @@ EIGHT = 8.0
 TWENTY = 20.0
 PT375 = 0.375
 
-W_VM_SUB = 0
-W_VM_MELT = 0
+W_VM_SUB = 1
+W_VM_MELT = 1
 W_VM_HIGHP = 0
-W_CP_SUB = 0
-W_ALPHA_SUB = 0
-W_BETAT_SUB = 0
+W_CP_SUB = 1
+W_ALPHA_SUB = 1
+W_BETAT_SUB = 1
 W_BETAS_SUB = 1.0
-W_H_SOLID_SUB = 0.0
-W_H_SOLID_MELT = 0.0
+W_H_SOLID_SUB = 1.0
+W_H_SOLID_MELT = 1.0
 W_P_SUB = 0.0
 W_P_MELT = 0.0
-W_GAMMA_T =0.0
+W_GAMMA_T =1.0
 
 
 FUNCTION_TOL = 1e-15
@@ -111,7 +111,7 @@ gas_params = {
     'xenon': (XENON_T_t, XENON_P_t),
     'neon': (NEON_T_t, NEON_P_t)
 }
-IMG_OUTPUT_FOLDER = r"C:\Users\iashb\OneDrive - The University of Western Australia\UWA\05. Year 5\Semester 1\GENG5511 MPE Engineering Research Project\Project\Research_Project\GENG5511_Thesis\img\output\v3"
+IMG_OUTPUT_FOLDER = r"C:\Users\iashb\OneDrive - The University of Western Australia\UWA\05. Year 5\Semester 1\GENG5511 MPE Engineering Research Project\Project\Research_Project\GENG5511_Thesis\img\output\v4"
 #FILEPATH = r"C:\Users\iashb\OneDrive - The University of Western Australia\UWA\05. Year 5\Semester 1\GENG5511 MPE Engineering Research Project\Project\Research_Project\GENG5511_Thesis\data\literature_data.xlsx"
 OUTPUT_FILEPATH = r"C:\Users\iashb\OneDrive - The University of Western Australia\UWA\05. Year 5\Semester 1\GENG5511 MPE Engineering Research Project\Project\Research_Project\GENG5511_Thesis\img\output\v2"
 XE_DATA_FILEPATH = r"C:\Users\iashb\OneDrive - The University of Western Australia\UWA\05. Year 5\Semester 1\GENG5511 MPE Engineering Research Project\Project\Research_Project\GENG5511_Thesis\data\MASTER Xenon Literature Review.xlsx"
@@ -272,7 +272,7 @@ UPPER_BOUND = np.array([
     0, 0, 0, 0, 0,
     67.74, 0, 0, 0, 0, 0,
     2.64, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0,
+    2, 0, 0, 0, 0, 0,
     0.0, 1.93, 7.93,
     75  # S* (entropy reference)
 ])
