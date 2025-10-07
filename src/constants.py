@@ -14,18 +14,18 @@ EIGHT = 8.0
 TWENTY = 20.0
 PT375 = 0.375
 
-W_VM_SUB = 1
-W_VM_MELT = 1
+W_VM_SUB = 0
+W_VM_MELT = 0
 W_VM_HIGHP = 0
 W_CP_SUB = 1
 W_ALPHA_SUB = 1
 W_BETAT_SUB = 1
-W_BETAS_SUB = 1.0
-W_H_SOLID_SUB = 1.0
-W_H_SOLID_MELT = 1.0
+W_BETAS_SUB =1.0
+W_H_SOLID_SUB = 0.0
+W_H_SOLID_MELT = 0.0
 W_P_SUB = 0.0
 W_P_MELT = 0.0
-W_GAMMA_T =1.0
+W_GAMMA_T =0.0
 
 
 FUNCTION_TOL = 1e-15
@@ -178,44 +178,57 @@ MARKERSIZE=50
 AXIS_FONT_SIZE=14
 
 
+# PARAMS_INIT_NEON = np.array([
+#     13.391,   # 0: v00
+#     997.00,   # 1: a1
+#     700,    # 2: a2
+#     11000,     # 3: a3
+#     0, 0, 0, 0, 0,           # 4–8 unused
+#     65, 0, 0, 0, 0, 0,     # 9–14: Theta_D,0 (smaller -> more T effect)
+#     2.61,  0, 0, 0, 0, 0,     # 15–20: gamma_D,0 (bigger -> more α)
+#     1.6,  0, 0, 0, 0, 0,     # 21–26: q_D (moderate)
+#     0.08, 1.2, 1,           # 27–29: aa, bb, cc (keep 0 for Vm-only)
+#     NEON_REFERENCE_ENTROPY
+# ])
+
 PARAMS_INIT_NEON = np.array([
-    13.391,   # 0: v00
-    997.00,   # 1: a1
-    700,    # 2: a2
-    11000,     # 3: a3
+    13.38,   # 0: v00
+    1010,   # 1: a1
+    3900,    # 2: a2
+    7999.4,     # 3: a3
     0, 0, 0, 0, 0,           # 4–8 unused
-    65, 0, 0, 0, 0, 0,     # 9–14: Theta_D,0 (smaller -> more T effect)
-    2.61,  0, 0, 0, 0, 0,     # 15–20: gamma_D,0 (bigger -> more α)
-    1.6,  0, 0, 0, 0, 0,     # 21–26: q_D (moderate)
-    0.08, 1.2, 1,           # 27–29: aa, bb, cc (keep 0 for Vm-only)
-    NEON_REFERENCE_ENTROPY
+    66.46, 0, 0, 0, 0, 0,     # 9–14: Theta_D,0 (smaller -> more T effect)
+    2.80,  0, 0, 0, 0, 0,     # 15–20: gamma_D,0 (bigger -> more α)
+    0,  0, 0, 0, 0, 0,     # 21–26: q_D (moderate)
+    6.6, 100, 11.14,           # 27–29: aa, bb, cc (keep 0 for Vm-only)
+    26.0415
 ])
 
 
 LOWER_BOUND_NEON = np.array([
     13.38,   # 0: v00
     997.00,   # 1: a1
-    500,    # 2: a2
-    10000,     # 3: a3
+    3900,    # 2: a2
+    6000,     # 3: a3
     0, 0, 0, 0, 0,           # 4–8 unused
     60, 0, 0, 0, 0, 0,     # 9–14: Theta_D,0 (smaller -> more T effect)
-    2.5,  0, 0, 0, 0, 0,     # 15–20: gamma_D,0 (bigger -> more α)
-    1,  0, 0, 0, 0, 0,     # 21–26: q_D (moderate)
+    2.0,  0, 0, 0, 0, 0,     # 15–20: gamma_D,0 (bigger -> more α)
+    0,  0, 0, 0, 0, 0,     # 21–26: q_D (moderate)
     0, 0,0,           # 27–29: aa, bb, cc (keep 0 for Vm-only)
-    60
+    20
 ])
 
 UPPER_BOUND_NEON = np.array([
-    13.38,     # v00
-    1000,    # a1
-    700,    # a2
-    12000,     # a3
+    13.40,     # v00
+    1010,    # a1
+    4100,    # a2
+    8000,     # a3
     0, 0, 0, 0, 0,
     75, 0, 0, 0, 0, 0,   # ΘD0
-    3,  0, 0, 0, 0, 0,   # γ0
-    2,  0, 0, 0, 0, 0,   # q0
-    1, 100, 100,
-    100
+    2.8,  0, 0, 0, 0, 0,   # γ0
+    3,  0, 0, 0, 0, 0,   # q0
+    100, 100, 100,
+    40
 ])
 
 

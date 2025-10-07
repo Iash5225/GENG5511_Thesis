@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from read import load_all_gas_data
 from constants import *
 from thermopropsv2 import compute_thermo_props
-from fitting_helper_neon import _safe_props_vector, rms_percent, rms, extract_datasets, safe_psub, psub_curve, pmelt_curve, plot_deviation, plot_init
+from fitting_helper_neon import _safe_props_vector, rms_percent, rms, extract_datasets, safe_psub, psub_curve, pmelt_curve, plot_deviation, plot_init, plot_tv_property_panels
 from plot_eos import plot_all_overlays_grid
 import traceback
 from deviation_recorder import DeviationRecorder, Metric
@@ -278,8 +278,24 @@ def main():
                            St_REFPROP=St_REFPROP, Ht_REFPROP=Ht_REFPROP, psub_curve=psub_curve, pmelt_curve=pmelt_curve)
     GLOBAL_RECORDER.plot_history(ncols=5)
 
+
+def plotTV(min_Vom=0, max_Vom=40, inc_Vol=0.01):
+    V = np.arange(min_Vom, max_Vom, inc_Vol)
+    T_list = (0.0001, 50.0, 75, 150.0, 300.0)
+
+    plot_tv_property_panels(
+        params=PARAMS_INIT_NEON,         # or your fitted parameters
+        V_vals=V,
+        T_list=T_list,
+        Tt=KRYPTON_T_t,
+        psub_curve=psub_curve,
+        pmelt_curve=pmelt_curve,
+        figsize=(9, 7),
+        save_path=os.path.join(EOS_FILEPATH, "tv_property_panels.png")
+    )
 if __name__ == "__main__":
-    plot_deviation("Vm_sub")
+    # plot_deviation("pmelt")
     # main()
     # plot_init()
+    plotTV(min_Vom=4, max_Vom=10, inc_Vol=0.01)
 
