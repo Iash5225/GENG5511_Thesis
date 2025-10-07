@@ -10,6 +10,7 @@ from thermopropsv2 import compute_thermo_props
 from constants import *
 from scipy.interpolate import UnivariateSpline
 import os
+from plot_eos import plot_all_overlays_grid
 IDX = dict(Vm=0, KappaT=1, KappaS=2, Alpha=3, cp=4, H=10, G=11)
 # solid_EOS_fitting.py
 BIG = 1e4
@@ -964,3 +965,435 @@ def summarise_by_author(master_df, rel_epsilon=0.0, float_fmt="{:.2f}"):
             "AAD_%": float_fmt.format(aad) if np.isfinite(aad) else "--",
         })
     return pd.DataFrame(rows).sort_values(["Property", "Year", "Author"]).reset_index(drop=True)
+
+
+def plot_deviation(variable='Vm_melt'):
+    xenon_data = load_all_gas_data('xenon', read_from_excel=False)
+    datasets, meta = extract_datasets_with_meta(xenon_data)
+    params_fit = PARAMS_INIT_XENON
+    master_df = build_master_pointwise_df(datasets, meta, params_fit)
+
+    # 2. Filter for the property you want to plot
+
+    df_cell_volume_melt = master_df[master_df["Property"] == "Vm_melt"]
+    df_cell_volume_sub = master_df[master_df["Property"] == "Vm_sub"]
+    df_cp_sub = master_df[master_df["Property"] == "cp_sub"]
+    df_alpha_sub = master_df[master_df["Property"] == "alpha_sub"]
+    df_alpha_sub['y_exp'] = df_alpha_sub['y_exp'] * \
+        10**4  # convert to 1e-4 K^-1
+    df_alpha_sub['y_model'] = df_alpha_sub['y_model'] * \
+        10**4  # convert to 1e-4 K^-1
+    df_BetaT_sub = master_df[master_df["Property"] == "BetaT_sub"]
+    df_BETA_T_sub = df_BetaT_sub.copy()
+    df_BETA_T_sub['y_exp'] = 1 / df_BETA_T_sub['y_exp']  # Now in MPa
+    df_BETA_T_sub['y_model'] = 1 / df_BETA_T_sub['y_model']  # Now in MPa
+    df_BetaS_sub = master_df[master_df["Property"] == "BetaS_sub"]
+    df_BETA_S_sub = df_BetaS_sub.copy()
+    df_BETA_S_sub['y_exp'] = 1 / df_BETA_S_sub['y_exp']  # Now in MPa
+    df_BETA_S_sub['y_model'] = 1 / df_BETA_S_sub['y_model']  # Now in MPa
+    df_enthalpy_solid_melt = master_df[master_df["Property"] == "H_solid_melt"]
+    df_enthalpy_solid_sub = master_df[master_df["Property"] == "H_solid_sub"]
+    df_pressure_sub = master_df[master_df["Property"] == "psub"]
+    df_pressure_melt = master_df[master_df["Property"] == "pmelt"]
+    # df_BetaT_sub['KappaT_exp'] = 1 / df_BetaT_sub['BetaT_exp']  # Now in MPa
+    if variable == 'Vm_melt':
+        # # 3. Plot the variable
+        plot_thermo_variable(
+            data=df_cell_volume_melt,
+            gas_name='xenon',
+            x_col='T',
+            y_col='y_exp',
+            y_label=r'$V_{\mathrm{m}}\,/\,\mathrm{cm^3mol^{-1}}$',
+            title=None,
+            model_x=df_cell_volume_melt['T'],
+            model_y=df_cell_volume_melt['y_model'],
+            logy=False,
+            xlim=(160, 375),
+            ylim=(32, 40),
+            filename='xenon_melt_cellvolume.png',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+        plot_variable_deviation(
+            data=df_cell_volume_melt,
+            gas_name='xenon',
+            x_col='T',
+            y_exp_col='y_exp',
+            y_model_col='y_model',
+            y_label=r'$100 \cdot (V_{\mathrm{m,exp}} - V_{\mathrm{m,calc}}) / V_{\mathrm{m,exp}}$',
+            title=None,
+            filename='xenon_melt_cellvolume_deviation',
+            xlim=(160, 375),
+            ylim=(-2, 1.5),
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+    elif variable == 'Vm_sub':
+        # # 3. Plot the variable
+        plot_thermo_variable(
+            data=df_cell_volume_sub,
+            gas_name='xenon',
+            x_col='T',
+            y_col='y_exp',
+            y_label=r'$V_{\mathrm{m}}\,/\,\mathrm{cm^3mol^{-1}}$',
+            title=None,
+            xlim=(0, 170),
+            ylim=(34, 40),
+            model_x=df_cell_volume_sub['T'],
+            model_y=df_cell_volume_sub['y_model'],
+            logy=False,
+            filename='xenon_sub_cellvolume.png',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+        plot_variable_deviation(
+            data=df_cell_volume_sub,
+            gas_name='xenon',
+            x_col='T',
+            y_exp_col='y_exp',
+            y_model_col='y_model',
+            y_label=r'$100 \cdot (V_{\mathrm{m,exp}} - V_{\mathrm{m,calc}}) / V_{\mathrm{m,exp}}$',
+            title=None,
+            filename='xenon_sub_cellvolume_deviation',
+            xlim=(0, 170),
+            ylim=(-0.5, 1.5),
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+    elif variable == 'cp_sub':
+        # # 3. Plot the variable
+        plot_thermo_variable(
+            data=df_cp_sub,
+            gas_name='xenon',
+            x_col='T',
+            y_col='y_exp',
+            y_label=r'$c_p\,/\,\mathrm{JK^{-1}mol^{-1}}$',
+            title=None,
+            xlim=(0, 170),
+            ylim=(0, 40),
+            model_x=df_cp_sub['T'],
+            model_y=df_cp_sub['y_model'],
+            logy=False,
+            filename='xenon_sub_heatcapacity.png',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+        plot_variable_deviation(
+            data=df_cp_sub,
+            gas_name='xenon',
+            x_col='T',
+            y_exp_col='y_exp',
+            y_model_col='y_model',
+            y_label=r'$100 \cdot (c_{p,\mathrm{exp}} - c_{p,\mathrm{calc}}) / c_{p,\mathrm{exp}}$',
+            title=None,
+            filename='xenon_sub_heatcapacity_deviation',
+            xlim=(0, 170),
+            ylim=(-10, 20),
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+    elif variable == 'alpha_sub':
+        # # 3. Plot the variable
+        plot_thermo_variable(
+            data=df_alpha_sub,  # convert to 1e-4 K^-1
+            gas_name='xenon',
+            x_col='T',
+            y_col='y_exp',
+            y_label=r'$\alpha \cdot 10^{4}/\,\mathrm{K^{-1}}$',
+            title=None,
+            xlim=(0, 170),
+            ylim=(0, 12),
+            model_x=df_alpha_sub['T'],
+            model_y=df_alpha_sub['y_model'],  # convert to 1e-4 K^-1
+            logy=False,
+            filename='xenon_sub_thermal_expansion.png',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+        plot_variable_deviation(
+            data=df_alpha_sub,
+            gas_name='xenon',
+            x_col='T',
+            y_exp_col='y_exp',
+            y_model_col='y_model',
+            y_label=r'$100 \cdot (\alpha_{\mathrm{exp}} - \alpha_{\mathrm{calc}}) / \alpha_{\mathrm{exp}}$',
+            title=None,
+            filename='xenon_sub_thermal_expansion_deviation',
+            xlim=(0, 170),
+            ylim=(-50, 15),
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+    elif variable == 'BetaT_sub':
+        # # 3. Plot the variable
+        plot_thermo_variable(
+            data=df_BETA_T_sub,  # convert to KappaT in MPa
+            gas_name='xenon',
+            x_col='T',
+            y_col='y_exp',
+            y_label=r'$K_T\,/\,\mathrm{MPa}$',
+            title=None,
+            xlim=(0, 170),
+            ylim=(1250, 3750),
+            model_x=df_BETA_T_sub['T'],
+            model_y=df_BETA_T_sub['y_model'],  # convert to KappaT in MPa
+            logy=False,
+            filename='xenon_sub_isothermal_compressibility.png',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+        plot_variable_deviation(
+            data=df_BETA_T_sub,
+            gas_name='xenon',
+            x_col='T',
+            y_exp_col='y_exp',
+            y_model_col='y_model',
+            y_label=r'$100 \cdot (K_{T,\mathrm{exp}} - K_{T,\mathrm{calc}}) / K_{T,\mathrm{exp}}$',
+            title=None,
+            filename='xenon_sub_isothermal_compressibility_deviation',
+            xlim=(0, 170),
+            ylim=(-15, 15),
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+    elif variable == 'BetaS_sub':
+        # # 3. Plot the variable
+        plot_thermo_variable(
+            data=df_BETA_S_sub,  # convert to KappaS in MPa
+            gas_name='xenon',
+            x_col='T',
+            y_col='y_exp',
+            y_label=r'$K_S\,/\,\mathrm{MPa}$',
+            title=None,
+            xlim=(0, 170),
+            ylim=(1500, 4000),
+            model_x=df_BETA_S_sub['T'],
+            model_y=df_BETA_S_sub['y_model'],  # convert to KappaS in MPa
+            logy=False,
+            filename='xenon_sub_isentropic_compressibility.png',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+        plot_variable_deviation(
+            data=df_BETA_S_sub,
+            gas_name='xenon',
+            x_col='T',
+            y_exp_col='y_exp',
+            y_model_col='y_model',
+            y_label=r'$100 \cdot (K_{S,\mathrm{exp}} - K_{S,\mathrm{calc}}) / K_{S,\mathrm{exp}}$',
+            title=None,
+            filename='xenon_sub_isentropic_compressibility_deviation',
+            xlim=(0, 170),
+            ylim=(-40, 10),
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+    elif variable == 'H_solid_sub':
+        # shift model enthalpy by the triple-point offset (kJ/mol)
+        dHtr_kJ, _ = _triple_offsets_plot(params_fit, Tt=Tt, pt=pt,
+                                          St_REFPROP=St_REFPROP, Ht_REFPROP=Ht_REFPROP)
+
+        dfH = df_enthalpy_solid_sub.copy()
+        # y_exp is H_solid_exp in J/mol from builder → convert to kJ/mol
+        dfH['y_exp'] = dfH['y_exp'] / 1000.0
+        # y_model is H_model (J/mol) → convert and shift to solid reference
+        dfH['y_model'] = dfH['y_model'] / 1000.0 - dHtr_kJ
+
+        # Top panel: ΔH (kJ/mol) vs T with model line
+        plot_thermo_variable(
+            data=dfH,
+            gas_name='xenon',
+            x_col='T',
+            y_col='y_exp',
+            y_label=r'$\Delta H\,/\,\mathrm{kJ\,mol^{-1}}$',
+            title=None,
+            model_x=dfH['T'],
+            model_y=dfH['y_model'],
+            # xlim=(102, 110),
+            # ylim=(-2.35, -2.05),
+            logy=False,
+            filename='xenon_sub_enthalpy.png',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+        # Bottom: percent deviation with model in denominator (as in your MATLAB figure)
+        plot_variable_deviation(
+            data=dfH,
+            gas_name='xenon',
+            x_col='T',
+            y_exp_col='y_exp',
+            y_model_col='y_model',
+            # xlim=(102, 110),
+            # ylim=(-0.4, 0.8),
+            y_label=r'$100\cdot(\Delta H_{\mathrm{exp}}-\Delta H_{\mathrm{calc}})/\Delta H_{\mathrm{exp}}$',
+            title=None,
+            filename='xenon_sub_enthalpy_deviation',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS,
+        )
+    elif variable == 'H_solid_melt':
+        # shift model enthalpy by the triple-point offset (kJ/mol)
+        dHtr_kJ, _ = _triple_offsets_plot(params_fit, Tt=Tt, pt=pt,
+                                          St_REFPROP=St_REFPROP, Ht_REFPROP=Ht_REFPROP)
+
+        dfH = df_enthalpy_solid_melt.copy()
+        # y_exp is H_solid_exp in J/mol from builder → convert to kJ/mol
+        dfH['y_exp'] = dfH['y_exp'] / 1000.0
+        # y_model is H_model (J/mol) → convert and shift to solid reference
+        dfH['y_model'] = dfH['y_model'] / 1000.0 - dHtr_kJ
+
+        # Top panel: ΔH (kJ/mol) vs T with model line
+        plot_thermo_variable(
+            data=dfH,
+            gas_name='xenon',
+            x_col='T',
+            y_col='y_exp',
+            y_label=r'$\Delta H\,/\,\mathrm{kJ\,mol^{-1}}$',
+            title=None,
+            model_x=dfH['T'],
+            model_y=dfH['y_model'],
+            # xlim=(110, 220),
+            # ylim=(-5, 15),
+            logy=False,
+            filename='xenon_melt_enthalpy.png',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+        # Bottom: percent deviation with model in denominator (as in your MATLAB figure)
+        plot_variable_deviation(
+            data=dfH,
+            gas_name='xenon',
+            x_col='T',
+            y_exp_col='y_exp',
+            y_model_col='y_model',
+            # xlim=(110, 220),
+            # ylim=(-5, 15),
+            y_label=r'$100\cdot(\Delta H_{\mathrm{exp}}-\Delta H_{\mathrm{calc}})/\Delta H_{\mathrm{exp}}$',
+            title=None,
+            filename='xenon_melt_enthalpy_deviation',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS,
+        )
+    elif variable == 'psub':
+        plot_thermo_variable(
+            data=df_pressure_sub,
+            gas_name='xenon',
+            x_col='T',
+            y_col='y_exp',
+            y_label=r'$p,/\,\mathrm{MPa}$',
+            title=None,
+            model_x=df_pressure_sub['T'],
+            model_y=df_pressure_sub['y_model'],
+            # xlim=(60, 120),
+            # ylim=(10**1, 10**5),
+            logy=True,
+            filename='xenon_sub_pressure.png',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+        plot_variable_deviation(
+            data=df_pressure_sub,
+            gas_name='xenon',
+            x_col='T',
+            y_exp_col='y_exp',
+            y_model_col='y_model',
+            # xlim=(60, 120),
+            # ylim=(-20, 30),
+            y_label=r'$100\cdot(p_{\mathrm{exp}}-p_{\mathrm{calc}})/p_{\mathrm{exp}}$',
+            title=None,
+            filename='xenon_sub_pressure_deviation',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS,
+        )
+    elif variable == 'pmelt':
+        plot_thermo_variable(
+            data=df_pressure_melt,
+            gas_name='xenon',
+            x_col='T',
+            y_col='y_exp',
+            y_label=r'$p,/\,\mathrm{MPa}$',
+            title=None,
+            model_x=df_pressure_melt['T'],
+            model_y=df_pressure_melt['y_model'],
+            # xlim=(60, 120),
+            # ylim=(10**1, 10**5),
+            logy=True,
+            filename='xenon_melt_pressure.png',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+        plot_variable_deviation(
+            data=df_pressure_melt,
+            gas_name='xenon',
+            x_col='T',
+            y_exp_col='y_exp',
+            y_model_col='y_model',
+            # xlim=(60, 120),
+            # ylim=(-4, 10),
+            y_label=r'$100\cdot(p_{\mathrm{exp}}-p_{\mathrm{calc}})/p_{\mathrm{exp}}$',
+            title=None,
+            filename='xenon_melt_pressure_deviation',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS,
+        )
+
+
+def RMS_AAD():
+    xenon_data = load_all_gas_data('xenon', read_from_excel=False)
+    datasets, meta = extract_datasets_with_meta(xenon_data)
+    params_fit = PARAMS_INIT
+    master_df = build_master_pointwise_df(datasets, meta, params_fit)
+    summary = summarise_by_author(master_df)
+    # Save to CSV
+    output_path = os.path.join(
+        IMG_OUTPUT_FOLDER, 'xenon_summary_by_author.csv')
+    summary.to_csv(output_path, index=False)
+
+
+def plot_init():
+    xenon_data = load_all_gas_data('xenon', read_from_excel=False)
+    datasets = extract_datasets(xenon_data)
+    params_init = PARAMS_INIT
+    plot_all_overlays_grid(params_init, datasets, Tt=Tt, pt=pt, compute_thermo_props=compute_thermo_props,
+                           St_REFPROP=St_REFPROP, Ht_REFPROP=Ht_REFPROP, psub_curve=psub_curve, pmelt_curve=pmelt_curve)
+
+
+def _triple_offsets_plot(params, Tt=Tt, pt=pt, St_REFPROP=St_REFPROP, Ht_REFPROP=Ht_REFPROP):
+    """
+    Same logic as fitting_xenon._triple_offsets but local here to avoid circular imports.
+    Returns (dH_triple_kJ, dS_triple).
+    """
+    tp = compute_thermo_props(float(Tt), float(pt), params)
+    if isinstance(tp, tuple) and len(tp) == 2 and isinstance(tp[1], dict):
+        meta = tp[1]
+        dH = float(meta.get("deltaH_triple"))
+        dS = float(meta.get("deltaS_triple"))
+    else:
+        props = np.asarray(tp, float)
+        Sstar = float(params[30])
+        dS = Sstar - float(St_REFPROP)
+        # use G + T*S* to align enthalpy at triple
+        Ht_fitted = float(props[IDX["G"]]) + float(Tt) * Sstar
+        dH = Ht_fitted - float(Ht_REFPROP)  # J/mol
+    return dH/1000.0, dS  # kJ/mol, dimensionless
+#

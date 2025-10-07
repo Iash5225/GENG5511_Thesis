@@ -109,7 +109,6 @@ Year	Author	Temperature	Heat Capacity
 1969.0	Trefny	148.0	33.3
 1969.0	Trefny	152.0	34.1
 1969.0	Trefny	156.0	35.1
-1969.0	Trefny	160.0	41.0
 1963.0	Packard	20.0	17.02888
 1963.0	Packard	50.0	25.104
 1963.0	Packard	75.0	26.73576

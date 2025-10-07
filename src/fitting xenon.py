@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from read import load_all_gas_data
 from constants import *
 from thermopropsv2 import compute_thermo_props
-from fitting_helper_xenon import _safe_props_vector, rms_percent, rms, extract_datasets, safe_psub, extract_datasets_with_meta, psub_curve, pmelt_curve, build_master_pointwise_df, summarise_by_author, plot_thermo_variable, plot_variable_deviation, RMS_AAD
+from fitting_helper_xenon import _safe_props_vector, rms_percent, rms, extract_datasets, safe_psub, psub_curve, pmelt_curve, plot_deviation, plot_init
 from plot_eos import plot_all_overlays_grid
 import traceback
 from deviation_recorder import DeviationRecorder, Metric
@@ -267,89 +267,8 @@ def main():
     GLOBAL_RECORDER.plot_history(ncols=5)
 
 
-def plot_init():
-    xenon_data = load_all_gas_data('xenon', read_from_excel=False)
-    datasets = extract_datasets(xenon_data)
-    params_init = PARAMS_INIT_XENON
-    # master_df = build_master_pointwise_df(datasets, meta, params_init)
-    # summarise_by_author(master_df).to_csv(os.path.join(IMG_OUTPUT_FOLDER, 'krypton_summary_by_author_init.csv'), index=False)
-    plot_all_overlays_grid(params_init, datasets, Tt=Tt, pt=pt, compute_thermo_props=compute_thermo_props,
-                           St_REFPROP=St_REFPROP, Ht_REFPROP=Ht_REFPROP, psub_curve=psub_curve, pmelt_curve=pmelt_curve)
-
-
-def plot_deviation():
-    xenon_data = load_all_gas_data('xenon', read_from_excel=False)
-    datasets, meta = extract_datasets_with_meta(xenon_data)
-    params_init = PARAMS_INIT_XENON
-    master_df = build_master_pointwise_df(datasets, meta, params_init)
-
-    # 2. Filter for the property you want to plot
-
-    df_cell_volume_melt = master_df[master_df["Property"] == "Vm_melt"]
-    df_cell_volume_sub = master_df[master_df["Property"] == "Vm_sub"]
-    df_cp_sub = master_df[master_df["Property"] == "cp_sub"]
-    df_alpha_sub = master_df[master_df["Property"] == "alpha_sub"]
-    df_BetaT_sub = master_df[master_df["Property"] == "BetaT_sub"]
-    df_BETA_T_sub = df_BetaT_sub.copy()
-    df_BETA_T_sub['y_exp'] = 1 / df_BETA_T_sub['y_exp']  # Now in MPa
-    df_BETA_T_sub['y_model'] = 1 / df_BETA_T_sub['y_model']  # Now in MPa
-    df_BetaS_sub = master_df[master_df["Property"] == "BetaS_sub"]
-    df_BETA_S_sub = df_BetaS_sub.copy()
-    df_BETA_S_sub['y_exp'] = 1 / df_BETA_S_sub['y_exp']  # Now in MPa
-    df_BETA_S_sub['y_model'] = 1 / df_BETA_S_sub['y_model']  # Now in MPa
-    df_enthalpy_solid_melt = master_df[master_df["Property"] == "H_solid_melt"]
-    df_enthalpy_solid_sub = master_df[master_df["Property"] == "H_solid_sub"]
-    df_pressure_sub = master_df[master_df["Property"] == "psub"]
-    df_pressure_melt = master_df[master_df["Property"] == "pmelt"]
-    # df_BetaT_sub['KappaT_exp'] = 1 / df_BetaT_sub['BetaT_exp']  # Now in MPa
-
-    # # 3. Plot the variable
-    plot_thermo_variable(
-        data=df_cell_volume_melt,
-        gas_name='xenon',
-        x_col='T',
-        y_col='y_exp',
-        y_label=r'$V_{\mathrm{m}}\,/\,\mathrm{cm^3mol^{-1}}$',
-        title=None,
-        model_x=df_cell_volume_melt['T'],
-        model_y=df_cell_volume_melt['y_model'],
-        logy=False,
-        filename='xenon_melt_cellvolume.png',
-        output_folder=IMG_OUTPUT_FOLDER,
-        custom_colors=CUSTOMCOLORS,
-        custom_markers=CUSTOMMARKERS
-    )
-    plot_variable_deviation(
-        data=df_cell_volume_melt,
-        gas_name='xenon',
-        x_col='T',
-        y_exp_col='y_exp',
-        y_model_col='y_model',
-        y_label=r'$100 \cdot (V_{\mathrm{m,exp}} - V_{\mathrm{m,calc}}) / V_{\mathrm{m,exp}}$',
-        title=None,
-        filename='xenon_melt_cellvolume_deviation',
-        # xlim=(0, 120),
-        # ylim=(-10, 25),
-        output_folder=IMG_OUTPUT_FOLDER,
-        custom_colors=CUSTOMCOLORS,
-        custom_markers=CUSTOMMARKERS
-    )
-
-
-def RMS_AAD():
-    data = load_all_gas_data('xenon', read_from_excel=False)
-    datasets, meta = extract_datasets_with_meta(data)
-    params_fit = PARAMS_INIT_XENON
-    master_df = build_master_pointwise_df(datasets, meta, params_fit)
-    summary = summarise_by_author(master_df)
-    # Save to CSV
-    output_path = os.path.join(
-        IMG_OUTPUT_FOLDER, 'xenon_summary_by_author.csv')
-    summary.to_csv(output_path, index=False)
-
-
 if __name__ == "__main__":
-    plot_deviation()
+    plot_deviation("H_solid_sub")
     # main()
     # plot_init()
     # RMS_AAD()
