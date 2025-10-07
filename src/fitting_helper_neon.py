@@ -10,6 +10,7 @@ from thermopropsv2 import compute_thermo_props
 from constants import *
 from scipy.interpolate import UnivariateSpline
 import os
+from plot_eos import plot_all_overlays_grid
 IDX = dict(Vm=0, KappaT=1, KappaS=2, Alpha=3, cp=4, H=10, G=11)
 # solid_EOS_fitting.py
 BIG = 1e4
@@ -51,63 +52,74 @@ def plot_variable_deviation(
 ):
     """
     Plot percent deviation between experimental and model values for any variable.
-
-    Args:
-        data (pd.DataFrame): DataFrame with columns including x_col, y_exp_col, y_model_col, 'Year', 'Author'
-        gas_name (str): Gas name for title and filename
-        x_col (str): Column name for x-axis (e.g., 'Temperature')
-        y_exp_col (str): Experimental value column (e.g., 'y_exp')
-        y_model_col (str): Model value column (e.g., 'y_model')
-        y_label (str): Y-axis label (LaTeX string)
-        title (str): Plot title
-        filename (str): Output filename (optional, .png will be appended if missing)
-        xlim, ylim: Axis limits (optional)
-        markersize (int): Marker size
-        custom_markers (list): List of marker styles
-        custom_colors (list): List of colors
-        legend_outside (bool): Place legend outside plot
-        fontsize (int): Font size for labels
-        output_folder (str): If given, save plot in this folder
     """
+
     data = data.copy()
     data['Deviation_percent'] = 100 * \
         (data[y_exp_col] - data[y_model_col]) / data[y_exp_col]
+
     grouped = data.groupby(['Year', 'Author'])
     if custom_markers is None:
         custom_markers = ['o', 's', '^', 'v', 'D', 'x', '*', 'P', 'h', 'X']
     if custom_colors is None:
         custom_colors = plt.cm.tab10.colors
 
-    # Compute percent deviation
+    fig, ax = plt.subplots(figsize=(10, 6))
 
+    # ✅ Thicker border (spines)
+    for spine in ax.spines.values():
+        spine.set_linewidth(1.5)
+        spine.set_color('black')
 
-    plt.figure(figsize=(10, 6))
-    plt.tick_params(direction='in', top=True, right=True)
+    # ✅ Ticks: inward, on all sides
+    ax.tick_params(
+        direction='in',
+        which='both',
+        top=True,
+        right=True,
+        length=5,
+        width=1.2
+    )
+
+    # Plot data points
     for i, ((year, author), group) in enumerate(grouped):
-        plt.scatter(
+        ax.scatter(
             group[x_col], group['Deviation_percent'],
             label=f"{year}, {author}",
             s=markersize,
             edgecolor=custom_colors[i % len(custom_colors)],
             marker=custom_markers[i % len(custom_markers)],
             facecolors='none',
+            linewidths=1.2,
         )
-    plt.axhline(0, color='black', linewidth=1)
-    plt.xlabel(r'$\mathit{T}$ / K', fontsize=fontsize)
-    plt.ylabel(y_label, fontsize=fontsize)
-    plt.title(title, fontsize=fontsize)
+
+    # Horizontal zero line
+    ax.axhline(0, color='black', linewidth=1)
+
+    # Labels and title
+    ax.set_xlabel(r'$\mathit{T}$ / K', fontsize=fontsize)
+    ax.set_ylabel(y_label, fontsize=fontsize)
+    ax.set_title(title, fontsize=fontsize)
+
+    # Axis limits
     if xlim:
-        plt.xlim(*xlim)
+        ax.set_xlim(*xlim)
     if ylim:
-        plt.ylim(*ylim)
+        ax.set_ylim(*ylim)
+
+    # Legend
     if legend_outside:
-        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8)
+        ax.legend(
+            loc='upper left',
+            bbox_to_anchor=(1.05, 1),
+            fontsize=8
+        )
         plt.tight_layout(rect=[0, 0, 0.85, 1])
     else:
-        plt.legend(fontsize=8)
+        ax.legend(fontsize=8)
         plt.tight_layout()
 
-    # Save if requested
+    # ✅ Save if requested
     if filename:
         if not filename.lower().endswith('.png'):
             filename += '.png'
@@ -115,6 +127,7 @@ def plot_variable_deviation(
             os.makedirs(output_folder, exist_ok=True)
             filename = os.path.join(output_folder, filename)
         plt.savefig(filename, dpi=300, bbox_inches='tight')
+
     plt.show()
 
 
@@ -131,7 +144,7 @@ def plot_thermo_variable(
     xlim=None,
     ylim=None,
     filename=None,
-    output_folder=None,  # <-- add this line
+    output_folder=None,
     legend_outside=True,
     markersize=50,
     linewidth=2,
@@ -142,26 +155,8 @@ def plot_thermo_variable(
     """
     General-purpose plot for thermodynamic variables (e.g., enthalpy, heat capacity, etc.)
     grouped by author/year, with optional model curve.
-
-    Args:
-        data (pd.DataFrame): DataFrame with columns including x_col, y_col, 'Year', 'Author'
-        gas_name (str): Gas name for title and filename
-        x_col (str): Column name for x-axis (e.g., 'Temperature')
-        y_col (str): Column name for y-axis (e.g., 'Change in Enthalpy')
-        y_label (str): Y-axis label (LaTeX string)
-        title (str): Plot title
-        model_x (array-like): X values for model curve (optional)
-        model_y (array-like): Y values for model curve (optional)
-        logy (bool): Use log scale for y-axis
-        xlim, ylim: Axis limits (optional)
-        filename (str): If given, save plot to this file
-        legend_outside (bool): Place legend outside plot
-        markersize (int): Marker size
-        linewidth (int): Model curve line width
-        fontsize (int): Font size for labels
-        custom_markers (list): List of marker styles
-        custom_colors (list): List of colors
     """
+
     grouped = data.groupby(['Year', 'Author'])
     if custom_markers is None:
         custom_markers = ['o', 's', '^', 'v', 'D', 'x', '*', 'P', 'h', 'X']
@@ -169,8 +164,10 @@ def plot_thermo_variable(
         custom_colors = plt.cm.tab10.colors
 
     plt.figure(figsize=(10, 6))
+    ax = plt.gca()  # get current axis
+
     for i, ((year, author), group) in enumerate(grouped):
-        plt.scatter(
+        ax.scatter(
             group[x_col], group[y_col],
             s=markersize,
             label=f"{year}, {author}",
@@ -183,23 +180,41 @@ def plot_thermo_variable(
     # Plot model curve if provided
     if model_x is not None and model_y is not None:
         order = np.argsort(model_x)
-        plt.plot(
+        ax.plot(
             np.array(model_x)[order], np.array(model_y)[order],
-            color='black', linewidth=linewidth, label='Model'
+            color='black', linewidth=linewidth, label='EOS prediction'
         )
 
-    plt.xlabel(r'$\mathit{T}$ / K', fontsize=fontsize)
-    plt.ylabel(y_label, fontsize=fontsize)
-    plt.title(title, fontsize=fontsize)
-    if logy:
-        plt.yscale('log')
-    if xlim:
-        plt.xlim(*xlim)
-    if ylim:
-        plt.ylim(*ylim)
+    ax.set_xlabel(r'$\mathit{T}$ / K', fontsize=fontsize)
+    ax.set_ylabel(y_label, fontsize=fontsize)
+    ax.set_title(title, fontsize=fontsize)
 
+    # Axis limits
+    if logy:
+        ax.set_yscale('log')
+    if xlim:
+        ax.set_xlim(*xlim)
+    if ylim:
+        ax.set_ylim(*ylim)
+
+    # ✅ Ticks: inward, on all sides
+    ax.tick_params(
+        direction='in',
+        which='both',   # both major and minor ticks
+        top=True,
+        right=True,
+        length=5,
+        width=1.2
+    )
+
+    # ✅ Thicker black border
+    for spine in ax.spines.values():
+        spine.set_linewidth(1.5)
+        spine.set_color('black')
+
+    # Legend
     if legend_outside:
-        plt.legend(
+        ax.legend(
             loc='upper left',
             bbox_to_anchor=(1.05, 1),
             fontsize=8,
@@ -207,9 +222,10 @@ def plot_thermo_variable(
         )
         plt.tight_layout(rect=[0, 0, 0.85, 1])
     else:
-        plt.legend(fontsize=8)
+        ax.legend(fontsize=8)
         plt.tight_layout()
 
+    # ✅ Save figure if filename is given
     if filename:
         if not filename.lower().endswith('.png'):
             filename += '.png'
@@ -217,6 +233,7 @@ def plot_thermo_variable(
             os.makedirs(output_folder, exist_ok=True)
             filename = os.path.join(output_folder, filename)
         plt.savefig(filename, dpi=300, bbox_inches='tight')
+
     plt.show()
 
 def safe_psub(T):
@@ -302,127 +319,88 @@ def rms(x):
     n = x.size
     return 0.0 if n == 0 else np.sqrt(np.sum(x*x) / n)
 
+
+def _ensure_meta_columns(df: pd.DataFrame, property_name: str) -> pd.DataFrame:
+    """
+    Ensure df has 'Property', 'Author', 'Year' columns for grouping.
+    Robust to case and stray whitespace; will also match columns that only
+    contain the substring (e.g., 'measurement year').
+    """
+    if df is None:
+        return df
+    out = df.copy()
+
+    def find_col(name: str, contains: bool = False):
+        lname = name.lower()
+        for c in out.columns:
+            if not isinstance(c, str):
+                continue
+            cs = c.strip().lower()           # strip whitespace
+            if (not contains and cs == lname) or (contains and lname in cs):
+                return c
+        return None
+
+    # Property
+    if "Property" not in out.columns:
+        out["Property"] = property_name
+
+    # Author (exact or case-insensitive/whitespace-robust)
+    if "Author" not in out.columns:
+        ac = find_col("Author") or find_col(
+            "Authors") or find_col("author", contains=True)
+        out["Author"] = out[ac] if ac is not None else "Unknown"
+
+    # Year (exact; else substring; else leave NaN)
+    if "Year" not in out.columns:
+        yc = find_col("Year") or find_col("year", contains=True)
+        if yc is None:
+            print(
+                f"[ensure-meta] '{property_name}': Year column not found; filling with NaN.")
+            out["Year"] = np.nan
+        else:
+            # coerce to numeric years
+            out["Year"] = pd.to_numeric(out[yc], errors="coerce")
+
+    return out
+
+
 def extract_datasets_with_meta(data):
     """
-    Build both numeric arrays (like extract_datasets) AND metadata (Author, Year).
-    Returns:
-        datasets : tuple (length 38, same order as extract_datasets)
-        meta : dict mapping each property to its Author/Year arrays
+    Reuses extract_datasets() for numeric arrays, then builds meta dict
+    (Author, Year) per property key. No duplication of numeric work.
     """
-    # --- reuse most of the original code ---
-    T_Vm_sub = data["cell_volume_sub"]["Temperature"].to_numpy()
-    p_Vm_sub = psub_curve(T_Vm_sub)
-    # p_Vm_sub = np.array([sublimation_pressure_equation(
-    #     T, KRYPTON_E_1_SUB, KRYPTON_E_2_SUB, KRYPTON_E_3_SUB, KRYPTON_T_t, KRYPTON_P_t
-    # ) for T in T_Vm_sub], dtype=float)
-    Vm_sub = data["cell_volume_sub"]["Cell Volume"].to_numpy()
+    # IMPORTANT: fix columns BEFORE we read them into meta
+    def ensure(key, prop):
+        if key in data and isinstance(data[key], pd.DataFrame):
+            data[key] = _ensure_meta_columns(data[key], prop)
+    ensure("heatsub", "H_solid_sub")     # <-- heatsub fixed here BEFORE meta
+    ensure("fusion", "H_solid_melt")
 
-    T_Vm_melt = data["cell_volume_melt"]["Temperature"].to_numpy()
-    p_Vm_melt = psub_curve(T_Vm_melt)
-    # p_Vm_melt = np.array([melting_pressure_equation(
-    #     T, KRYPTON_E_4, KRYPTON_E_5, KRYPTON_E_6, KRYPTON_E_7, KRYPTON_T_t, KRYPTON_P_t
-    # ) for T in T_Vm_melt], dtype=float)
-    Vm_melt = data["cell_volume_melt"]["Cell Volume"].to_numpy()
+    datasets = extract_datasets(data)
 
-    if "cell_volume_highp" in data:
-        T_Vm_highp = data["cell_volume_highp"]["Temperature"].to_numpy()
-        p_Vm_highp = data["cell_volume_highp"]["Pressure"].to_numpy()
-        Vm_highp = data["cell_volume_highp"]["Cell Volume"].to_numpy()
-    else:
-        T_Vm_highp = p_Vm_highp = Vm_highp = np.array([])
+    def meta_block(df, n):
+        if df is None:
+            return None
+        authors = df.get("Author", pd.Series(["Unknown"] * n)).to_numpy()
+        years = df.get("Year", pd.Series([0] * n))
+        # Ensure year is integer (handle non-numeric gracefully)
+        years = pd.to_numeric(years, errors="coerce").fillna(
+            0).astype(int).to_numpy()
+        return {"Author": authors, "Year": years}
 
-    T_cp_sub = data["heat_capacity"]["Temperature"].to_numpy()
-    p_cp_sub = psub_curve(T_cp_sub)
-    # p_cp_sub = np.array([sublimation_pressure_equation(
-    #     T, KRYPTON_E_1_SUB, KRYPTON_E_2_SUB, KRYPTON_E_3_SUB, KRYPTON_T_t, KRYPTON_P_t
-    # ) for T in T_cp_sub], dtype=float)
-    cp_sub = data["heat_capacity"]["Heat Capacity"].to_numpy()
-
-    T_alpha_sub = data["thermal_coeff"]["Temperature"].to_numpy()
-    p_alpha_sub = psub_curve(T_alpha_sub)
-    # p_alpha_sub = np.array([sublimation_pressure_equation(
-    #     T, KRYPTON_E_1_SUB, KRYPTON_E_2_SUB, KRYPTON_E_3_SUB, KRYPTON_T_t, KRYPTON_P_t
-    # ) for T in T_alpha_sub], dtype=float)
-    alpha_sub = data["thermal_coeff"]["Thermal Expansion Coefficient"].to_numpy()
-
-    T_BetaS_sub = data["bulk_s"]["Temperature"].to_numpy()
-    p_BetaS_sub = safe_psub(T_BetaS_sub)
-    BetaS_sub = data["bulk_s"]["Beta S"].to_numpy()
-
-    T_BetaT_sub = data["bulk_t"]["Temperature"].to_numpy()
-    p_BetaT_sub = safe_psub(T_BetaT_sub)
-    BetaT_sub = data["bulk_t"]["Beta T"].to_numpy()
-
-    T_melt = data["melting"]["Temperature"].to_numpy()
-    p_melt = data["melting"]["Pressure"].to_numpy()
-    G_fluid_melt = data["melting"]["Gibbs Energy"].to_numpy()
-    V_fluid_melt = data["melting"]["Volume"].to_numpy()
-
-    T_sub = data["sublimation"]["Temperature"].to_numpy()
-    p_sub = data["sublimation"]["Pressure"].to_numpy()
-    G_fluid_sub = data["sublimation"]["Gibbs Energy"].to_numpy()
-    V_fluid_sub = data["sublimation"]["Volume"].to_numpy()
-    Year_sub = data["sublimation"]["Year"].to_numpy(
-    ) if "Year" in data["sublimation"].columns else np.array([])
-
-    T_H_sub = data["heatsub"]["Temperature"].to_numpy()
-    p_H_sub = data["heatsub"]["Pressure"].to_numpy()
-    delta_H_sub = pd.to_numeric(data["heatsub"]["Change in Enthalpy"],
-                      errors="coerce").to_numpy()
-    H_fluid_sub = pd.to_numeric(data["heatsub"]["Enthalpy"], errors="coerce").to_numpy()
-
-    T_H_melt = data["fusion"]["Temperature"].to_numpy()
-    p_H_melt = data["fusion"]["Pressure"].to_numpy()
-    delta_H_melt = pd.to_numeric(data["fusion"]["Change in Enthalpy"],
-                      errors="coerce").to_numpy()
-    H_fluid_melt = pd.to_numeric(data["fusion"]["Enthalpy"], errors="coerce").to_numpy()
-
-    # --- original tuple (38) ---
-    datasets = (
-        T_Vm_sub, p_Vm_sub, Vm_sub,
-        T_Vm_melt, p_Vm_melt, Vm_melt,
-        T_Vm_highp, p_Vm_highp, Vm_highp,
-        T_cp_sub, p_cp_sub, cp_sub,
-        T_alpha_sub, p_alpha_sub, alpha_sub,
-        T_BetaT_sub, p_BetaT_sub, BetaT_sub,
-        T_BetaS_sub, p_BetaS_sub, BetaS_sub,
-        T_sub, p_sub, Year_sub, G_fluid_sub, V_fluid_sub,
-        T_melt, p_melt, G_fluid_melt, V_fluid_melt,
-        T_H_sub, p_H_sub, delta_H_sub, H_fluid_sub,
-        T_H_melt, p_H_melt, delta_H_melt, H_fluid_melt
-    )
-
-    # --- metadata dict ---
     meta = {
-        "Vm_sub":   {"Author": data["cell_volume_sub"].get("Author", pd.Series(["Unknown"]*len(T_Vm_sub))).to_numpy(),
-                     "Year":   data["cell_volume_sub"].get("Year", pd.Series([0]*len(T_Vm_sub))).to_numpy()},
-        "Vm_melt":  {"Author": data["cell_volume_melt"].get("Author", pd.Series(["Unknown"]*len(T_Vm_melt))).to_numpy(),
-                     "Year":   data["cell_volume_melt"].get("Year", pd.Series([0]*len(T_Vm_melt))).to_numpy()},
-        "Vm_highp": None if "cell_volume_highp" not in data else {
-            "Author": data["cell_volume_highp"].get("Author", pd.Series(["Unknown"]*len(T_Vm_highp))).to_numpy(),
-            "Year":   data["cell_volume_highp"].get("Year", pd.Series([0]*len(T_Vm_highp))).to_numpy()},
-        "cp_sub":   {"Author": data["heat_capacity"].get("Author", pd.Series(["Unknown"]*len(T_cp_sub))).to_numpy(),
-                     "Year":   data["heat_capacity"].get("Year", pd.Series([0]*len(T_cp_sub))).to_numpy()},
-        "alpha_sub": {"Author": data["thermal_coeff"].get("Author", pd.Series(["Unknown"]*len(T_alpha_sub))).to_numpy(),
-                      "Year":   data["thermal_coeff"].get("Year", pd.Series([0]*len(T_alpha_sub))).to_numpy()},
-        "BetaT_sub": {"Author": data["bulk_t"].get("Author", pd.Series(["Unknown"]*len(T_BetaT_sub))).to_numpy(),
-                      "Year":   data["bulk_t"].get("Year", pd.Series([0]*len(T_BetaT_sub))).to_numpy()},
-        "BetaS_sub": {"Author": data["bulk_s"].get("Author", pd.Series(["Unknown"]*len(T_BetaS_sub))).to_numpy(),
-                      "Year":   data["bulk_s"].get("Year", pd.Series([0]*len(T_BetaS_sub))).to_numpy()},
-        "H_solid_sub": {"Author": data["heatsub"].get("Author", pd.Series(["Unknown"]*len(T_H_sub))).to_numpy(),
-                        "Year":   data["heatsub"].get("Year", pd.Series([0]*len(T_H_sub))).to_numpy()},
-        "H_solid_melt": {"Author": data["fusion"].get("Author", pd.Series(["Unknown"]*len(T_H_melt))).to_numpy(),
-                         "Year":   data["fusion"].get("Year", pd.Series([0]*len(T_H_melt))).to_numpy()},
-        "sublimation": {
-            "Author": data["sublimation"].get("Author", pd.Series(["Unknown"]*len(T_sub))).to_numpy(),
-            "Year":   data["sublimation"].get("Year",   pd.Series([0]*len(T_sub))).to_numpy(),
-        },
-        "melting": {
-            "Author": data["melting"].get("Author", pd.Series(["Unknown"]*len(T_melt))).to_numpy(),
-            "Year":   data["melting"].get("Year",   pd.Series([0]*len(T_melt))).to_numpy(),
-        },
+        "Vm_sub":       meta_block(data.get("cell_volume_sub"),   len(datasets[0])),
+        "Vm_melt":      meta_block(data.get("cell_volume_melt"),  len(datasets[3])),
+        "Vm_highp":     meta_block(data.get("cell_volume_highp"), len(datasets[6])) if len(datasets[6]) else None,
+        "cp_sub":       meta_block(data.get("heat_capacity"),     len(datasets[9])),
+        "alpha_sub":    meta_block(data.get("thermal_coeff"),     len(datasets[12])),
+        "BetaT_sub":    meta_block(data.get("bulk_t"),            len(datasets[15])),
+        "BetaS_sub":    meta_block(data.get("bulk_s"),            len(datasets[18])),
+        "sublimation":  meta_block(data.get("sublimation"),       len(datasets[21])),
+        "melting":      meta_block(data.get("melting"),           len(datasets[26])),
+        "H_solid_sub":  meta_block(data.get("heatsub"),           len(datasets[31])),
+        "H_solid_melt": meta_block(data.get("fusion"),            len(datasets[34])),
     }
-
     return datasets, meta
 
 def extract_datasets(data):
@@ -844,3 +822,425 @@ def summarise_by_author(master_df, rel_epsilon=0.0, float_fmt="{:.2f}"):
             "AAD_%": float_fmt.format(aad) if np.isfinite(aad) else "--",
         })
     return pd.DataFrame(rows).sort_values(["Property", "Year", "Author"]).reset_index(drop=True)
+
+
+def plot_init():
+    neon_data = load_all_gas_data('neon', read_from_excel=False)
+    datasets = extract_datasets(neon_data)
+    params_init = PARAMS_INIT_NEON
+    # master_df = build_master_pointwise_df(datasets, meta, params_init)
+    # summarise_by_author(master_df).to_csv(os.path.join(IMG_OUTPUT_FOLDER, 'krypton_summary_by_author_init.csv'), index=False)
+    plot_all_overlays_grid(params_init, datasets, Tt=Tt, pt=pt, compute_thermo_props=compute_thermo_props,
+                           St_REFPROP=St_REFPROP, Ht_REFPROP=Ht_REFPROP, psub_curve=psub_curve, pmelt_curve=pmelt_curve)
+
+
+def plot_deviation(variable='Vm_melt'):
+    neon_data = load_all_gas_data('neon', read_from_excel=False)
+    datasets, meta = extract_datasets_with_meta(neon_data)
+    params_fit = PARAMS_INIT_NEON
+    master_df = build_master_pointwise_df(datasets, meta, params_fit)
+
+    # 2. Filter for the property you want to plot
+
+    df_cell_volume_melt = master_df[master_df["Property"] == "Vm_melt"]
+    df_cell_volume_sub = master_df[master_df["Property"] == "Vm_sub"]
+    df_cp_sub = master_df[master_df["Property"] == "cp_sub"]
+    df_alpha_sub = master_df[master_df["Property"] == "alpha_sub"]
+    df_alpha_sub['y_exp'] = df_alpha_sub['y_exp'] * \
+        10**4  # convert to 1e-4 K^-1
+    df_alpha_sub['y_model'] = df_alpha_sub['y_model'] * \
+        10**4  # convert to 1e-4 K^-1
+    df_BetaT_sub = master_df[master_df["Property"] == "BetaT_sub"]
+    df_BETA_T_sub = df_BetaT_sub.copy()
+    df_BETA_T_sub['y_exp'] = 1 / df_BETA_T_sub['y_exp']  # Now in MPa
+    df_BETA_T_sub['y_model'] = 1 / df_BETA_T_sub['y_model']  # Now in MPa
+    df_BetaS_sub = master_df[master_df["Property"] == "BetaS_sub"]
+    df_BETA_S_sub = df_BetaS_sub.copy()
+    df_BETA_S_sub['y_exp'] = 1 / df_BETA_S_sub['y_exp']  # Now in MPa
+    df_BETA_S_sub['y_model'] = 1 / df_BETA_S_sub['y_model']  # Now in MPa
+    df_enthalpy_solid_melt = master_df[master_df["Property"] == "H_solid_melt"]
+    df_enthalpy_solid_sub = master_df[master_df["Property"] == "H_solid_sub"]
+    df_pressure_sub = master_df[master_df["Property"] == "psub"]
+    df_pressure_melt = master_df[master_df["Property"] == "pmelt"]
+    # df_BetaT_sub['KappaT_exp'] = 1 / df_BetaT_sub['BetaT_exp']  # Now in MPa
+    if variable == 'Vm_melt':
+        # # 3. Plot the variable
+        plot_thermo_variable(
+            data=df_cell_volume_melt,
+            gas_name='neon',
+            x_col='T',
+            y_col='y_exp',
+            y_label=r'$V_{\mathrm{m}}\,/\,\mathrm{cm^3mol^{-1}}$',
+            title=None,
+            model_x=df_cell_volume_melt['T'],
+            model_y=df_cell_volume_melt['y_model'],
+            logy=False,
+            xlim=(160, 375),
+            ylim=(32, 40),
+            filename='neon_melt_cellvolume.png',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+        plot_variable_deviation(
+            data=df_cell_volume_melt,
+            gas_name='neon',
+            x_col='T',
+            y_exp_col='y_exp',
+            y_model_col='y_model',
+            y_label=r'$100 \cdot (V_{\mathrm{m,exp}} - V_{\mathrm{m,calc}}) / V_{\mathrm{m,exp}}$',
+            title=None,
+            filename='neon_melt_cellvolume_deviation',
+            xlim=(160, 375),
+            ylim=(-2, 1.5),
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+    elif variable == 'Vm_sub':
+        # # 3. Plot the variable
+        plot_thermo_variable(
+            data=df_cell_volume_sub,
+            gas_name='neon',
+            x_col='T',
+            y_col='y_exp',
+            y_label=r'$V_{\mathrm{m}}\,/\,\mathrm{cm^3mol^{-1}}$',
+            title=None,
+            # xlim=(0, 170),
+            # ylim=(34, 40),
+            model_x=df_cell_volume_sub['T'],
+            model_y=df_cell_volume_sub['y_model'],
+            logy=False,
+            filename='neon_sub_cellvolume.png',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+        plot_variable_deviation(
+            data=df_cell_volume_sub,
+            gas_name='neon',
+            x_col='T',
+            y_exp_col='y_exp',
+            y_model_col='y_model',
+            y_label=r'$100 \cdot (V_{\mathrm{m,exp}} - V_{\mathrm{m,calc}}) / V_{\mathrm{m,exp}}$',
+            title=None,
+            filename='neon_sub_cellvolume_deviation',
+            # xlim=(0, 170),
+            # ylim=(-0.5, 1.5),
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+    elif variable == 'cp_sub':
+        # # 3. Plot the variable
+        plot_thermo_variable(
+            data=df_cp_sub,
+            gas_name='neon',
+            x_col='T',
+            y_col='y_exp',
+            y_label=r'$c_p\,/\,\mathrm{JK^{-1}mol^{-1}}$',
+            title=None,
+            xlim=(0, 170),
+            ylim=(0, 40),
+            model_x=df_cp_sub['T'],
+            model_y=df_cp_sub['y_model'],
+            logy=False,
+            filename='neon_sub_heatcapacity.png',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+        plot_variable_deviation(
+            data=df_cp_sub,
+            gas_name='neon',
+            x_col='T',
+            y_exp_col='y_exp',
+            y_model_col='y_model',
+            y_label=r'$100 \cdot (c_{p,\mathrm{exp}} - c_{p,\mathrm{calc}}) / c_{p,\mathrm{exp}}$',
+            title=None,
+            filename='neon_sub_heatcapacity_deviation',
+            xlim=(0, 170),
+            ylim=(-10, 20),
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+    elif variable == 'alpha_sub':
+        # # 3. Plot the variable
+        plot_thermo_variable(
+            data=df_alpha_sub,  # convert to 1e-4 K^-1
+            gas_name='neon',
+            x_col='T',
+            y_col='y_exp',
+            y_label=r'$\alpha \cdot 10^{4}/\,\mathrm{K^{-1}}$',
+            title=None,
+            xlim=(0, 170),
+            ylim=(0, 12),
+            model_x=df_alpha_sub['T'],
+            model_y=df_alpha_sub['y_model'],  # convert to 1e-4 K^-1
+            logy=False,
+            filename='neon_sub_thermal_expansion.png',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+        plot_variable_deviation(
+            data=df_alpha_sub,
+            gas_name='neon',
+            x_col='T',
+            y_exp_col='y_exp',
+            y_model_col='y_model',
+            y_label=r'$100 \cdot (\alpha_{\mathrm{exp}} - \alpha_{\mathrm{calc}}) / \alpha_{\mathrm{exp}}$',
+            title=None,
+            filename='neon_sub_thermal_expansion_deviation',
+            xlim=(0, 170),
+            ylim=(-50, 15),
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+    elif variable == 'BetaT_sub':
+        # # 3. Plot the variable
+        plot_thermo_variable(
+            data=df_BETA_T_sub,  # convert to KappaT in MPa
+            gas_name='neon',
+            x_col='T',
+            y_col='y_exp',
+            y_label=r'$K_T\,/\,\mathrm{MPa}$',
+            title=None,
+            xlim=(0, 170),
+            ylim=(1250, 3750),
+            model_x=df_BETA_T_sub['T'],
+            model_y=df_BETA_T_sub['y_model'],  # convert to KappaT in MPa
+            logy=False,
+            filename='neon_sub_isothermal_compressibility.png',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+        plot_variable_deviation(
+            data=df_BETA_T_sub,
+            gas_name='neon',
+            x_col='T',
+            y_exp_col='y_exp',
+            y_model_col='y_model',
+            y_label=r'$100 \cdot (K_{T,\mathrm{exp}} - K_{T,\mathrm{calc}}) / K_{T,\mathrm{exp}}$',
+            title=None,
+            filename='neon_sub_isothermal_compressibility_deviation',
+            xlim=(0, 170),
+            ylim=(-15, 15),
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+    elif variable == 'BetaS_sub':
+        # # 3. Plot the variable
+        plot_thermo_variable(
+            data=df_BETA_S_sub,  # convert to KappaS in MPa
+            gas_name='neon',
+            x_col='T',
+            y_col='y_exp',
+            y_label=r'$K_S\,/\,\mathrm{MPa}$',
+            title=None,
+            xlim=(0, 170),
+            ylim=(1500, 4000),
+            model_x=df_BETA_S_sub['T'],
+            model_y=df_BETA_S_sub['y_model'],  # convert to KappaS in MPa
+            logy=False,
+            filename='neon_sub_isentropic_compressibility.png',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+        plot_variable_deviation(
+            data=df_BETA_S_sub,
+            gas_name='neon',
+            x_col='T',
+            y_exp_col='y_exp',
+            y_model_col='y_model',
+            y_label=r'$100 \cdot (K_{S,\mathrm{exp}} - K_{S,\mathrm{calc}}) / K_{S,\mathrm{exp}}$',
+            title=None,
+            filename='neon_sub_isentropic_compressibility_deviation',
+            xlim=(0, 170),
+            ylim=(-40, 10),
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+    elif variable == 'H_solid_sub':
+        # shift model enthalpy by the triple-point offset (kJ/mol)
+        dHtr_kJ, _ = _triple_offsets_plot(params_fit, Tt=Tt, pt=pt,
+                                          St_REFPROP=St_REFPROP, Ht_REFPROP=Ht_REFPROP)
+
+        dfH = df_enthalpy_solid_sub.copy()
+        # y_exp is H_solid_exp in J/mol from builder → convert to kJ/mol
+        dfH['y_exp'] = dfH['y_exp'] / 1000.0
+        # y_model is H_model (J/mol) → convert and shift to solid reference
+        dfH['y_model'] = dfH['y_model'] / 1000.0 - dHtr_kJ
+
+        # Top panel: ΔH (kJ/mol) vs T with model line
+        plot_thermo_variable(
+            data=dfH,
+            gas_name='neon',
+            x_col='T',
+            y_col='y_exp',
+            y_label=r'$\Delta H\,/\,\mathrm{kJ\,mol^{-1}}$',
+            title=None,
+            model_x=dfH['T'],
+            model_y=dfH['y_model'],
+            xlim=(50, 170),
+            ylim=(-6, -2.5),
+            logy=False,
+            filename='neon_sub_enthalpy.png',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+        # Bottom: percent deviation with model in denominator (as in your MATLAB figure)
+        plot_variable_deviation(
+            data=dfH,
+            gas_name='neon',
+            x_col='T',
+            y_exp_col='y_exp',
+            y_model_col='y_model',
+            xlim=(50, 170),
+            ylim=(-8, 1),
+            y_label=r'$100\cdot(\Delta H_{\mathrm{exp}}-\Delta H_{\mathrm{calc}})/\Delta H_{\mathrm{exp}}$',
+            title=None,
+            filename='neon_sub_enthalpy_deviation',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS,
+        )
+    elif variable == 'H_solid_melt':
+        # shift model enthalpy by the triple-point offset (kJ/mol)
+        dHtr_kJ, _ = _triple_offsets_plot(params_fit, Tt=Tt, pt=pt,
+                                          St_REFPROP=St_REFPROP, Ht_REFPROP=Ht_REFPROP)
+
+        dfH = df_enthalpy_solid_melt.copy()
+        # y_exp is H_solid_exp in J/mol from builder → convert to kJ/mol
+        dfH['y_exp'] = dfH['y_exp'] / 1000.0
+        # y_model is H_model (J/mol) → convert and shift to solid reference
+        dfH['y_model'] = dfH['y_model'] / 1000.0 - dHtr_kJ
+
+        # Top panel: ΔH (kJ/mol) vs T with model line
+        plot_thermo_variable(
+            data=dfH,
+            gas_name='neon',
+            x_col='T',
+            y_col='y_exp',
+            y_label=r'$\Delta H\,/\,\mathrm{kJ\,mol^{-1}}$',
+            title=None,
+            model_x=dfH['T'],
+            model_y=dfH['y_model'],
+            # xlim=(110, 220),
+            ylim=(12.5, 32.5),
+            logy=False,
+            filename='neon_melt_enthalpy.png',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+        # Bottom: percent deviation with model in denominator (as in your MATLAB figure)
+        plot_variable_deviation(
+            data=dfH,
+            gas_name='neon',
+            x_col='T',
+            y_exp_col='y_exp',
+            y_model_col='y_model',
+            # xlim=(110, 220),
+            ylim=(-0.5, 3.5),
+            y_label=r'$100\cdot(\Delta H_{\mathrm{exp}}-\Delta H_{\mathrm{calc}})/\Delta H_{\mathrm{exp}}$',
+            title=None,
+            filename='neon_melt_enthalpy_deviation',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS,
+        )
+    elif variable == 'psub':
+        plot_thermo_variable(
+            data=df_pressure_sub,
+            gas_name='neon',
+            x_col='T',
+            y_col='y_exp',
+            y_label=r'$p/\,\mathrm{MPa}$',
+            title=None,
+            model_x=df_pressure_sub['T'],
+            model_y=df_pressure_sub['y_model'],
+            # xlim=(60, 120),
+            # ylim=(10**1, 10**5),
+            logy=True,
+            filename='neon_sub_pressure.png',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+        plot_variable_deviation(
+            data=df_pressure_sub,
+            gas_name='neon',
+            x_col='T',
+            y_exp_col='y_exp',
+            y_model_col='y_model',
+            # xlim=(60, 120),
+            ylim=(-40, 100),
+            y_label=r'$100\cdot(p_{\mathrm{exp}}-p_{\mathrm{calc}})/p_{\mathrm{exp}}$',
+            title=None,
+            filename='neon_sub_pressure_deviation',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS,
+        )
+    elif variable == 'pmelt':
+        plot_thermo_variable(
+            data=df_pressure_melt,
+            gas_name='neon',
+            x_col='T',
+            y_col='y_exp',
+            y_label=r'$p/\,\mathrm{MPa}$',
+            title=None,
+            model_x=df_pressure_melt['T'],
+            model_y=df_pressure_melt['y_model'],
+            # xlim=(60, 120),
+            # ylim=(10**1, 10**5),
+            logy=True,
+            filename='neon_melt_pressure.png',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+        plot_variable_deviation(
+            data=df_pressure_melt,
+            gas_name='neon',
+            x_col='T',
+            y_exp_col='y_exp',
+            y_model_col='y_model',
+            # xlim=(60, 120),
+            ylim=(-15, 25),
+            y_label=r'$100\cdot(p_{\mathrm{exp}}-p_{\mathrm{calc}})/p_{\mathrm{exp}}$',
+            title=None,
+            filename='neon_melt_pressure_deviation',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS,
+        )
+
+
+def _triple_offsets_plot(params, Tt=Tt, pt=pt, St_REFPROP=St_REFPROP, Ht_REFPROP=Ht_REFPROP):
+    """
+    Same logic as fitting_xenon._triple_offsets but local here to avoid circular imports.
+    Returns (dH_triple_kJ, dS_triple).
+    """
+    tp = compute_thermo_props(float(Tt), float(pt), params)
+    if isinstance(tp, tuple) and len(tp) == 2 and isinstance(tp[1], dict):
+        meta = tp[1]
+        dH = float(meta.get("deltaH_triple"))
+        dS = float(meta.get("deltaS_triple"))
+    else:
+        props = np.asarray(tp, float)
+        Sstar = float(params[30])
+        dS = Sstar - float(St_REFPROP)
+        # use G + T*S* to align enthalpy at triple
+        Ht_fitted = float(props[IDX["G"]]) + float(Tt) * Sstar
+        dH = Ht_fitted - float(Ht_REFPROP)  # J/mol
+    return dH/1000.0, dS  # kJ/mol, dimensionless
+#
