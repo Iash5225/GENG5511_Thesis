@@ -151,11 +151,21 @@ def plot_thermo_variable(
     fontsize=14,
     custom_markers=None,
     custom_colors=None,
+    ishighp=False,
 ):
     """
     General-purpose plot for thermodynamic variables (e.g., enthalpy, heat capacity, etc.)
     grouped by author/year, with optional model curve.
     """
+
+    if ishighp:
+        data["p_calc"] = _curve_pressure_from_T(data["T"], Tt, psub_curve, pmelt_curve, mode='auto')
+        x_col_local = "p_calc"
+        x_label = r"$p$ / MPa"
+    else:
+        x_col_local = x_col
+        # Temperature axis label heuristic
+        x_label = (r'$\mathit{T}$ / K' if x_col_local.lower().startswith('t') else x_col_local)
 
     grouped = data.groupby(['Year', 'Author'])
     if custom_markers is None:
@@ -186,6 +196,8 @@ def plot_thermo_variable(
         )
 
     ax.set_xlabel(r'$\mathit{T}$ / K', fontsize=fontsize)
+    if ishighp:
+        ax.set_xlabel(r"$p$ / MPa", fontsize=fontsize)
     ax.set_ylabel(y_label, fontsize=fontsize)
     ax.set_title(title, fontsize=fontsize)
 
@@ -419,6 +431,7 @@ def extract_datasets(data):
     if 'cell_volume_highp' in data:
         T_Vm_highp = data['cell_volume_highp']['Temperature']
         Vm_highp = data['cell_volume_highp']['Cell Volume']
+        p_Vm_highp = data['cell_volume_highp']['Pressure']
     else:
         T_Vm_highp = np.array([])
         Vm_highp = np.array([])
@@ -426,31 +439,22 @@ def extract_datasets(data):
     # Heat Capacity Sublimation
     T_cp_sub = data['heat_capacity']['Temperature']
     p_cp_sub = safe_psub(T_cp_sub)
-    # p_cp_sub = np.array([sublimation_pressure_equation(
-    #     T, KRYPTON_E_1_SUB,  KRYPTON_E_2_SUB, KRYPTON_E_3_SUB, KRYPTON_T_t, KRYPTON_P_t) for T in T_cp_sub])
     cp_sub = data['heat_capacity']['Heat Capacity']
 
     # Thermal Expansion Sublimation
     T_alpha_sub = data['thermal_coeff']['Temperature']
     p_alpha_sub = safe_psub(T_alpha_sub)
-    # p_alpha_sub = np.array([sublimation_pressure_equation(
-    #     T, KRYPTON_E_1_SUB,  KRYPTON_E_2_SUB, KRYPTON_E_3_SUB, KRYPTON_T_t, KRYPTON_P_t) for T in T_alpha_sub])
     alpha_sub = data['thermal_coeff']['Thermal Expansion Coefficient']
 
     # Bulk Modulus (S)
     T_BetaS_sub = data['bulk_s']['Temperature']
     p_BetaS_sub = safe_psub(T_BetaS_sub)
-    # p_BetaS_sub = data['bulk_s']['Pressure']
-    # p_BetaS_sub = None
     BetaS_sub = data['bulk_s']['Beta S']
 
     # Bulk Modulus (T)
     T_BetaT_sub = data['bulk_t']['Temperature']
     p_BetaT_sub = safe_psub(T_BetaT_sub)
     BetaT_sub = data['bulk_t']['Beta T']
-    # print("T_BetaT_sub:", T_BetaT_sub)
-    # print("p_BetaT_sub:", p_BetaT_sub)
-    # print("BetaT_sub:", BetaT_sub)
 
     # Melting
     T_melt = data['melting']['Temperature']
@@ -691,14 +695,35 @@ def extract_pointwise_datasets(data, property_map=None):
     return pd.DataFrame(rows)
 
 
+def _curve_pressure_from_T(T_array, Tt, psub_curve, pmelt_curve, mode='auto'):
+    """
+    Return pressure (MPa) from temperature using chosen curve:
+      mode='sub'  -> always sublimation curve
+      mode='melt' -> always melting curve
+      mode='auto' -> T <= Tt -> sub, else melt
+    """
+    T_array = np.asarray(T_array, float)
+    if mode == 'sub':
+        return psub_curve(T_array)
+    if mode == 'melt':
+        return pmelt_curve(T_array)
+    # auto
+    p_sub = psub_curve(T_array)
+    p_melt = pmelt_curve(T_array)
+    return np.where(T_array <= Tt, p_sub, p_melt)
+
 def build_master_pointwise_df(datasets, meta, params_fit):
     """
-    Returns one long DataFrame with columns:
-      Property, Author, Year, T, p_exp, p_sub_curve, p_melt_curve, dp_to_curve, abs_dp_over_p,
-      y_exp, y_model
-    For sub-path properties, dp_to_curve compares p_exp to p_sub_curve.
-    For melt-path properties, dp_to_curve compares p_exp to p_melt_curve.
-    For high-p properties, dp_to_curve is NaN (no canonical curve).
+    Build a long DataFrame with columns:
+      Property, Author, Year, T, p_exp, p_sub_curve, p_melt_curve,
+      dp_to_curve, abs_dp_over_p, y_exp, y_model
+
+    Conventions / fixes:
+      - All pressures assumed MPa (experimental arrays and curve functions).
+      - High‑pressure branch (Vm_highp) usually measured off the principal phase
+        lines: we set p_sub_curve = p_melt_curve = NaN and dp_to_curve = NaN.
+      - No unit mixing (removed earlier *1e6 bug).
+      - dp_to_curve only meaningful for phase in {"sub","melt"}.
     """
     (
         T_Vm_sub,   p_Vm_sub,   Vm_sub,
@@ -716,46 +741,68 @@ def build_master_pointwise_df(datasets, meta, params_fit):
 
     rows = []
 
-    def add_block(prop_name, phase,           # phase: "sub", "melt", or None
-                  T_arr, p_arr, y_exp_arr, idx_model, meta_key,
-                  y_exp_transform=None):
+    def _authors_years(meta_key, n):
+        if meta.get(meta_key) is None:
+            return (np.array(["Unknown"] * n), np.array([0] * n))
+        return meta[meta_key]["Author"], meta[meta_key]["Year"]
+
+    def add_block(prop_name, phase, T_arr, p_arr, y_exp_arr, idx_model,
+                  meta_key, y_exp_transform=None):
+        """
+        Generic property block.
+        phase: 'sub', 'melt', or None (high‑p branch).
+        """
         if T_arr is None or len(T_arr) == 0:
             return
-        authors = meta[meta_key]["Author"] if meta.get(
-            meta_key) is not None else np.array(["Unknown"]*len(T_arr))
-        years = meta[meta_key]["Year"] if meta.get(
-            meta_key) is not None else np.array([0]*len(T_arr))
+        T_arr = np.asarray(T_arr, float)
+        p_arr = np.asarray(p_arr, float)
+        y_exp_arr = np.asarray(y_exp_arr, float)
 
-        # Precompute curves
-        p_sub_curve = psub_curve(T_arr)  # sublimation curve in Pa
-        p_melt_curve = pmelt_curve(T_arr)
+        authors, years = _authors_years(meta_key, len(T_arr))
 
-        for Ti, Pi, yexp, auth, yr, psub_i, pmelt_i in zip(T_arr, p_arr, y_exp_arr, authors, years, p_sub_curve, p_melt_curve):
-            if not (np.isfinite(Ti) and np.isfinite(Pi) and np.isfinite(yexp)):
+        # Curves (only needed if on a phase boundary)
+        if phase == "sub":
+            p_sub_curve_vals = psub_curve(T_arr)
+            p_melt_curve_vals = pmelt_curve(T_arr)
+        elif phase == "melt":
+            p_sub_curve_vals = psub_curve(T_arr)
+            p_melt_curve_vals = pmelt_curve(T_arr)
+        else:
+            # high‑pressure data are not constrained to a reference curve
+            p_sub_curve_vals = np.full_like(T_arr, np.nan)
+            p_melt_curve_vals = np.full_like(T_arr, np.nan)
+
+        for Ti, Pi, Yexp, auth, yr, p_sub_i, p_melt_i in zip(
+                T_arr, p_arr, y_exp_arr, authors, years,
+                p_sub_curve_vals, p_melt_curve_vals):
+
+            if not (np.isfinite(Ti) and np.isfinite(Pi) and np.isfinite(Yexp)):
                 continue
 
-            props = compute_thermo_props(Ti, Pi, params_fit)
-            y_model = props[idx_model] if np.all(
-                np.isfinite(props)) else np.nan
-            if y_exp_transform is not None:
-                # e.g., for enthalpy derived values
-                yexp_use = y_exp_transform(Ti, Pi, yexp)
-            else:
-                yexp_use = yexp
+            # Model evaluation at (T, p_exp)
+            try:
+                props = compute_thermo_props(float(Ti), float(Pi), params_fit)
+                y_model = props[idx_model] if np.all(
+                    np.isfinite(props)) else np.nan
+            except Exception:
+                y_model = np.nan
 
-            # choose the “relevant” curve for delta-p
+            y_exp_use = y_exp_transform(
+                Ti, Pi, Yexp) if y_exp_transform else Yexp
+
             if phase == "sub":
-                dp_to_curve = Pi - psub_i  # Pa vs MPa
-                denom = psub_i
+                dp = Pi - p_sub_i
+                denom = p_sub_i
             elif phase == "melt":
-                dp_to_curve = Pi - pmelt_i
-                denom = pmelt_i
+                dp = Pi - p_melt_i
+                denom = p_melt_i
             else:
-                dp_to_curve = np.nan
+                dp = np.nan
                 denom = np.nan
 
-            abs_dp_over_p = np.abs(dp_to_curve) / np.abs(denom) if np.isfinite(
-                dp_to_curve) and np.isfinite(denom) and denom != 0 else np.nan
+            abs_dp_over_p = (np.abs(dp) / np.abs(denom)
+                             if np.isfinite(dp) and np.isfinite(denom) and denom != 0
+                             else np.nan)
 
             rows.append(dict(
                 Property=prop_name,
@@ -763,85 +810,241 @@ def build_master_pointwise_df(datasets, meta, params_fit):
                 Year=int(yr) if str(yr).isdigit() else yr,
                 T=float(Ti),
                 p_exp=float(Pi),
-                p_sub_curve=float(psub_i),
-                p_melt_curve=float(pmelt_i),
-                dp_to_curve=float(dp_to_curve) if np.isfinite(
-                    dp_to_curve) else np.nan,
+                p_sub_curve=float(p_sub_i),
+                p_melt_curve=float(p_melt_i),
+                dp_to_curve=float(dp) if np.isfinite(dp) else np.nan,
                 abs_dp_over_p=float(abs_dp_over_p) if np.isfinite(
                     abs_dp_over_p) else np.nan,
-                y_exp=float(yexp_use),
+                y_exp=float(y_exp_use),
                 y_model=float(y_model)
             ))
-        # ===== NEW: pure pressure blocks =====
-    # Treat pressure as the "quantity": y_exp = p_exp (from dataset), y_model = curve p(T)
-    # This lets you compute RMS/AAD (%) on pressure per author/year too.
 
     def add_pressure_block(prop_name, phase, T_arr, p_arr, meta_key):
+        """
+        Pressure as property (psub / pmelt).
+        y_exp = experimental pressure; y_model = curve(T).
+        """
         if T_arr is None or len(T_arr) == 0:
             return
-        authors = meta.get(meta_key, {}).get(
-            "Author", np.array(["Unknown"]*len(T_arr)))
-        years = meta.get(meta_key, {}).get("Year",   np.array([0]*len(T_arr)))
-        p_sub_curve = psub_curve(T_arr)*1e6  # sublimation curve in Pa
-        p_melt_curve = pmelt_curve(T_arr)
+        T_arr = np.asarray(T_arr, float)
+        p_arr = np.asarray(p_arr, float)
+        authors, years = _authors_years(meta_key, len(T_arr))
+        p_sub_curve_vals = psub_curve(T_arr)
+        p_melt_curve_vals = pmelt_curve(T_arr)
 
-        for Ti, Pi, auth, yr, psub_i, pmelt_i in zip(T_arr, p_arr, authors, years, p_sub_curve, p_melt_curve):
+        for Ti, Pi, auth, yr, p_sub_i, p_melt_i in zip(
+                T_arr, p_arr, authors, years,
+                p_sub_curve_vals, p_melt_curve_vals):
+
             if not (np.isfinite(Ti) and np.isfinite(Pi)):
                 continue
-            if phase == "sub":
-                curve = psub_i
-                dp_to_curve = Pi - psub_i
-                denom = psub_i
-            else:  # "melt"
-                curve = pmelt_i
-                dp_to_curve = Pi - pmelt_i
-                denom = pmelt_i
 
-            abs_dp_over_p = np.abs(dp_to_curve) / np.abs(denom) if (np.isfinite(
-                dp_to_curve) and np.isfinite(denom) and denom != 0) else np.nan
+            if phase == "sub":
+                curve = p_sub_i
+                dp = Pi - p_sub_i
+                denom = p_sub_i
+            else:
+                curve = p_melt_i
+                dp = Pi - p_melt_i
+                denom = p_melt_i
+
+            abs_dp_over_p = (np.abs(dp) / np.abs(denom)
+                             if np.isfinite(dp) and np.isfinite(denom) and denom != 0
+                             else np.nan)
 
             rows.append(dict(
-                Property=prop_name,          # "psub" or "pmelt"
+                Property=prop_name,
                 Author=str(auth),
                 Year=int(yr) if str(yr).isdigit() else yr,
                 T=float(Ti),
                 p_exp=float(Pi),
-                p_sub_curve=float(psub_i),
-                p_melt_curve=float(pmelt_i),
-                dp_to_curve=float(dp_to_curve) if np.isfinite(
-                    dp_to_curve) else np.nan,
+                p_sub_curve=float(p_sub_i),
+                p_melt_curve=float(p_melt_i),
+                dp_to_curve=float(dp) if np.isfinite(dp) else np.nan,
                 abs_dp_over_p=float(abs_dp_over_p) if np.isfinite(
                     abs_dp_over_p) else np.nan,
-                y_exp=float(Pi),             # for RMS/AAD on pressure
-                y_model=float(curve)         # curve value at T
+                y_exp=float(Pi),
+                y_model=float(curve)
             ))
 
-    # Main properties (use your IDX map)
+    # Standard properties
     add_block("Vm_sub",    "sub",  T_Vm_sub,   p_Vm_sub,
-              Vm_sub,    IDX["Vm"],    "Vm_sub")
+              Vm_sub,   IDX["Vm"],    "Vm_sub")
     add_block("Vm_melt",   "melt", T_Vm_melt,  p_Vm_melt,
-              Vm_melt,   IDX["Vm"],    "Vm_melt")
-    add_block("Vm_highp",  None,   T_Vm_highp, p_Vm_highp, Vm_highp,
-              IDX["Vm"],    "Vm_highp" if meta.get("Vm_highp") is not None else "Vm_sub")
+              Vm_melt,  IDX["Vm"],    "Vm_melt")
+    add_block("Vm_highp",  None,   T_Vm_highp, p_Vm_highp, Vm_highp, IDX["Vm"],
+              "Vm_highp" if meta.get("Vm_highp") is not None else "Vm_sub")
     add_block("cp_sub",    "sub",  T_cp_sub,   p_cp_sub,
-              cp_sub,    IDX["cp"],    "cp_sub")
+              cp_sub,   IDX["cp"],    "cp_sub")
     add_block("alpha_sub", "sub",  T_alpha_sub, p_alpha_sub,
-              alpha_sub,  IDX["Alpha"], "alpha_sub")
+              alpha_sub, IDX["Alpha"],  "alpha_sub")
     add_block("BetaT_sub", "sub",  T_BetaT_sub, p_BetaT_sub,
-              BetaT_sub,  IDX["KappaT"], "BetaT_sub")
+              BetaT_sub, IDX["KappaT"], "BetaT_sub")
     add_block("BetaS_sub", "sub",  T_BetaS_sub, p_BetaS_sub,
-              BetaS_sub,  IDX["KappaS"], "BetaS_sub")
-    # If you later want enthalpy sets, you can uncomment and define the exact y_exp_transform to match your thesis
-    add_block("H_solid_sub", "sub",  T_H_sub,  p_H_sub,
-              (H_fluid_sub - delta_H_sub),  IDX["H"], "H_solid_sub")
+              BetaS_sub, IDX["KappaS"], "BetaS_sub")
+    add_block("H_solid_sub",  "sub",  T_H_sub,  p_H_sub,
+              (H_fluid_sub - delta_H_sub),   IDX["H"], "H_solid_sub")
     add_block("H_solid_melt", "melt", T_H_melt, p_H_melt,
               (H_fluid_melt - delta_H_melt), IDX["H"], "H_solid_melt")
+
+    # Pressure-as-property
     add_pressure_block("psub",  "sub",  T_sub,  p_sub,  "sublimation")
     add_pressure_block("pmelt", "melt", T_melt, p_melt, "melting")
 
-    
-
     return pd.DataFrame(rows)
+
+
+
+
+# def build_master_pointwise_df(datasets, meta, params_fit):
+#     """
+#     Returns one long DataFrame with columns:
+#       Property, Author, Year, T, p_exp, p_sub_curve, p_melt_curve, dp_to_curve, abs_dp_over_p,
+#       y_exp, y_model
+#     For sub-path properties, dp_to_curve compares p_exp to p_sub_curve.
+#     For melt-path properties, dp_to_curve compares p_exp to p_melt_curve.
+#     For high-p properties, dp_to_curve is NaN (no canonical curve).
+#     """
+#     (
+#         T_Vm_sub,   p_Vm_sub,   Vm_sub,
+#         T_Vm_melt,  p_Vm_melt,  Vm_melt,
+#         T_Vm_highp, p_Vm_highp, Vm_highp,
+#         T_cp_sub,   p_cp_sub,   cp_sub,
+#         T_alpha_sub, p_alpha_sub, alpha_sub,
+#         T_BetaT_sub, p_BetaT_sub, BetaT_sub,
+#         T_BetaS_sub, p_BetaS_sub, BetaS_sub,
+#         T_sub, p_sub, Year_sub, G_fluid_sub, V_fluid_sub,
+#         T_melt, p_melt, G_fluid_melt, V_fluid_melt,
+#         T_H_sub, p_H_sub, delta_H_sub, H_fluid_sub,
+#         T_H_melt, p_H_melt, delta_H_melt, H_fluid_melt
+#     ) = datasets
+
+#     rows = []
+
+#     def add_block(prop_name, phase,           # phase: "sub", "melt", or None
+#                   T_arr, p_arr, y_exp_arr, idx_model, meta_key,
+#                   y_exp_transform=None):
+#         if T_arr is None or len(T_arr) == 0:
+#             return
+#         authors = meta[meta_key]["Author"] if meta.get(
+#             meta_key) is not None else np.array(["Unknown"]*len(T_arr))
+#         years = meta[meta_key]["Year"] if meta.get(
+#             meta_key) is not None else np.array([0]*len(T_arr))
+
+#         # Precompute curves
+#         p_sub_curve = psub_curve(T_arr)  # sublimation curve in Pa
+#         p_melt_curve = pmelt_curve(T_arr)
+
+#         for Ti, Pi, yexp, auth, yr, psub_i, pmelt_i in zip(T_arr, p_arr, y_exp_arr, authors, years, p_sub_curve, p_melt_curve):
+#             if not (np.isfinite(Ti) and np.isfinite(Pi) and np.isfinite(yexp)):
+#                 continue
+
+#             props = compute_thermo_props(Ti, Pi, params_fit)
+#             y_model = props[idx_model] if np.all(
+#                 np.isfinite(props)) else np.nan
+#             if y_exp_transform is not None:
+#                 # e.g., for enthalpy derived values
+#                 yexp_use = y_exp_transform(Ti, Pi, yexp)
+#             else:
+#                 yexp_use = yexp
+
+#             # choose the “relevant” curve for delta-p
+#             if phase == "sub":
+#                 dp_to_curve = Pi - psub_i  # Pa vs MPa
+#                 denom = psub_i
+#             elif phase == "melt":
+#                 dp_to_curve = Pi - pmelt_i
+#                 denom = pmelt_i
+#             else:
+#                 dp_to_curve = np.nan
+#                 denom = np.nan
+
+#             abs_dp_over_p = np.abs(dp_to_curve) / np.abs(denom) if np.isfinite(
+#                 dp_to_curve) and np.isfinite(denom) and denom != 0 else np.nan
+
+#             rows.append(dict(
+#                 Property=prop_name,
+#                 Author=str(auth),
+#                 Year=int(yr) if str(yr).isdigit() else yr,
+#                 T=float(Ti),
+#                 p_exp=float(Pi),
+#                 p_sub_curve=float(psub_i),
+#                 p_melt_curve=float(pmelt_i),
+#                 dp_to_curve=float(dp_to_curve) if np.isfinite(
+#                     dp_to_curve) else np.nan,
+#                 abs_dp_over_p=float(abs_dp_over_p) if np.isfinite(
+#                     abs_dp_over_p) else np.nan,
+#                 y_exp=float(yexp_use),
+#                 y_model=float(y_model)
+#             ))
+#         # ===== NEW: pure pressure blocks =====
+#     # Treat pressure as the "quantity": y_exp = p_exp (from dataset), y_model = curve p(T)
+#     # This lets you compute RMS/AAD (%) on pressure per author/year too.
+
+#     def add_pressure_block(prop_name, phase, T_arr, p_arr, meta_key):
+#         if T_arr is None or len(T_arr) == 0:
+#             return
+#         authors = meta.get(meta_key, {}).get(
+#             "Author", np.array(["Unknown"]*len(T_arr)))
+#         years = meta.get(meta_key, {}).get("Year",   np.array([0]*len(T_arr)))
+#         p_sub_curve = psub_curve(T_arr)*1e6  # sublimation curve in Pa
+#         p_melt_curve = pmelt_curve(T_arr)
+
+#         for Ti, Pi, auth, yr, psub_i, pmelt_i in zip(T_arr, p_arr, authors, years, p_sub_curve, p_melt_curve):
+#             if not (np.isfinite(Ti) and np.isfinite(Pi)):
+#                 continue
+#             if phase == "sub":
+#                 curve = psub_i
+#                 dp_to_curve = Pi - psub_i
+#                 denom = psub_i
+#             else:  # "melt"
+#                 curve = pmelt_i
+#                 dp_to_curve = Pi - pmelt_i
+#                 denom = pmelt_i
+
+#             abs_dp_over_p = np.abs(dp_to_curve) / np.abs(denom) if (np.isfinite(
+#                 dp_to_curve) and np.isfinite(denom) and denom != 0) else np.nan
+
+#             rows.append(dict(
+#                 Property=prop_name,          # "psub" or "pmelt"
+#                 Author=str(auth),
+#                 Year=int(yr) if str(yr).isdigit() else yr,
+#                 T=float(Ti),
+#                 p_exp=float(Pi),
+#                 p_sub_curve=float(psub_i),
+#                 p_melt_curve=float(pmelt_i),
+#                 dp_to_curve=float(dp_to_curve) if np.isfinite(
+#                     dp_to_curve) else np.nan,
+#                 abs_dp_over_p=float(abs_dp_over_p) if np.isfinite(
+#                     abs_dp_over_p) else np.nan,
+#                 y_exp=float(Pi),             # for RMS/AAD on pressure
+#                 y_model=float(curve)         # curve value at T
+#             ))
+
+#     # Main properties (use your IDX map)
+#     add_block("Vm_sub",    "sub",  T_Vm_sub,   p_Vm_sub,
+#               Vm_sub,    IDX["Vm"],    "Vm_sub")
+#     add_block("Vm_melt",   "melt", T_Vm_melt,  p_Vm_melt,
+#               Vm_melt,   IDX["Vm"],    "Vm_melt")
+#     add_block("Vm_highp",  None,   T_Vm_highp, p_Vm_highp, Vm_highp,
+#               IDX["Vm"],    "Vm_highp" if meta.get("Vm_highp") is not None else "Vm_sub")
+#     add_block("cp_sub",    "sub",  T_cp_sub,   p_cp_sub,
+#               cp_sub,    IDX["cp"],    "cp_sub")
+#     add_block("alpha_sub", "sub",  T_alpha_sub, p_alpha_sub,
+#               alpha_sub,  IDX["Alpha"], "alpha_sub")
+#     add_block("BetaT_sub", "sub",  T_BetaT_sub, p_BetaT_sub,
+#               BetaT_sub,  IDX["KappaT"], "BetaT_sub")
+#     add_block("BetaS_sub", "sub",  T_BetaS_sub, p_BetaS_sub,
+#               BetaS_sub,  IDX["KappaS"], "BetaS_sub")
+#     # If you later want enthalpy sets, you can uncomment and define the exact y_exp_transform to match your thesis
+#     add_block("H_solid_sub", "sub",  T_H_sub,  p_H_sub,
+#               (H_fluid_sub - delta_H_sub),  IDX["H"], "H_solid_sub")
+#     add_block("H_solid_melt", "melt", T_H_melt, p_H_melt,
+#               (H_fluid_melt - delta_H_melt), IDX["H"], "H_solid_melt")
+#     add_pressure_block("psub",  "sub",  T_sub,  p_sub,  "sublimation")
+#     add_pressure_block("pmelt", "melt", T_melt, p_melt, "melting")
+
+#     return pd.DataFrame(rows)
 
 
 def _relative_errors(y_exp, y_model, rel_epsilon=0.0):
@@ -904,6 +1107,7 @@ def plot_deviation(variable='Vm_melt'):
 
     df_cell_volume_melt = master_df[master_df["Property"] == "Vm_melt"]
     df_cell_volume_sub = master_df[master_df["Property"] == "Vm_sub"]
+    df_cell_volume_highp = master_df[master_df["Property"] == "Vm_highp"]
     df_cp_sub = master_df[master_df["Property"] == "cp_sub"]
     df_alpha_sub = master_df[master_df["Property"] == "alpha_sub"]
     df_alpha_sub['y_exp'] = df_alpha_sub['y_exp'] * 10**4  # convert to 1e-4 K^-1
@@ -1278,6 +1482,43 @@ def plot_deviation(variable='Vm_melt'):
             output_folder=IMG_OUTPUT_FOLDER,
             custom_colors=CUSTOMCOLORS,
             custom_markers=CUSTOMMARKERS,
+        )
+    elif variable == 'Vm_highp':
+        # If no data, exit early
+        if df_cell_volume_highp.empty:
+            print("No high-pressure Vm data available.")
+            return
+        plot_thermo_variable(
+                data=df_cell_volume_highp,  # reuse helper
+                gas_name='krypton',
+                x_col='p_exp',                # use pressure on x-axis
+                y_col='y_exp',
+                y_label=r'$V_{\mathrm{m}}\,/\,\mathrm{cm^3\,mol^{-1}}$',
+                title=None,
+                model_x=df_cell_volume_highp['p_exp'],
+                model_y=df_cell_volume_highp['y_model'],
+                logy=False,
+                filename='krypton_highp_cellvolume.png',
+                output_folder=IMG_OUTPUT_FOLDER,
+                custom_colors=CUSTOMCOLORS,
+                custom_markers=CUSTOMMARKERS,
+                ishighp=True,
+            
+            )
+        plot_variable_deviation(
+            data=df_cell_volume_highp,
+            gas_name='krypton',
+            x_col='p_exp',
+            y_exp_col='y_exp',
+            y_model_col='y_model',
+            y_label=r'$100 \cdot (V_{\mathrm{m,exp}} - V_{\mathrm{m,calc}})/V_{\mathrm{m,exp}}$',
+            title=None,
+            filename='krypton_highp_cellvolume_deviation',
+            xlim=(0, 120000),
+            # ylim example: (-2, 2),
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
         )
 
 

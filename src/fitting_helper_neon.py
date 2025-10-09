@@ -845,6 +845,7 @@ def plot_deviation(variable='Vm_melt'):
 
     df_cell_volume_melt = master_df[master_df["Property"] == "Vm_melt"]
     df_cell_volume_sub = master_df[master_df["Property"] == "Vm_sub"]
+    df_cell_volume_highp = master_df[master_df["Property"] == "Vm_highp"]
     df_cp_sub = master_df[master_df["Property"] == "cp_sub"]
     df_alpha_sub = master_df[master_df["Property"] == "alpha_sub"]
     df_alpha_sub['y_exp'] = df_alpha_sub['y_exp'] * \

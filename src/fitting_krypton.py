@@ -280,7 +280,7 @@ def main():
     
 
 if __name__ == "__main__":
-    plot_deviation(variable="pmelt")
+    plot_deviation(variable="Vm_highp")
     # main()
     # plot_init()
     # RMS_AAD()
