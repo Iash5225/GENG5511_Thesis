@@ -418,11 +418,9 @@ def extract_datasets(data):
     # High Pressure Cell Volume (safe defaults if missing)
     if 'cell_volume_highp' in data:
         T_Vm_highp = data['cell_volume_highp']['Temperature']
-        p_Vm_highp = data['cell_volume_highp']['Pressure']
         Vm_highp = data['cell_volume_highp']['Cell Volume']
     else:
         T_Vm_highp = np.array([])
-        p_Vm_highp = np.array([])
         Vm_highp = np.array([])
 
     # Heat Capacity Sublimation
@@ -1322,3 +1320,191 @@ def _triple_offsets_plot(params, Tt=Tt, pt=pt, St_REFPROP=St_REFPROP, Ht_REFPROP
         dH = Ht_fitted - float(Ht_REFPROP)  # J/mol
     return dH/1000.0, dS  # kJ/mol, dimensionless
 #
+
+
+def plot_tv_property_panels(
+    params,
+    V_vals,
+    T_list=(0.0001, 50.0, 83.806, 150.0, 300.0),
+    Tt=None,
+    psub_curve=None,   # function T -> MPa
+    pmelt_curve=None,  # function T -> MPa
+    figsize=(10, 8),
+    save_path=None
+):
+    """
+    Plot 4 panels vs Vm using the TV EOS:
+      a) p (MPa)
+      b) K_S (MPa)  [isentropic bulk modulus = 1/KappaS]
+      c) alpha * 1e4 (1/K)
+      d) beta = alpha / KappaT (MPa^-1)
+
+    Overlays:
+      - Isotherms at T in T_list with styles:
+          0 K: black solid
+         50 K: purple dashed
+      83.806 K: dark red dash-dot
+        150 K: green dotted
+        300 K: bold orange solid
+      - Phase curves:
+        Sublimation: bold blue dashed
+        Melting:     bold grey dash-dot
+
+    Notes
+    - V_vals is a 1D array of molar volumes (cm^3/mol) to sweep, e.g., np.arange(18, 25.01, 0.01).
+    - psub_curve and pmelt_curve should return pressures in MPa.
+    """
+    V_vals = np.asarray(V_vals, float)
+
+    # Styling maps
+    styles = {
+        0.0001: dict(color='k',      ls='-',  lw=1.8, label='0 K'),
+        # purple
+        50.0:   dict(color='#8e44ad', ls='--', lw=1.8, label='50 K'),
+        # dark red
+        83.806: dict(color='#8B0000', ls='-.', lw=1.8, label='83.806 K'),
+        # teal/green
+        150.0:  dict(color='#16a085', ls=':',  lw=1.8, label='150 K'),
+        # orange, bold
+        300.0:  dict(color='#e67e22', ls='-',  lw=2.6, label='300 K'),
+    }
+    sub_style = dict(color='#1f77b4', ls='--', lw=2.6,
+                     label='sublimation')   # bold blue dashed
+    melt_style = dict(color='#7f7f7f', ls='-.', lw=2.6,
+                      label='melting')       # bold grey dash-dot
+
+    # Helpers to compute properties at fixed T across V_vals
+    def tv_props_along_V(T):
+        p_list, Ks_list, a_list, beta_list, V_list = [], [], [], [], []
+        for v in V_vals:
+            try:
+                props = compute_thermo_props_TV(float(T), float(v), params)
+                p = float(props[0])                    # MPa
+                kT = float(props[1])                    # MPa^-1
+                kS = float(props[2])                    # MPa^-1
+                alp = float(props[3])                    # 1/K
+                if np.isfinite(p) and np.isfinite(kT) and np.isfinite(kS) and np.isfinite(alp):
+                    V_list.append(v)
+                    p_list.append(p)
+                    # bulk moduli:
+                    Ks_list.append(1.0 / kS if kS !=
+                                   0 else np.nan)           # MPa
+                    beta_list.append(alp / kT if kT !=
+                                     0 else np.nan)         # MPa^-1
+                    # plot α·1e4
+                    a_list.append(alp * 1e4)
+            except Exception:
+                pass
+        return np.asarray(V_list), np.asarray(p_list), np.asarray(Ks_list), np.asarray(a_list), np.asarray(beta_list)
+
+    # Helpers to sample a phase curve parametrically by T, map to V, then compute properties at (T,V)
+    def sample_phase_curve(T_grid, p_of_T):
+        Vc, pc, KSc, ac, bc = [], [], [], [], []
+        for T in T_grid:
+            try:
+                p = float(p_of_T(T))  # MPa
+                # Get V from p-based API at (T,p)
+                props_p = compute_thermo_props(float(T), float(p), params)
+                V = float(props_p[0])  # Vm index=0
+                # Now compute properties from TV API at (T,V)
+                props_tv = compute_thermo_props_TV(float(T), float(V), params)
+                pMPa = float(props_tv[0])
+                kT = float(props_tv[1])
+                kS = float(props_tv[2])
+                alp = float(props_tv[3])
+                if np.all(np.isfinite([V, pMPa, kT, kS, alp])):
+                    Vc.append(V)
+                    pc.append(pMPa)
+                    KSc.append(1.0 / kS if kS != 0 else np.nan)
+                    ac.append(alp * 1e4)
+                    bc.append(alp / kT if kT != 0 else np.nan)
+            except Exception:
+                pass
+        return (np.asarray(Vc), np.asarray(pc), np.asarray(KSc),
+                np.asarray(ac), np.asarray(bc))
+
+    fig, axs = plt.subplots(2, 2, figsize=figsize)
+    ax_p, ax_Ks = axs[0]
+    ax_alpha, ax_beta = axs[1]
+
+    # Plot isotherms
+    for T in T_list:
+        Vc, pc, KSc, ac, bc = tv_props_along_V(T)
+        if Vc.size == 0:
+            continue
+        st = styles.get(round(T, 3), dict(
+            color='k', ls='-', lw=1.5, label=f'{T:g} K'))
+        # sort by V for clean lines
+        order = np.argsort(Vc)
+        Vc, pc, KSc, ac, bc = Vc[order], pc[order], KSc[order], ac[order], bc[order]
+        ax_p.plot(Vc, pc, **st)
+        ax_Ks.plot(Vc, KSc, **st)
+        ax_alpha.plot(Vc, ac, **st)
+        ax_beta.plot(Vc, bc, **st)
+
+    # Plot phase curves (if provided)
+    if (psub_curve is not None) and (Tt is not None):
+        # Sample safely below Tt
+        T_sub = np.linspace(max(1e-3, 0.1), float(Tt), 400)
+        Vc, pc, KSc, ac, bc = sample_phase_curve(T_sub, psub_curve)
+        if Vc.size:
+            o = np.argsort(Vc)
+            ax_p.plot(Vc[o], pc[o], **sub_style)
+            ax_Ks.plot(Vc[o], KSc[o], **sub_style)
+            ax_alpha.plot(Vc[o], ac[o], **sub_style)
+            ax_beta.plot(Vc[o], bc[o], **sub_style)
+
+    if pmelt_curve is not None and (Tt is not None):
+        # Sample above Tt (limit to a reasonable max T, e.g., last isotherm or 300 K)
+        Tmax = max([t for t in T_list if np.isfinite(t)]
+                   ) if T_list else (float(Tt) + 100.0)
+        Tmax = max(Tmax, float(Tt) + 1.0)
+        T_melt = np.linspace(float(Tt), float(Tmax), 400)
+        Vc, pc, KSc, ac, bc = sample_phase_curve(T_melt, pmelt_curve)
+        if Vc.size:
+            o = np.argsort(Vc)
+            ax_p.plot(Vc[o], pc[o], **melt_style)
+            ax_Ks.plot(Vc[o], KSc[o], **melt_style)
+            ax_alpha.plot(Vc[o], ac[o], **melt_style)
+            ax_beta.plot(Vc[o], bc[o], **melt_style)
+
+    # Labels, limits, legends
+    ax_p.set_xlabel(r"$V_m$ / (cm$^3$ mol$^{-1}$)")
+    ax_p.set_ylabel(r"$p$ / MPa")
+
+    ax_Ks.set_xlabel(r"$V_m$ / (cm$^3$ mol$^{-1}$)")
+    ax_Ks.set_ylabel(r"$K_S$ / MPa")
+
+    ax_alpha.set_xlabel(r"$V_m$ / (cm$^3$ mol$^{-1}$)")
+    ax_alpha.set_ylabel(r"$\alpha \cdot 10^{4}$ / K$^{-1}$")
+
+    ax_beta.set_xlabel(r"$V_m$ / (cm$^3$ mol$^{-1}$)")
+    ax_beta.set_ylabel(r"$\beta$ / MPa$^{-1}$")
+
+    # Aesthetic tweaks
+    for ax in (ax_p, ax_Ks, ax_alpha, ax_beta):
+        ax.tick_params(direction='in', top=True, right=True)
+        for spine in ax.spines.values():
+            spine.set_linewidth(1.2)
+            spine.set_color('black')
+
+    # One shared legend using handles from the first axis
+    # Collect unique labels in order
+    handles, labels = [], []
+    for ax in (ax_p,):
+        h, l = ax.get_legend_handles_labels()
+        for hi, li in zip(h, l):
+            if li not in labels:
+                handles.append(hi)
+                labels.append(li)
+    fig.legend(handles, labels, loc='upper center',
+               ncol=4, frameon=False, fontsize=9)
+
+    fig.tight_layout(rect=[0, 0, 1, 0.94])
+
+    if save_path:
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        fig.savefig(save_path, dpi=300, bbox_inches='tight')
+
+    plt.show()
+    return fig, axs

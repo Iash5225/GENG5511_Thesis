@@ -291,11 +291,11 @@ def plotTV(min_Vom=0, max_Vom=40, inc_Vol=0.01):
         psub_curve=psub_curve,
         pmelt_curve=pmelt_curve,
         figsize=(9, 7),
-        save_path=os.path.join(EOS_FILEPATH, "tv_property_panels.png")
+        save_path=os.path.join(EOS_FILEPATH, "tv_property_panels_neon.png")
     )
 if __name__ == "__main__":
-    # plot_deviation("pmelt")
+    plot_deviation("H_solid_sub")
     # main()
     # plot_init()
-    plotTV(min_Vom=4, max_Vom=10, inc_Vol=0.01)
+    # plotTV(min_Vom=4, max_Vom=10, inc_Vol=0.01)
 

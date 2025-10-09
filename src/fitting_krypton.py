@@ -169,27 +169,6 @@ def combined_cost_function(params, *datasets):
             T_BetaS_sub[m], p_BetaS_sub[m], params, idx=2)
         BetaS_sub_dev = rms_percent(BetaS_sub[m], model)
 
-
-    # # Enthalpy of sublimation: kJ/mol (no unit juggling)
-    # m = (np.isfinite(T_H_sub) & np.isfinite(p_H_sub) &
-    #      np.isfinite(delta_H_sub) & np.isfinite(H_fluid_sub) & (T_H_sub <= Tt))
-
-    # if np.any(m):
-    #     H_solid_sub = H_fluid_sub[m] - delta_H_sub[m] * 1.0  # both kJ/mol
-    #     modelH = _safe_props_vector(
-    #         T_H_sub[m], p_H_sub[m], params, idx=10) / 1000 - deltaH_triple_kJ
-    #     H_solid_sub_dev = rms_percent(H_solid_sub, modelH)
-    # # Enthalpy of melting: kJ/mol
-    # m = (np.isfinite(T_H_melt) & np.isfinite(p_H_melt) &
-    #      np.isfinite(delta_H_melt) & np.isfinite(H_fluid_melt) & (T_H_melt >= Tt))
-
-    # if np.any(m):
-    #     H_solid_melt = H_fluid_melt[m] - delta_H_melt[m] * 1.0
-    #     modelH = _safe_props_vector(
-    #         T_H_melt[m], p_H_melt[m], params, idx=10)/1000 - deltaH_triple_kJ
-    #     H_solid_melt_dev = rms_percent(H_solid_melt, modelH)
-    # Gamma-T smoothness penalty along a subl. grid (T<=Tt)
-        # Enthalpy of sublimation: compare H_solid,exp vs (H_model - dHtr)
     m = (np.isfinite(T_H_sub) & np.isfinite(p_H_sub) &
          np.isfinite(delta_H_sub) & np.isfinite(H_fluid_sub) & (T_H_sub <= Tt))
     if np.any(m):
