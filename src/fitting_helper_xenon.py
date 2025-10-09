@@ -8,6 +8,7 @@ from read import load_all_gas_data
 from thermal_script import *
 from thermopropsv2 import compute_thermo_props
 from constants import *
+from thermopropsTV import compute_thermo_props_TV
 from scipy.interpolate import UnivariateSpline
 import os
 from plot_eos import plot_all_overlays_grid
@@ -131,6 +132,108 @@ def plot_variable_deviation(
     plt.show()
 
 
+def _smooth_highp_curves(df_highp, params_fit, idx_vm, npts=250):
+    """
+    Return list of smooth Vm(P) curves per (Year, Author) group.
+    Interpolates T(P) within each group then evaluates EOS on dense grid.
+    """
+    curves = []
+    need_cols = {'Year', 'Author', 'p_exp', 'T'}
+    if not need_cols.issubset(df_highp.columns):
+        return curves
+    for (yr, auth), g in df_highp.groupby(['Year', 'Author']):
+        g = g[['p_exp', 'T']].dropna().sort_values('p_exp')
+        if g.shape[0] < 2:
+            continue
+        p_raw = g['p_exp'].values
+        T_raw = g['T'].values
+        # remove duplicated pressures
+        p_unique, idx = np.unique(p_raw, return_index=True)
+        T_unique = T_raw[idx]
+        p_grid = np.linspace(p_unique.min(), p_unique.max(), npts)
+        T_grid = np.interp(p_grid, p_unique, T_unique)
+        Vm_grid = np.full_like(p_grid, np.nan, dtype=float)
+        for i, (Pi, Ti) in enumerate(zip(p_grid, T_grid)):
+            try:
+                props = compute_thermo_props(float(Ti), float(Pi), params_fit)
+                if np.all(np.isfinite(props)):
+                    Vm_grid[i] = props[idx_vm]
+            except Exception:
+                pass
+        curves.append(dict(year=yr, author=auth, p=p_grid, Vm=Vm_grid))
+    return curves
+
+
+def _eval_vm_from_eos(T, p_array, params, vm_idx):
+    """
+    Evaluate Vm(T, p) on a grid. Works whether compute_thermo_props returns
+    a dict or a sequence (tuple/list/ndarray).
+    """
+    vals = []
+    for p in np.asarray(p_array, float):
+        res = compute_thermo_props(T, p, params)
+        if isinstance(res, dict):
+            vm = res.get("Vm", np.nan)
+        else:
+            vm = res[vm_idx]
+        vals.append(vm)
+    return np.asarray(vals, dtype=float)
+
+def _smooth_isotherm_curves(
+    df, params, vm_idx, npts=400, T_bin=0.5, p_pad=0.0
+):
+    """
+    Build smooth EOS curves per (Year, Author, isotherm-bin).
+    Returns list of dicts with keys: year, author, T, p, Vm.
+    """
+    d = df.copy()
+    d["Tbin"] = (d["T"] / T_bin).round() * T_bin
+
+    curves = []
+    for (year, author, Tbin), g in d.groupby(["Year", "Author", "Tbin"]):
+        T0 = float(g["T"].mean())
+        pmin, pmax = np.nanmin(g["p_exp"]), np.nanmax(g["p_exp"])
+        if not (np.isfinite(pmin) and np.isfinite(pmax)) or pmax <= pmin:
+            continue
+
+        # Slight padding if desired
+        span = pmax - pmin
+        pgrid = np.linspace(max(1e-6, pmin - p_pad * span),
+                            pmax + p_pad * span, npts)
+
+        # >>> replace with your actual evaluator <<<
+        Vm = _eval_vm_from_eos(T0, pgrid, params, vm_idx)
+
+
+        Vm = np.asarray(Vm, dtype=float)
+
+        m = np.isfinite(pgrid) & np.isfinite(Vm)
+        if m.sum() < 5:
+            continue
+
+        curves.append({
+            "year": year, "author": author, "T": T0,
+            "p": pgrid[m], "Vm": Vm[m]
+        })
+    return curves
+
+def _curve_pressure_from_T(T_array, Tt, psub_curve, pmelt_curve, mode='auto'):
+    """
+    Return pressure (MPa) from temperature using chosen curve:
+      mode='sub'  -> always sublimation curve
+      mode='melt' -> always melting curve
+      mode='auto' -> T <= Tt -> sub, else melt
+    """
+    T_array = np.asarray(T_array, float)
+    if mode == 'sub':
+        return psub_curve(T_array)
+    if mode == 'melt':
+        return pmelt_curve(T_array)
+    # auto
+    p_sub = psub_curve(T_array)
+    p_melt = pmelt_curve(T_array)
+    return np.where(T_array <= Tt, p_sub, p_melt)
+
 def plot_thermo_variable(
     data,
     gas_name: str,
@@ -151,11 +254,23 @@ def plot_thermo_variable(
     fontsize=14,
     custom_markers=None,
     custom_colors=None,
+    ishighp=False, params_fit=None, vm_idx=None, npts_iso=500, T_bin=0.5, eos_linestyle="--"
 ):
     """
     General-purpose plot for thermodynamic variables (e.g., enthalpy, heat capacity, etc.)
     grouped by author/year, with optional model curve.
     """
+
+    if ishighp:
+        data["p_calc"] = _curve_pressure_from_T(
+            data["T"], Tt, psub_curve, pmelt_curve, mode='auto')
+        # x_col_local = "p_calc"
+        x_label = r"$p$ / MPa"
+    else:
+        x_col_local = x_col
+        # Temperature axis label heuristic
+        x_label = (
+            r'$\mathit{T}$ / K' if x_col_local.lower().startswith('t') else x_col_local)
 
     grouped = data.groupby(['Year', 'Author'])
     if custom_markers is None:
@@ -178,14 +293,41 @@ def plot_thermo_variable(
         )
 
     # Plot model curve if provided
-    if model_x is not None and model_y is not None:
-        order = np.argsort(model_x)
-        ax.plot(
-            np.array(model_x)[order], np.array(model_y)[order],
-            color='black', linewidth=linewidth, label='EOS prediction'
-        )
+    # if model_x is not None and model_y is not None:
+    #     order = np.argsort(model_x)
+    #     ax.plot(
+    #         np.array(model_x)[order], np.array(model_y)[order],
+    #         color='black', linewidth=linewidth, label='EOS prediction'
+    #     )
+    # --- draw EOS ---
+    if not ishighp:
+        # original single-curve behavior
+        if model_x is not None and model_y is not None:
+            order = np.argsort(model_x)
+            ax.plot(np.array(model_x)[order], np.array(model_y)[order],
+                    color='black', linewidth=linewidth, label='EOS prediction')
+    else:
+        # high-p: per (Year, Author) isotherms if params provided
+        if params_fit is not None and vm_idx is not None:
+            # keep color consistent with scatter: same enumeration order
+            for i, ((year, author), group) in enumerate(grouped):
+                col = custom_colors[i % len(custom_colors)]
+                # build smooth isotherms for this dataset group
+                curves = _smooth_isotherm_curves_by_group(
+                    group, params_fit, vm_idx, npts=npts_iso, T_bin=T_bin
+                )
+                for c in curves:
+                    ax.plot(
+                        c["p"], c["Vm"],
+                        linestyle=eos_linestyle, linewidth=linewidth,
+                        color=col,  # color-match the dataset
+                        # keep legend clean: no separate label for each isotherm
+                    )
+
 
     ax.set_xlabel(r'$\mathit{T}$ / K', fontsize=fontsize)
+    if ishighp:
+        ax.set_xlabel(r"$p$ / MPa", fontsize=fontsize)
     ax.set_ylabel(y_label, fontsize=fontsize)
     ax.set_title(title, fontsize=fontsize)
 
@@ -897,6 +1039,131 @@ def summarise_by_author(master_df, rel_epsilon=0.0, float_fmt="{:.2f}"):
     return pd.DataFrame(rows).sort_values(["Property", "Year", "Author"]).reset_index(drop=True)
 
 
+def _cluster_highp_isotherms(df, T_tol=0.2):
+    """
+    Cluster high‑pressure experimental points into quasi‑isotherms per (Year, Author).
+
+    T_tol : float (K)
+        Maximum allowed deviation from the running cluster mean temperature to keep
+        adding points to the current cluster.
+    Returns list of dicts:
+        {year, author, T_mean, p_values (np.array), T_values (np.array)}
+    """
+    clusters = []
+    if df is None or df.empty:
+        return clusters
+    required = {'Year', 'Author', 'T', 'p_exp'}
+    missing = required - set(df.columns)
+    if missing:
+        print(f"_cluster_highp_isotherms: missing columns {missing}")
+        return clusters
+
+    # Process each (Year, Author) separately
+    for (yr, auth), g in df.groupby(['Year', 'Author']):
+        g = g[['T', 'p_exp']].dropna().sort_values('T')
+        if g.empty:
+            continue
+
+        current_T = []
+        current_p = []
+
+        def flush_cluster():
+            if not current_T:
+                return
+            T_arr = np.array(current_T, float)
+            p_arr = np.array(current_p, float)
+            clusters.append(dict(
+                year=yr,
+                author=auth,
+                T_mean=float(T_arr.mean()),
+                p_values=p_arr,
+                T_values=T_arr
+            ))
+
+        for _, row in g.iterrows():
+            Ti = float(row['T'])
+            pi = float(row['p_exp'])
+            if not current_T:
+                current_T.append(Ti)
+                current_p.append(pi)
+                continue
+            mean_T = np.mean(current_T)
+            if abs(Ti - mean_T) <= T_tol:
+                current_T.append(Ti)
+                current_p.append(pi)
+            else:
+                flush_cluster()
+                current_T = [Ti]
+                current_p = [pi]
+
+        flush_cluster()
+
+    return clusters
+
+
+def _eval_vm_from_eos(T, p_array, params, vm_idx):
+    """Vm(T, p) on a pressure grid; works for dict or sequence returns."""
+    out = []
+    for p in np.asarray(p_array, float):
+        res = compute_thermo_props(T, p, params)
+        vm = res.get("Vm", np.nan) if isinstance(res, dict) else res[vm_idx]
+        out.append(vm)
+    return np.asarray(out, float)
+
+
+def _smooth_isotherm_curves_by_group(df_group, params, vm_idx, npts=400, T_bin=0.5):
+    """
+    Build EOS curves for one (Year, Author) group.
+    Returns a list of dicts: {'T': T0, 'p': pgrid, 'Vm': Vm}.
+    """
+    g = df_group.copy()
+    g["Tbin"] = (g["T"]/T_bin).round()*T_bin
+
+    curves = []
+    for Tbin, gg in g.groupby("Tbin"):
+        T0 = float(gg["T"].mean())
+        pmin, pmax = np.nanmin(gg["p_exp"]), np.nanmax(gg["p_exp"])
+        if not (np.isfinite(pmin) and np.isfinite(pmax)) or pmax <= pmin:
+            continue
+        pgrid = np.linspace(max(1e-6, pmin), pmax, npts)
+        Vm = _eval_vm_from_eos(T0, pgrid, params, vm_idx)
+        m = np.isfinite(pgrid) & np.isfinite(Vm)
+        if m.sum() >= 5:
+            curves.append({"T": T0, "p": pgrid[m], "Vm": Vm[m]})
+    return curves
+
+
+def _eos_isotherm_for_cluster(cluster, params, idx_vm, npts=200, p_pad_frac=0.03):
+    """
+    Build a smooth EOS Vm(p) line at constant T = cluster['T_mean'] over
+    pressure range of the cluster (with padding).
+    Returns dict with p_line, Vm_line, T_mean, year, author.
+    """
+    p_vals = np.asarray(cluster['p_values'], float)
+    if p_vals.size < 2:
+        return None
+    pmin, pmax = np.nanmin(p_vals), np.nanmax(p_vals)
+    if not (np.isfinite(pmin) and np.isfinite(pmax)) or pmax <= pmin:
+        return None
+    span = pmax - pmin
+    pad = p_pad_frac * span
+    p_line = np.linspace(max(1e-6, pmin - pad), pmax + pad, npts)
+    Vm_line = np.full_like(p_line, np.nan, dtype=float)
+    T_iso = float(cluster['T_mean'])
+    for i, P in enumerate(p_line):
+        try:
+            props = compute_thermo_props(T_iso, float(P), params)
+            if np.all(np.isfinite(props)):
+                Vm_line[i] = props[idx_vm]
+        except Exception:
+            pass
+    m = np.isfinite(Vm_line)
+    if m.sum() < 5:
+        return None
+    return dict(
+        year=cluster['year'], author=cluster['author'],
+        T_mean=T_iso, p_line=p_line[m], Vm_line=Vm_line[m]
+    )
 def plot_deviation(variable='Vm_melt'):
     xenon_data = load_all_gas_data('xenon', read_from_excel=False)
     datasets, meta = extract_datasets_with_meta(xenon_data)
@@ -907,6 +1174,7 @@ def plot_deviation(variable='Vm_melt'):
 
     df_cell_volume_melt = master_df[master_df["Property"] == "Vm_melt"]
     df_cell_volume_sub = master_df[master_df["Property"] == "Vm_sub"]
+    df_cell_volume_highp = master_df[master_df["Property"] == "Vm_highp"]
     df_cp_sub = master_df[master_df["Property"] == "cp_sub"]
     df_alpha_sub = master_df[master_df["Property"] == "alpha_sub"]
     df_alpha_sub['y_exp'] = df_alpha_sub['y_exp'] * \
@@ -1286,6 +1554,108 @@ def plot_deviation(variable='Vm_melt'):
             custom_colors=CUSTOMCOLORS,
             custom_markers=CUSTOMMARKERS,
         )
+    # elif variable == 'Vm_highp':
+    #         # If no data, exit early
+    #     if df_cell_volume_highp.empty:
+    #         print("No high-pressure Vm data available.")
+    #         return
+    #     plot_thermo_variable(
+    #         data=df_cell_volume_highp,  # reuse helper
+    #         gas_name='xenon',
+    #         x_col='p_exp',                # use pressure on x-axis
+    #         y_col='y_exp',
+    #         y_label=r'$V_{\mathrm{m}}\,/\,\mathrm{cm^3\,mol^{-1}}$',
+    #         title=None,
+    #         model_x=df_cell_volume_highp['p_exp'],
+    #         model_y=df_cell_volume_highp['y_model'],
+    #         logy=False,
+    #         filename='xenon_highp_cellvolume.png',
+    #         output_folder=IMG_OUTPUT_FOLDER,
+    #         custom_colors=CUSTOMCOLORS,
+    #         custom_markers=CUSTOMMARKERS,
+    #         ishighp=True,
+
+    #     )
+    #     # Overlay smooth per-group EOS curves
+    #     ax = plt.gca()
+    #     curves = _smooth_highp_curves(
+    #         df_cell_volume_highp, params_fit, IDX["Vm"], npts=300)
+    #     for c in curves:
+    #         mask = np.isfinite(c['Vm'])
+    #         if mask.sum() < 5:
+    #             continue
+    #         ax.plot(c['p'][mask], c['Vm'][mask],
+    #                 linewidth=1.3, alpha=0.9,
+    #                 label=f"{c['year']}, {c['author']} model")
+
+    #     # Deduplicate legend labels
+    #     h, lab = ax.get_legend_handles_labels()
+    #     seen = set()
+    #     h2, lab2 = [], []
+    #     for hh, ll in zip(h, lab):
+    #         if ll not in seen:
+    #             seen.add(ll)
+    #             h2.append(hh)
+    #             lab2.append(ll)
+    #     ax.legend(h2, lab2, loc='upper left',
+    #               bbox_to_anchor=(1.05, 1), fontsize=8)
+    #     plt.tight_layout(rect=[0, 0, 0.85, 1])
+    #     plt.savefig(os.path.join(IMG_OUTPUT_FOLDER, 'krypton_highp_cellvolume.png'),
+    #                 dpi=300, bbox_inches='tight')
+    #     plt.show()
+    #     plot_variable_deviation(
+    #         data=df_cell_volume_highp,
+    #         gas_name='xenon',
+    #         x_col='p_exp',
+    #         y_exp_col='y_exp',
+    #         y_model_col='y_model',
+    #         y_label=r'$100 \cdot (V_{\mathrm{m,exp}} - V_{\mathrm{m,calc}})/V_{\mathrm{m,exp}}$',
+    #         title=None,
+    #         filename='xenon_highp_cellvolume_deviation',
+    #         # xlim=(0, 120000),
+    #         # ylim example: (-2, 2),
+    #         output_folder=IMG_OUTPUT_FOLDER,
+    #         custom_colors=CUSTOMCOLORS,
+    #         custom_markers=CUSTOMMARKERS
+    #     )
+    elif variable == 'Vm_highp':
+        if df_cell_volume_highp.empty:
+            print("No high-pressure Vm data available.")
+            return
+
+        # 1) Scatter with your house style (no global model line)
+        plot_thermo_variable(
+            data=df_cell_volume_highp,
+            gas_name='xenon',
+            x_col='p_exp',
+            y_col='y_exp',
+            y_label=r'$V_{\mathrm{m}}\,/\,\mathrm{cm^3\,mol^{-1}}$',
+            title=None,
+            model_x=None, model_y=None,            # <- important
+            logy=False,
+            filename='xenon_highp_cellvolume.png',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS,
+            ishighp=True,
+            params_fit=params_fit,     # << pass your EOS params
+            vm_idx=IDX["Vm"],          # << position of Vm in your model result
+        )
+        # Optional: deviation plot stays as-is
+        plot_variable_deviation(
+            data=df_cell_volume_highp,
+            gas_name='xenon',
+            x_col='p_exp',
+            y_exp_col='y_exp',
+            y_model_col='y_model',
+            y_label=r'$100 \cdot (V_{\mathrm{m,exp}} - V_{\mathrm{m,calc}})/V_{\mathrm{m,exp}}$',
+            title=None,
+            filename='xenon_highp_cellvolume_deviation',
+            output_folder=IMG_OUTPUT_FOLDER,
+            custom_colors=CUSTOMCOLORS,
+            custom_markers=CUSTOMMARKERS
+        )
+
 
 
 def RMS_AAD():

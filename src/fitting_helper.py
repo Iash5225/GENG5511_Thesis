@@ -8,6 +8,7 @@ from read import load_all_gas_data
 from thermal_script import *
 from thermopropsv2 import compute_thermo_props
 from plot_eos import plot_all_overlays_grid
+from thermopropsTV import compute_thermo_props_TV
 from constants import *
 from scipy.interpolate import UnivariateSpline
 import os
